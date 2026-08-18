@@ -1,0 +1,261 @@
+import { expect, test, type Page } from "@playwright/test";
+
+import { eventBatchFixture } from "../fixtures/events";
+import { gdacsGeometryFixture } from "../fixtures/gdacs-geometry";
+
+async function mockSuccessfulSources(page: Page) {
+  await page.route("**/api/events/hazards?*", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify(eventBatchFixture),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.route("**/api/geometry/gdacs/**", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify(gdacsGeometryFixture),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+}
+
+async function loadFixtureBatch(page: Page) {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: /load current events/i })
+    .first()
+    .click();
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  await expect(
+    page.getByRole("img", { name: /interactive 3d earth/i }),
+  ).toBeVisible();
+}
+
+test("manual retrieval, filters, range changes, and time scrubbing stay synchronized", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  const hazardRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/events/hazards")) {
+      hazardRequests.push(request.url());
+    }
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: /build the current hazard picture/i }),
+  ).toBeVisible();
+  await expect(page.getByText("Not requested")).toHaveCount(2);
+  expect(hazardRequests).toHaveLength(0);
+
+  await page.getByRole("button", { name: "24H" }).click();
+  expect(hazardRequests).toHaveLength(0);
+  await page
+    .getByRole("button", { name: /load current events/i })
+    .first()
+    .click();
+
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-event-count",
+    "2",
+  );
+  await expect(page.locator(".timeline-tick")).toHaveCount(2);
+  await expect(page.getByLabel("Event query summary")).toContainText("2 / 2");
+  expect(hazardRequests).toHaveLength(1);
+  expect(hazardRequests[0]).toContain("window=24h");
+
+  await page.getByRole("button", { name: /earthquake, 1 loaded/i }).click();
+  await expect(page.locator("[data-event-row]")).toHaveCount(1);
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-event-count",
+    "1",
+  );
+  await expect(page.locator(".timeline-tick")).toHaveCount(1);
+  await expect(page.getByLabel("Event query summary")).toContainText("1 / 2");
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.getByRole("button", { name: /earthquake, 1 loaded/i }).click();
+  const slider = page.getByRole("slider", { name: /time cursor/i });
+  await slider.fill(String(Date.parse("2026-08-17T00:00:00.000Z")));
+  await expect(page.locator("[data-event-row]")).toHaveCount(1);
+  await expect(page.locator(".timeline-tick")).toHaveCount(2);
+  await expect(page.locator(".timeline-tick.is-visible")).toHaveCount(1);
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-event-count",
+    "1",
+  );
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Now" }).click();
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "30D" }).click();
+  await expect.poll(() => hazardRequests.length).toBe(2);
+  expect(hazardRequests[1]).toContain("window=30d");
+  await page.waitForTimeout(350);
+  expect(hazardRequests).toHaveLength(2);
+});
+
+test("list selection opens authoritative evidence and validated detail geometry", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const cycloneRow = page.getByRole("button", {
+    name: /tropical cyclone: tropical cyclone example/i,
+  });
+  await cycloneRow.click();
+
+  await expect(cycloneRow).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("heading", { name: "Tropical Cyclone Example" }),
+  ).toBeVisible();
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-focused-event-id",
+    eventBatchFixture.events[1].id,
+  );
+  await expect(
+    page.getByText(/3 validated geometry features rendered/i),
+  ).toBeVisible();
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-detail-path-count",
+    "1",
+  );
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-detail-polygon-count",
+    "1",
+  );
+
+  const reportLink = page.getByRole("link", { name: /open original report/i });
+  await expect(reportLink).toHaveAttribute("target", "_blank");
+  await expect(reportLink).toHaveAttribute("rel", "noopener noreferrer");
+});
+
+test("a real globe marker reselects the matching keyboard stream row", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const earthquakeRow = page.getByRole("button", {
+    name: /earthquake: m6\.4 earthquake/i,
+  });
+  await earthquakeRow.click();
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-focused-event-id",
+    eventBatchFixture.events[0].id,
+  );
+  await page.waitForTimeout(950);
+
+  await page.keyboard.press("Escape");
+  await expect(earthquakeRow).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".globe-shell")).not.toHaveAttribute(
+    "data-focused-event-id",
+    /.+/,
+  );
+
+  const canvas = page.getByRole("img", { name: /interactive 3d earth/i });
+  const bounds = await canvas.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(
+    Math.round((bounds?.x ?? 0) + (bounds?.width ?? 2) / 2),
+    Math.round((bounds?.y ?? 0) + (bounds?.height ?? 2) / 2),
+  );
+  await page.waitForTimeout(100);
+  await page.mouse.down();
+  await page.mouse.up();
+
+  await expect(earthquakeRow).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-focused-event-id",
+    eventBatchFixture.events[0].id,
+  );
+});
+
+test("partial source failure remains explicit while successful data stays usable", async ({
+  page,
+}) => {
+  const partialBatch = {
+    ...eventBatchFixture,
+    events: [eventBatchFixture.events[0]],
+    sources: [
+      eventBatchFixture.sources[0],
+      {
+        source: "gdacs" as const,
+        state: "error" as const,
+        attemptedAt: "2026-08-18T10:00:00.000Z",
+        completedAt: "2026-08-18T10:00:03.000Z",
+        errorCode: "timeout" as const,
+        safeMessage: "GDACS did not respond before the source deadline.",
+      },
+    ],
+  };
+  await page.route("**/api/events/hazards?*", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify(partialBatch),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: /load current events/i })
+    .first()
+    .click();
+
+  await expect(page.locator("[data-event-row]")).toHaveCount(1);
+  await expect(
+    page.getByText("1 source unavailable", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("GDACS did not respond before the source deadline."),
+  ).toBeVisible();
+});
+
+test("keyboard selection and reduced-motion mode remove nonessential animation", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/events/hazards?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await route.fulfill({
+      body: JSON.stringify(eventBatchFixture),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.goto("/");
+
+  await page
+    .getByRole("button", { name: /load current events/i })
+    .first()
+    .click();
+  await expect(page.locator(".operational-stage")).toHaveClass(/is-refreshing/);
+  const sweepDisplay = await page
+    .locator(".operational-stage")
+    .evaluate((element) => window.getComputedStyle(element, "::after").display);
+  expect(sweepDisplay).toBe("none");
+
+  const rows = page.locator("[data-event-row]");
+  await expect(rows).toHaveCount(2);
+  await page.keyboard.press("/");
+  await expect(page.getByRole("searchbox")).toBeFocused();
+  await page.getByRole("searchbox").press("Escape");
+  await rows.first().focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows.nth(1)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(rows.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".globe-shell")).toHaveAttribute(
+    "data-focused-event-id",
+    eventBatchFixture.events[0].id,
+  );
+  await page.keyboard.press("Escape");
+  await expect(rows.nth(1)).toHaveAttribute("aria-pressed", "false");
+});
