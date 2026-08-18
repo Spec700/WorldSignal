@@ -7,8 +7,8 @@ import {
   revealCredentialAction,
   transitionCaseAction,
   transitionTaskAction,
-  type CredSignalActionState,
 } from "@/app/credsignal/actions";
+import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import type {
   CredSignalCaseDto,
   CredSignalProtecteeDto,

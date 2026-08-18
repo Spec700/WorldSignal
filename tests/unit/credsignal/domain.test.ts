@@ -3,6 +3,7 @@ import {
   classifyCredentialSeverity,
   createExposureInputSchema,
   createProtecteeInputSchema,
+  matchExposureInputSchema,
   normalizeIdentity,
 } from "@/features/credsignal/domain";
 
@@ -82,5 +83,24 @@ describe("CredSignal domain rules", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("requires an explicit rationale for manual exposure matching", () => {
+    const identifiers = {
+      exposureId: "70000000-0000-4000-8000-000000000001",
+      protecteeId: "30000000-0000-4000-8000-000000000001",
+      identityId: "40000000-0000-4000-8000-000000000001",
+    };
+
+    expect(
+      matchExposureInputSchema.safeParse({ ...identifiers, reason: "   " })
+        .success,
+    ).toBe(false);
+    expect(
+      matchExposureInputSchema.safeParse({
+        ...identifiers,
+        reason: "Source context confirms this alias belongs to the protectee.",
+      }).success,
+    ).toBe(true);
   });
 });

@@ -6,26 +6,18 @@ import { z } from "zod";
 import {
   createExposureInputSchema,
   createProtecteeInputSchema,
+  matchExposureInputSchema,
 } from "@/features/credsignal/domain";
+import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import {
   createExposure,
   createProtectee,
   CredSignalWorkflowError,
+  manuallyMatchExposure,
   revealCredential,
   transitionCase,
   transitionTask,
 } from "@/features/credsignal/server/workflows";
-
-export interface CredSignalActionState {
-  status: "idle" | "success" | "error";
-  message?: string;
-  fieldErrors?: Record<string, string[]>;
-  createdId?: string;
-}
-
-export const initialCredSignalActionState: CredSignalActionState = {
-  status: "idle",
-};
 
 function textValue(formData: FormData, field: string): string {
   const value = formData.get(field);
@@ -117,6 +109,33 @@ export async function createExposureAction(
         ? "Exposure recorded, matched, and opened as a response case."
         : "Exposure recorded in the unmatched triage queue.",
       createdId: result.exposureId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function matchExposureAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = matchExposureInputSchema.parse({
+      exposureId: textValue(formData, "exposureId"),
+      protecteeId: textValue(formData, "protecteeId"),
+      identityId: textValue(formData, "identityId"),
+      reason: textValue(formData, "reason"),
+    });
+    const result = await manuallyMatchExposure(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Exposure assigned and response case opened.",
+      createdId: result.caseId,
+      protecteeId: result.protecteeId,
     };
   } catch (error) {
     return actionError(error);

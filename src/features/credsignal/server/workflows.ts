@@ -6,10 +6,12 @@ import {
   classifyCredentialSeverity,
   createExposureInputSchema,
   createProtecteeInputSchema,
+  matchExposureInputSchema,
   normalizeIdentity,
   type CreateExposureInput,
   type CreateProtecteeInput,
   type ExposurePriority,
+  type MatchExposureInput,
 } from "@/features/credsignal/domain";
 import { getCredentialCryptoConfig } from "@/lib/credentials/config";
 import {
@@ -36,6 +38,11 @@ import {
 export class CredSignalWorkflowError extends Error {}
 export class CredSignalConflictError extends CredSignalWorkflowError {}
 export class CredSignalNotFoundError extends CredSignalWorkflowError {}
+
+type CredSignalDatabase = ReturnType<typeof getDatabase>;
+type CredSignalTransaction = Parameters<
+  Parameters<CredSignalDatabase["transaction"]>[0]
+>[0];
 
 const workspaceSlug = () => process.env.CREDSIGNAL_WORKSPACE_SLUG ?? "local";
 
@@ -211,6 +218,64 @@ function defaultTasks(
   return tasks.map((task) => ({ ...task, dueAt }));
 }
 
+interface OpenResponseCaseInput {
+  workspaceId: string;
+  protecteeId: string;
+  protecteeDisplayName: string;
+  exposureId: string;
+  credentialKind: CreateExposureInput["credentialKind"];
+  service: string | null;
+  serviceDomain: string | null;
+  severity: ExposurePriority;
+  actorOperatorId?: string;
+  now: Date;
+}
+
+async function openResponseCase(
+  transaction: CredSignalTransaction,
+  input: OpenResponseCaseInput,
+) {
+  const dueAt = caseDueAt(input.severity, input.now);
+  const [responseCase] = await transaction
+    .insert(responseCases)
+    .values({
+      workspaceId: input.workspaceId,
+      protecteeId: input.protecteeId,
+      title: `${input.service || input.serviceDomain || "Credential"} exposure`,
+      status: "open",
+      priority: input.severity,
+      assigneeOperatorId: input.actorOperatorId,
+      dueAt,
+    })
+    .returning();
+
+  await transaction.insert(caseExposures).values({
+    caseId: responseCase.id,
+    exposureId: input.exposureId,
+    attachedByOperatorId: input.actorOperatorId,
+  });
+  await transaction.insert(caseTasks).values(
+    defaultTasks(input.credentialKind, dueAt).map((task) => ({
+      caseId: responseCase.id,
+      type: task.type,
+      title: task.title,
+      assigneeOperatorId: input.actorOperatorId,
+      dueAt: task.dueAt,
+    })),
+  );
+  await transaction.insert(activityLog).values({
+    workspaceId: input.workspaceId,
+    actorOperatorId: input.actorOperatorId,
+    action: "case.created",
+    entityType: "response_case",
+    entityId: responseCase.id,
+    summary: `${input.severity} response case opened for ${input.protecteeDisplayName}.`,
+    metadata: { exposureId: input.exposureId, priority: input.severity },
+  });
+
+  return responseCase;
+}
+
 export async function createExposure(
   rawInput: CreateExposureInput,
   actorOperatorId?: string,
@@ -270,7 +335,6 @@ export async function createExposure(
     observedAt: input.observedAt,
   });
   const now = new Date();
-  const dueAt = caseDueAt(severity, now);
 
   return database.transaction(async (transaction) => {
     const [source] = await transaction
@@ -362,47 +426,163 @@ export async function createExposure(
       .from(protectees)
       .where(eq(protectees.id, matchedIdentity.protecteeId))
       .limit(1);
-    const [responseCase] = await transaction
-      .insert(responseCases)
-      .values({
-        workspaceId: workspace.id,
-        protecteeId: matchedIdentity.protecteeId,
-        title: `${input.service || input.serviceDomain || "Credential"} exposure`,
-        status: "open",
-        priority: severity,
-        assigneeOperatorId: actor?.id,
-        dueAt,
-      })
-      .returning();
-
-    await transaction.insert(caseExposures).values({
-      caseId: responseCase.id,
-      exposureId: exposure.id,
-      attachedByOperatorId: actor?.id,
-    });
-    await transaction.insert(caseTasks).values(
-      defaultTasks(input.credentialKind, dueAt).map((task) => ({
-        caseId: responseCase.id,
-        type: task.type,
-        title: task.title,
-        assigneeOperatorId: actor?.id,
-        dueAt: task.dueAt,
-      })),
-    );
-    await transaction.insert(activityLog).values({
+    const responseCase = await openResponseCase(transaction, {
       workspaceId: workspace.id,
       actorOperatorId: actor?.id,
-      action: "case.created",
-      entityType: "response_case",
-      entityId: responseCase.id,
-      summary: `${severity} response case opened for ${protectee?.displayName ?? input.identityValue}.`,
-      metadata: { exposureId: exposure.id, priority: severity },
+      credentialKind: exposure.credentialKind,
+      exposureId: exposure.id,
+      now,
+      protecteeDisplayName: protectee?.displayName ?? input.identityValue,
+      protecteeId: matchedIdentity.protecteeId,
+      service: exposure.service,
+      serviceDomain: exposure.serviceDomain,
+      severity,
     });
 
     return {
       exposureId: exposure.id,
       caseId: responseCase.id,
       matchedProtecteeId: matchedIdentity.protecteeId,
+    };
+  });
+}
+
+export async function manuallyMatchExposure(
+  rawInput: MatchExposureInput,
+  actorOperatorId?: string,
+) {
+  const input = matchExposureInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const now = new Date();
+
+  return database.transaction(async (transaction) => {
+    const [exposure] = await transaction
+      .select({
+        id: credentialExposures.id,
+        credentialKind: credentialExposures.credentialKind,
+        service: credentialExposures.service,
+        serviceDomain: credentialExposures.serviceDomain,
+        severity: credentialExposures.severity,
+        status: credentialExposures.status,
+      })
+      .from(credentialExposures)
+      .where(
+        and(
+          eq(credentialExposures.id, input.exposureId),
+          eq(credentialExposures.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1);
+
+    if (!exposure) {
+      throw new CredSignalNotFoundError(
+        "The unmatched exposure no longer exists.",
+      );
+    }
+    if (exposure.status !== "new" && exposure.status !== "triaged") {
+      throw new CredSignalConflictError(
+        "This exposure has already entered a response workflow.",
+      );
+    }
+
+    const [existingMatch] = await transaction
+      .select({ id: exposureMatches.id })
+      .from(exposureMatches)
+      .where(eq(exposureMatches.exposureId, exposure.id))
+      .limit(1);
+    if (existingMatch) {
+      throw new CredSignalConflictError(
+        "This exposure is already assigned to a protectee.",
+      );
+    }
+
+    const [approvedIdentity] = await transaction
+      .select({
+        id: protecteeIdentities.id,
+        displayValue: protecteeIdentities.displayValue,
+        protecteeId: protectees.id,
+        protecteeDisplayName: protectees.displayName,
+      })
+      .from(protecteeIdentities)
+      .innerJoin(protectees, eq(protecteeIdentities.protecteeId, protectees.id))
+      .where(
+        and(
+          eq(protecteeIdentities.id, input.identityId),
+          eq(protecteeIdentities.workspaceId, workspace.id),
+          eq(protecteeIdentities.protecteeId, input.protecteeId),
+          eq(protecteeIdentities.isActive, true),
+          eq(protectees.status, "active"),
+        ),
+      )
+      .limit(1);
+
+    if (!approvedIdentity) {
+      throw new CredSignalNotFoundError(
+        "The selected approved identity is not active for this protectee.",
+      );
+    }
+
+    const [match] = await transaction
+      .insert(exposureMatches)
+      .values({
+        exposureId: exposure.id,
+        protecteeId: approvedIdentity.protecteeId,
+        identityId: approvedIdentity.id,
+        method: "manual",
+        confidence: "confirmed",
+        confirmedByOperatorId: actor?.id,
+        confirmedAt: now,
+      })
+      .onConflictDoNothing({ target: exposureMatches.exposureId })
+      .returning({ id: exposureMatches.id });
+
+    if (!match) {
+      throw new CredSignalConflictError(
+        "Another analyst assigned this exposure before this decision was saved.",
+      );
+    }
+
+    await transaction
+      .update(credentialExposures)
+      .set({
+        status: "in_case",
+        verification: "confirmed",
+        updatedAt: now,
+      })
+      .where(eq(credentialExposures.id, exposure.id));
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "exposure.manually_matched",
+      entityType: "credential_exposure",
+      entityId: exposure.id,
+      summary: `Exposure manually assigned to ${approvedIdentity.protecteeDisplayName}.`,
+      metadata: {
+        identityId: approvedIdentity.id,
+        identityValue: approvedIdentity.displayValue,
+        protecteeId: approvedIdentity.protecteeId,
+        reason: input.reason,
+      },
+    });
+
+    const responseCase = await openResponseCase(transaction, {
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      credentialKind: exposure.credentialKind,
+      exposureId: exposure.id,
+      now,
+      protecteeDisplayName: approvedIdentity.protecteeDisplayName,
+      protecteeId: approvedIdentity.protecteeId,
+      service: exposure.service,
+      serviceDomain: exposure.serviceDomain,
+      severity: exposure.severity,
+    });
+
+    return {
+      caseId: responseCase.id,
+      exposureId: exposure.id,
+      protecteeId: approvedIdentity.protecteeId,
     };
   });
 }

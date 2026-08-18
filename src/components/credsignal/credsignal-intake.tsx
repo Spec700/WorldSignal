@@ -6,9 +6,11 @@ import { useFormStatus } from "react-dom";
 import {
   createExposureAction,
   createProtecteeAction,
+} from "@/app/credsignal/actions";
+import {
   initialCredSignalActionState,
   type CredSignalActionState,
-} from "@/app/credsignal/actions";
+} from "@/features/credsignal/action-state";
 import type {
   CredSignalOperatorDto,
   CredSignalProtecteeDto,

@@ -92,8 +92,16 @@ export const createExposureInputSchema = z
     }
   });
 
+export const matchExposureInputSchema = z.object({
+  exposureId: z.string().uuid(),
+  protecteeId: z.string().uuid(),
+  identityId: z.string().uuid(),
+  reason: trimmedText("Match rationale", 1_000),
+});
+
 export type CreateProtecteeInput = z.infer<typeof createProtecteeInputSchema>;
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;
+export type MatchExposureInput = z.infer<typeof matchExposureInputSchema>;
 
 export function normalizeIdentity(type: IdentityType, value: string): string {
   const trimmed = value.trim();

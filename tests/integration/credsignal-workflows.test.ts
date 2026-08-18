@@ -7,6 +7,7 @@ import {
   createExposure,
   createProtectee,
   CredSignalConflictError,
+  manuallyMatchExposure,
   revealCredential,
   transitionCase,
   transitionTask,
@@ -163,6 +164,96 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     expect(
       closedDashboard.recentActivity.some(
         (activity) => activity.action === "credential.revealed",
+      ),
+    ).toBe(true);
+  });
+
+  it("moves an unmatched exposure into a manually confirmed protectee case", async () => {
+    const protecteeResult = await createProtectee(
+      {
+        displayName: "Manual Match Protectee",
+        title: "Chief Alias Officer",
+        organization: "Integration Labs",
+        tier: "standard",
+        identityType: "work_email",
+        identityValue: "manual-match@integration.example",
+        locationLabel: "Alias City",
+        latitude: 51.5072,
+        longitude: -0.1276,
+      },
+      operatorId,
+    );
+    const exposureResult = await createExposure(
+      {
+        identityType: "username",
+        identityValue: "manual-match-alias",
+        credentialKind: "password",
+        credentialValue: "INTEGRATION-ONLY-MANUAL-PASSWORD",
+        service: "Alias Identity",
+        serviceDomain: "alias.integration.example",
+        sourceType: "internal_report",
+        sourceName: "Manual match integration source",
+        sourceRecordId: `manual-match-${process.pid}`,
+        observedAt: new Date("2026-08-18T17:00:00.000Z"),
+        confidence: "high",
+        notes: "Synthetic unmatched integration record.",
+      },
+      operatorId,
+    );
+
+    const unmatchedDashboard = await getCredSignalDashboard();
+    const protectee = unmatchedDashboard.protectees.find(
+      (entry) => entry.id === protecteeResult.protecteeId,
+    );
+    expect(
+      unmatchedDashboard.unmatchedExposures.some(
+        (entry) => entry.id === exposureResult.exposureId,
+      ),
+    ).toBe(true);
+
+    const result = await manuallyMatchExposure(
+      {
+        exposureId: exposureResult.exposureId,
+        protecteeId: protecteeResult.protecteeId,
+        identityId: protectee!.identities[0].id,
+        reason:
+          "The source record links this alias to the protectee's approved work identity.",
+      },
+      operatorId,
+    );
+
+    expect(result.protecteeId).toBe(protecteeResult.protecteeId);
+    expect(result.caseId).toBeDefined();
+    await expect(
+      manuallyMatchExposure(
+        {
+          exposureId: exposureResult.exposureId,
+          protecteeId: protecteeResult.protecteeId,
+          identityId: protectee!.identities[0].id,
+          reason: "A duplicate manual decision must not be accepted.",
+        },
+        operatorId,
+      ),
+    ).rejects.toBeInstanceOf(CredSignalConflictError);
+
+    const matchedDashboard = await getCredSignalDashboard();
+    const matchedProtectee = matchedDashboard.protectees.find(
+      (entry) => entry.id === protecteeResult.protecteeId,
+    );
+    expect(
+      matchedDashboard.unmatchedExposures.some(
+        (entry) => entry.id === exposureResult.exposureId,
+      ),
+    ).toBe(false);
+    expect(
+      matchedProtectee?.exposures.some(
+        (entry) => entry.id === exposureResult.exposureId,
+      ),
+    ).toBe(true);
+    expect(matchedProtectee?.cases[0]?.status).toBe("open");
+    expect(
+      matchedDashboard.recentActivity.some(
+        (activity) => activity.action === "exposure.manually_matched",
       ),
     ).toBe(true);
   });

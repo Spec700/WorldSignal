@@ -396,10 +396,7 @@ export const exposureMatches = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("exposure_matches_exposure_protectee_unique").on(
-      table.exposureId,
-      table.protecteeId,
-    ),
+    uniqueIndex("exposure_matches_exposure_unique").on(table.exposureId),
     index("exposure_matches_protectee_idx").on(table.protecteeId),
   ],
 );

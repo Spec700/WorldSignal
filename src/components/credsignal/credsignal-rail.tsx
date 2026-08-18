@@ -15,6 +15,7 @@ interface CredSignalRailProps {
   view: CredSignalQueueView;
   query: string;
   selectedProtecteeId?: string;
+  selectedExposureId?: string;
   searchRef: RefObject<HTMLInputElement | null>;
   onViewChange: (view: CredSignalQueueView) => void;
   onQueryChange: (query: string) => void;
@@ -22,6 +23,7 @@ interface CredSignalRailProps {
     protecteeId: string,
     tab?: "overview" | "cases" | "exposures",
   ) => void;
+  onSelectUnmatchedExposure: (exposureId: string) => void;
   onAddProtectee: () => void;
 }
 
@@ -56,10 +58,12 @@ export function CredSignalRail({
   view,
   query,
   selectedProtecteeId,
+  selectedExposureId,
   searchRef,
   onViewChange,
   onQueryChange,
   onSelectProtectee,
+  onSelectUnmatchedExposure,
   onAddProtectee,
 }: CredSignalRailProps) {
   const protectees = useMemo(
@@ -224,12 +228,18 @@ export function CredSignalRail({
         {view === "unmatched" ? (
           dashboard.unmatchedExposures.length > 0 ? (
             dashboard.unmatchedExposures.map((exposure) => (
-              <article className={styles.unmatchedItem} key={exposure.id}>
+              <button
+                aria-pressed={exposure.id === selectedExposureId}
+                className={styles.unmatchedItem}
+                key={exposure.id}
+                onClick={() => onSelectUnmatchedExposure(exposure.id)}
+                type="button"
+              >
                 <span className={styles.priorityText}>{exposure.severity}</span>
                 <strong>{exposure.exposedIdentity}</strong>
                 <small>{exposure.sourceName}</small>
                 <span>{exposure.credentialKind.replaceAll("_", " ")}</span>
-              </article>
+              </button>
             ))
           ) : (
             <div className={styles.queueEmpty}>
