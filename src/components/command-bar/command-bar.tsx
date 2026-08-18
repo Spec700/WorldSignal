@@ -1,5 +1,6 @@
 import type { SourceHealth } from "@/lib/events/types";
 import { formatLocalTimestamp } from "@/lib/time/format";
+import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import { SourceHealthSummary } from "@/components/source-health/source-health";
 
 interface CommandBarProps {
@@ -25,12 +26,7 @@ export function CommandBar({
 }: CommandBarProps) {
   return (
     <header className="command-bar">
-      <div className="wordmark-lockup">
-        <span className="wordmark-symbol" aria-hidden="true">
-          W
-        </span>
-        <span className="wordmark">WorldSignal</span>
-      </div>
+      <ProductSwitcher currentProduct="worldsignal" />
 
       <div className="command-module">
         <span className="command-label">Module</span>

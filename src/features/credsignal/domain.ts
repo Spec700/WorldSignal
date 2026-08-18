@@ -62,22 +62,35 @@ export const createProtecteeInputSchema = z.object({
     .max(180, "Longitude must be between -180 and 180."),
 });
 
-export const createExposureInputSchema = z.object({
-  protecteeId: z.union([z.string().uuid(), z.literal("")]).optional(),
-  identityType: z.enum(identityTypes),
-  identityValue: trimmedText("Exposed identity", 320),
-  credentialKind: z.enum(credentialKinds),
-  credentialValue: z.string().max(65_536).optional().default(""),
-  service: z.string().trim().max(200).optional().default(""),
-  serviceDomain: z.string().trim().max(253).optional().default(""),
-  sourceType: z.enum(exposureSourceTypes),
-  sourceName: trimmedText("Source name", 200),
-  sourceRecordId: z.string().trim().max(320).optional().default(""),
-  observedAt: z.coerce.date(),
-  severity: z.enum(priorities).optional(),
-  confidence: z.enum(confidences).default("medium"),
-  notes: z.string().trim().max(4_000).optional().default(""),
-});
+export const createExposureInputSchema = z
+  .object({
+    protecteeId: z.union([z.string().uuid(), z.literal("")]).optional(),
+    identityType: z.enum(identityTypes),
+    identityValue: trimmedText("Exposed identity", 320),
+    credentialKind: z.enum(credentialKinds),
+    credentialValue: z.string().max(65_536).optional().default(""),
+    service: z.string().trim().max(200).optional().default(""),
+    serviceDomain: z.string().trim().max(253).optional().default(""),
+    sourceType: z.enum(exposureSourceTypes),
+    sourceName: trimmedText("Source name", 200),
+    sourceRecordId: z.string().trim().max(320).optional().default(""),
+    observedAt: z.coerce.date(),
+    severity: z.enum(priorities).optional(),
+    confidence: z.enum(confidences).default("medium"),
+    notes: z.string().trim().max(4_000).optional().default(""),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.credentialKind !== "other" &&
+      value.credentialValue.length === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Credential value is required for this credential type.",
+        path: ["credentialValue"],
+      });
+    }
+  });
 
 export type CreateProtecteeInput = z.infer<typeof createProtecteeInputSchema>;
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;

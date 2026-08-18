@@ -33,9 +33,12 @@ const displayFont = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "WorldSignal",
+  title: {
+    default: "Priority Signals",
+    template: "%s | Priority Signals",
+  },
   description:
-    "A local-first global natural-hazard situational-awareness dashboard.",
+    "An open-source security operations platform for protecting important people from physical and digital threats.",
 };
 
 export const viewport: Viewport = {

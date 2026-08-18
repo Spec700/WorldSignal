@@ -1,5 +1,5 @@
-import { WorldSignalApp } from "@/components/worldsignal-app";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <WorldSignalApp />;
+  redirect("/worldsignal");
 }
