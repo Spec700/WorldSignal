@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorldSignalApp } from "@/components/worldsignal-app";
 import { eventBatchFixture } from "../../fixtures/events";
+import { gdacsGeometryFixture } from "../../fixtures/gdacs-geometry";
 
 vi.mock("@/components/globe/world-globe", () => ({
   WorldGlobe: ({ events }: { events: unknown[] }) => (
@@ -109,6 +110,82 @@ describe("WorldSignal application shell", () => {
     expect(
       screen.getByText("GDACS did not respond before the source deadline."),
     ).toBeInTheDocument();
+  });
+
+  it("opens authoritative evidence and fetches detail geometry only for a selected GDACS event", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(eventBatchFixture))
+      .mockResolvedValueOnce(Response.json(gdacsGeometryFixture));
+
+    render(<WorldSignalApp />);
+    await user.click(loadButton());
+    await user.click(
+      await screen.findByRole("button", { name: /tropical cyclone:/i }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Tropical Cyclone Example" }),
+    ).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toBe(
+      "/api/geometry/gdacs/1001234?eventType=TC&episodeId=7",
+    );
+    expect(
+      await screen.findByText(/3 validated geometry features rendered/i),
+    ).toBeInTheDocument();
+
+    const reportLink = screen.getByRole("link", {
+      name: /open original report/i,
+    });
+    expect(reportLink).toHaveAttribute("target", "_blank");
+    expect(reportLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    await user.click(
+      screen.getByRole("button", { name: /close event dossier/i }),
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Tropical Cyclone Example" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the centroid and supports an explicit geometry retry after a route failure", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(eventBatchFixture))
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            error: {
+              message:
+                "Detailed geometry is unavailable for this event. The source centroid and report remain available.",
+            },
+          },
+          { status: 502 },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json(gdacsGeometryFixture));
+
+    render(<WorldSignalApp />);
+    await user.click(loadButton());
+    await user.click(
+      await screen.findByRole("button", { name: /tropical cyclone:/i }),
+    );
+
+    expect(
+      await screen.findByText(/detailed geometry is unavailable/i),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected event preview")).toHaveTextContent(
+      "Tropical Cyclone Example",
+    );
+
+    await user.click(screen.getByRole("button", { name: /retry geometry/i }));
+    expect(
+      await screen.findByText(/3 validated geometry features rendered/i),
+    ).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
   it("marks retained events as previous while a manual refresh is active", async () => {

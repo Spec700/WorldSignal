@@ -250,6 +250,10 @@ button:disabled {
   grid-template-columns: 300px minmax(0, 1fr);
 }
 
+.workspace-grid.has-dossier {
+  grid-template-columns: 300px minmax(0, 1fr) 380px;
+}
+
 .operations-rail {
   z-index: 3;
   display: flex;
@@ -1070,6 +1074,270 @@ button:disabled {
   font-size: 0.57rem;
 }
 
+.event-dossier {
+  z-index: 4;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: 42px minmax(0, 1fr);
+  overflow: hidden;
+  border-left: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.dossier-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 13px;
+  border-bottom: 1px solid var(--color-line-strong);
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dossier-header button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-content: center;
+  border: 0;
+  border-left: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.35rem;
+}
+
+.dossier-header button:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.dossier-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.dossier-identity,
+.dossier-severity,
+.dossier-section {
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.dossier-category-line {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.dossier-category-line > span:nth-child(2),
+.dossier-category-line > span:nth-child(2) > span,
+.dossier-category-line > span:nth-child(2) > small {
+  display: block;
+}
+
+.dossier-category-line > span:nth-child(2) > span {
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dossier-category-line > span:nth-child(2) > small {
+  margin-top: 1px;
+  color: var(--color-text-faint);
+  font-size: 0.62rem;
+  text-transform: capitalize;
+}
+
+.dossier-identity h1 {
+  margin: 13px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+}
+
+.dossier-identity > p {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.dossier-section-label,
+.dossier-section h2 {
+  color: var(--color-text-faint);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dossier-severity > strong {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.18rem;
+  font-weight: 600;
+}
+
+.dossier-severity > p,
+.dossier-summary,
+.dossier-explanation p,
+.geometry-status {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.dossier-priority-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--color-text-faint);
+  font-size: 0.62rem;
+}
+
+.dossier-section h2 {
+  margin: 0 0 9px;
+}
+
+.dossier-facts,
+.dossier-timestamps,
+.dossier-sources dl {
+  display: grid;
+  margin: 0;
+}
+
+.dossier-facts > div,
+.dossier-timestamp-row,
+.dossier-sources dl > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.dossier-facts > div:last-child,
+.dossier-timestamp-row:last-child,
+.dossier-sources dl > div:last-child {
+  border-bottom: 0;
+}
+
+.dossier-facts dt,
+.dossier-timestamps dt,
+.dossier-sources dt {
+  color: var(--color-text-faint);
+  font-size: 0.64rem;
+}
+
+.dossier-facts dd,
+.dossier-timestamps dd,
+.dossier-sources dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.69rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.dossier-timestamps dd small,
+.dossier-sources dd small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.58rem;
+}
+
+.dossier-summary {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.geometry-status--ready {
+  color: var(--color-ok);
+}
+
+.geometry-status--error > p {
+  margin: 0;
+}
+
+.geometry-status--error button {
+  min-height: 36px;
+  margin-top: 9px;
+  padding: 0 11px;
+  border: 1px solid var(--color-danger);
+  background: transparent;
+  color: oklch(0.85 0.07 30);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.dossier-sources {
+  display: grid;
+  gap: 12px;
+}
+
+.dossier-sources article {
+  padding: 10px;
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+}
+
+.dossier-sources article > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dossier-sources article > div:first-child strong {
+  font-size: 0.7rem;
+}
+
+.dossier-sources dl {
+  margin-top: 7px;
+}
+
+.source-report-link {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 9px;
+  padding: 0 10px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-strong);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.source-report-link:hover {
+  background: var(--color-surface-active);
+}
+
+.dossier-explanation p:first-of-type {
+  color: var(--color-text);
+}
+
 @keyframes retrieval-sweep {
   from {
     transform: translateX(0);
@@ -1093,6 +1361,10 @@ button:disabled {
 
   .workspace-grid {
     grid-template-columns: 288px minmax(0, 1fr);
+  }
+
+  .workspace-grid.has-dossier {
+    grid-template-columns: 288px minmax(0, 1fr) 340px;
   }
 
   .health-summary {
@@ -1134,12 +1406,23 @@ button:disabled {
     grid-template-rows: minmax(520px, 62dvh) auto;
   }
 
+  .workspace-grid.has-dossier {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(520px, 62dvh) minmax(520px, 72dvh) auto;
+  }
+
   .operations-rail {
     border-right: 0;
   }
 
   .operational-stage {
     min-height: 520px;
+  }
+
+  .event-dossier {
+    min-height: 520px;
+    border-top: 1px solid var(--color-line-strong);
+    border-left: 0;
   }
 
   .stage-credits span:nth-child(2) {

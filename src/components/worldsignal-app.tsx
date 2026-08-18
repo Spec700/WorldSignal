@@ -3,12 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { CommandBar } from "@/components/command-bar/command-bar";
+import { EventDossier } from "@/components/dossier/event-dossier";
 import { OperationalStage } from "@/components/globe/operational-stage";
 import { OperationsRail } from "@/components/operations-rail/operations-rail";
 import {
   HazardBatchRequestError,
   loadHazardBatch,
 } from "@/features/hazards/client/load-hazard-batch";
+import {
+  getGdacsGeometryRequest,
+  loadGdacsGeometry,
+} from "@/features/hazards/client/load-gdacs-geometry";
 import { selectVisibleEvents } from "@/lib/events/filtering";
 import { sortEventsByPriority } from "@/lib/events/sorting";
 import type { HazardWindow, WorldEvent } from "@/lib/events/types";
@@ -107,6 +112,49 @@ function WorldSignalWorkspace() {
     : undefined;
   const refreshing = state.refreshState === "loading";
 
+  useEffect(() => {
+    if (!selectedEvent?.geometryDetailAvailable) {
+      return;
+    }
+
+    const request = getGdacsGeometryRequest(selectedEvent);
+    if (!request) {
+      dispatch({
+        type: "geometry/failed",
+        eventId: selectedEvent.id,
+        message:
+          "Detailed geometry parameters are unavailable for this event. The source centroid and report remain available.",
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    dispatch({ type: "geometry/requested", eventId: selectedEvent.id });
+    void loadGdacsGeometry(request, controller.signal)
+      .then((geometry) =>
+        dispatch({
+          type: "geometry/succeeded",
+          eventId: selectedEvent.id,
+          geometry,
+        }),
+      )
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        dispatch({
+          type: "geometry/failed",
+          eventId: selectedEvent.id,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Detailed geometry is unavailable for this event. The source centroid and report remain available.",
+        });
+      });
+
+    return () => controller.abort();
+  }, [dispatch, selectedEvent, state.geometryRequestVersion]);
+
   const handleWindowChange = useCallback(
     (window: HazardWindow) => {
       dispatch({ type: "filters/window-set", window });
@@ -129,7 +177,7 @@ function WorldSignalWorkspace() {
         sourceHealth={state.latestSourceHealth}
         visibleCount={visibleEvents.length}
       />
-      <div className="workspace-grid">
+      <div className={`workspace-grid${selectedEvent ? " has-dossier" : ""}`}>
         <OperationsRail
           changesByEventId={state.changesByEventId}
           events={visibleEvents}
@@ -159,9 +207,22 @@ function WorldSignalWorkspace() {
           onSelect={(eventId) => dispatch({ type: "selection/set", eventId })}
           refreshError={state.refreshError}
           refreshing={refreshing}
+          selectedGeometry={state.selectedGeometry}
           selectedEvent={selectedEvent}
           visibleCount={visibleEvents.length}
         />
+        {selectedEvent ? (
+          <EventDossier
+            change={state.changesByEventId.get(selectedEvent.id)}
+            event={selectedEvent}
+            geometry={state.selectedGeometry}
+            geometryError={state.geometryError}
+            geometryState={state.geometryState}
+            onClose={() => dispatch({ type: "selection/clear" })}
+            onRetryGeometry={() => dispatch({ type: "geometry/retry" })}
+            sourceHealth={state.latestSourceHealth}
+          />
+        ) : null}
       </div>
       <div aria-live="polite" className="sr-only" role="status">
         {state.announcement}

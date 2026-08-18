@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
 import type { WorldEvent } from "@/lib/events/types";
+import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 import { formatCoordinate } from "@/lib/time/format";
 
 const WorldGlobe = dynamic(
@@ -30,6 +31,7 @@ interface OperationalStageProps {
   refreshing: boolean;
   batchIsPrevious: boolean;
   selectedEvent?: WorldEvent;
+  selectedGeometry?: GdacsGeometryCollection;
   onRefresh: () => void;
   onClearQuery: () => void;
   onSelect: (eventId: string) => void;
@@ -46,6 +48,7 @@ export function OperationalStage({
   refreshing,
   batchIsPrevious,
   selectedEvent,
+  selectedGeometry,
   onRefresh,
   onClearQuery,
   onSelect,
@@ -135,6 +138,7 @@ export function OperationalStage({
           events={events}
           onClearSelection={onClearSelection}
           onSelect={onSelect}
+          selectedGeometry={selectedGeometry}
           selectedEvent={selectedEvent}
         />
         {overlay}
