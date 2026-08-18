@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Next.js output
+.next/
+out/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# Local-only state
+.data/
+*.tsbuildinfo
+
+# Environment overrides (the documented template remains tracked)
+.env*
+!.env.example
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*

@@ -1,0 +1,71 @@
+:root {
+  --color-bg: oklch(0.155 0.014 238);
+  --color-surface: oklch(0.205 0.016 238);
+  --color-line: oklch(0.48 0.03 224 / 0.42);
+  --color-text: oklch(0.92 0.018 218);
+  --color-text-muted: oklch(0.72 0.026 222);
+  --color-accent: oklch(0.78 0.105 205);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-kerning: normal;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.foundation {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  gap: 12px;
+  padding: 48px;
+}
+
+.foundation h1,
+.foundation p {
+  margin: 0;
+}
+
+.foundation h1 {
+  font-family: var(--font-display), sans-serif;
+  font-size: 3rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.foundation > p:last-child {
+  max-width: 55ch;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.eyebrow {
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
