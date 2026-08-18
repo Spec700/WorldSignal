@@ -5,6 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorldSignalApp } from "@/components/worldsignal-app";
 import { eventBatchFixture } from "../../fixtures/events";
 
+vi.mock("@/components/globe/world-globe", () => ({
+  WorldGlobe: ({ events }: { events: unknown[] }) => (
+    <div data-testid="mock-world-globe" data-event-count={events.length} />
+  ),
+}));
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

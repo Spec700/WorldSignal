@@ -1,8 +1,27 @@
+import dynamic from "next/dynamic";
+import type { ReactNode } from "react";
+
 import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
 import type { WorldEvent } from "@/lib/events/types";
 import { formatCoordinate } from "@/lib/time/format";
 
+const WorldGlobe = dynamic(
+  () =>
+    import("@/components/globe/world-globe").then(
+      (module) => module.WorldGlobe,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="globe-module-loading" role="status">
+        Loading local globe renderer…
+      </div>
+    ),
+  },
+);
+
 interface OperationalStageProps {
+  events: WorldEvent[];
   hasLoadedBatch: boolean;
   loadedCount: number;
   visibleCount: number;
@@ -13,9 +32,12 @@ interface OperationalStageProps {
   selectedEvent?: WorldEvent;
   onRefresh: () => void;
   onClearQuery: () => void;
+  onSelect: (eventId: string) => void;
+  onClearSelection: () => void;
 }
 
 export function OperationalStage({
+  events,
   hasLoadedBatch,
   loadedCount,
   visibleCount,
@@ -26,11 +48,13 @@ export function OperationalStage({
   selectedEvent,
   onRefresh,
   onClearQuery,
+  onSelect,
+  onClearSelection,
 }: OperationalStageProps) {
-  let content;
+  let overlay: ReactNode = null;
 
   if (!hasLoadedBatch && refreshError) {
-    content = (
+    overlay = (
       <div className="stage-message stage-message--error" role="alert">
         <span className="stage-kicker">Retrieval failed</span>
         <h1>No current hazard data is available</h1>
@@ -41,7 +65,7 @@ export function OperationalStage({
       </div>
     );
   } else if (!hasLoadedBatch) {
-    content = (
+    overlay = (
       <div className="stage-message">
         <span className="stage-kicker">Manual source retrieval</span>
         <h1>Build the current hazard picture</h1>
@@ -59,31 +83,8 @@ export function OperationalStage({
         </button>
       </div>
     );
-  } else if (selectedEvent) {
-    content = (
-      <div className="stage-selection" aria-label="Selected event preview">
-        <EventIcon category={selectedEvent.category} />
-        <span className="stage-kicker">
-          Selected · {eventCategoryLabel(selectedEvent.category)}
-        </span>
-        <h1>{selectedEvent.title}</h1>
-        <p>{selectedEvent.locationLabel}</p>
-        <div className="coordinate-readout">
-          <span>
-            {formatCoordinate(selectedEvent.centroid.latitude, "lat")}
-          </span>
-          <span>
-            {formatCoordinate(selectedEvent.centroid.longitude, "lon")}
-          </span>
-        </div>
-        <span className="stage-note">
-          Globe focus and the evidence dossier join this synchronized selection
-          in the next implementation slices.
-        </span>
-      </div>
-    );
   } else if (loadedCount === 0) {
-    content = (
+    overlay = (
       <div className="stage-message">
         <span className="stage-kicker">Retrieval complete</span>
         <h1>No hazards were returned</h1>
@@ -94,7 +95,7 @@ export function OperationalStage({
       </div>
     );
   } else if (visibleCount === 0) {
-    content = (
+    overlay = (
       <div className="stage-message">
         <span className="stage-kicker">No matching events</span>
         <h1>The active filters hide all loaded events</h1>
@@ -104,15 +105,6 @@ export function OperationalStage({
             Clear search
           </button>
         ) : null}
-      </div>
-    );
-  } else {
-    content = (
-      <div className="stage-message stage-message--compact">
-        <span className="stage-kicker">Operational set synchronized</span>
-        <strong className="stage-count">{visibleCount}</strong>
-        <h1>visible hazard events</h1>
-        <p>Select any event in the stream to inspect its active focus state.</p>
       </div>
     );
   }
@@ -127,14 +119,45 @@ export function OperationalStage({
       <div className="stage-toolbar">
         <span>
           <strong>Global view</strong>
-          <small>Globe layer pending A4</small>
+          <small>Local imagery · interactive 3D</small>
         </span>
         <span className="stage-data-state">
-          {batchIsPrevious ? "Previous retrieval displayed" : "Manual mode"}
+          {batchIsPrevious
+            ? "Previous retrieval displayed"
+            : hasLoadedBatch
+              ? `${visibleCount} visible events`
+              : "Manual mode"}
         </span>
       </div>
 
-      <div className="stage-content">{content}</div>
+      <div className="stage-content">
+        <WorldGlobe
+          events={events}
+          onClearSelection={onClearSelection}
+          onSelect={onSelect}
+          selectedEvent={selectedEvent}
+        />
+        {overlay}
+
+        {selectedEvent && !overlay ? (
+          <div
+            className="globe-selection-chip"
+            aria-label="Selected event preview"
+          >
+            <EventIcon category={selectedEvent.category} />
+            <span>
+              <small>
+                Focused · {eventCategoryLabel(selectedEvent.category)}
+              </small>
+              <strong>{selectedEvent.title}</strong>
+              <span>
+                {formatCoordinate(selectedEvent.centroid.latitude, "lat")} ·{" "}
+                {formatCoordinate(selectedEvent.centroid.longitude, "lon")}
+              </span>
+            </span>
+          </div>
+        ) : null}
+      </div>
 
       {refreshError && hasLoadedBatch ? (
         <div className="stage-warning" role="alert">

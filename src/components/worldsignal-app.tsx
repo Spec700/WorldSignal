@@ -147,13 +147,16 @@ function WorldSignalWorkspace() {
         />
         <OperationalStage
           batchIsPrevious={state.batchFreshness === "previous"}
+          events={visibleEvents}
           hasActiveQuery={Boolean(state.filters.query.trim())}
           hasLoadedBatch={Boolean(state.batch)}
           loadedCount={loadedEvents.length}
           onClearQuery={() =>
             dispatch({ type: "filters/query-set", query: "" })
           }
+          onClearSelection={() => dispatch({ type: "selection/clear" })}
           onRefresh={() => void refresh()}
+          onSelect={(eventId) => dispatch({ type: "selection/set", eventId })}
           refreshError={state.refreshError}
           refreshing={refreshing}
           selectedEvent={selectedEvent}
