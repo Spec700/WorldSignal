@@ -1,241 +1,356 @@
-# WorldSignal
+# Priority Signals
 
-WorldSignal is a local-first global situational-awareness dashboard. MVP-A presents authoritative
-natural-hazard events on an interactive 3D globe, a synchronized keyboard-accessible event stream,
-local filters and timeline controls, source health, and an evidence-oriented event dossier.
+Priority Signals is an open-source, local-first security operations platform for protecting
+important people from physical and digital threats. The current application contains two modules:
 
-> WorldSignal is not an official emergency-warning service. Source data may be delayed, revised, or
-> unavailable. Always open the original report and follow responsible authorities and local
-> emergency guidance.
+- **WorldSignal** — global natural-hazard awareness on an interactive 3D globe.
+- **CredSignal** — credential-exposure intelligence, protectee attribution, and response
+  coordination backed by local PostgreSQL.
 
-![WorldSignal MVP-A showing a selected cyclone, validated geometry, event stream, filters, dossier, and timeline](docs/worldsignal-mvp-a.png)
+Use the product switcher in the application header to move between modules.
 
-## MVP-A capabilities
+> Priority Signals is not an official emergency-warning service, credential-vault product, breach
+> feed, or notification-delivery service. WorldSignal source data can be delayed or revised.
+> CredSignal currently uses manual intake and has no authentication or authorization enforcement.
+> Do not expose this MVP to an untrusted network or load real sensitive data into it.
+
+![WorldSignal showing a selected cyclone, validated geometry, event stream, filters, dossier, and timeline](docs/worldsignal-mvp-a.png)
+
+## Current capabilities
+
+### WorldSignal
 
 - Retrieves global M4.5+ earthquakes from the U.S. Geological Survey (USGS).
 - Retrieves GDACS tropical cyclones, floods, droughts, volcanoes, and significant forest fires,
   including paginated results.
-- Makes no event request until the user selects **Load current events** and never polls afterward.
-- Normalizes both providers behind one validated `WorldEvent` contract while retaining
-  source-native severity and provenance.
-- Keeps the globe, event stream, visible count, filters, timeline, selection, and dossier on one
-  reducer-coordinated state model.
+- Makes no event request until an operator selects **Load current events** and never polls
+  afterward.
+- Normalizes both providers behind one validated event contract while retaining source-native
+  severity and provenance.
+- Keeps the globe, keyboard-accessible event stream, filters, timeline, selection, and dossier on
+  one reducer-coordinated state model.
 - Fetches validated GDACS paths and polygons only for the selected event.
 - Tracks new, updated, resolved, and unchanged events between successful manual retrievals in the
   current browser session.
-- Runs without an account, API key, commercial map token, cloud database, analytics, or paid
-  service.
+- Runs without an account, API key, commercial map token, analytics, or paid service.
 
-MVP-B incident signals, persistent history/replay, alerts, accounts, collaboration, deployment, and
-mobile-native applications are not part of this release.
+WorldSignal remains its original MVP-A: incident signals, persistent hazard history/replay, alerts,
+accounts, collaboration, and mobile-native applications are not implemented yet.
+
+### CredSignal
+
+- Maintains a persistent protectee roster with monitoring tiers, statuses, approved identities,
+  and operator-maintained location history.
+- Accepts manual credential-exposure records with source, service, confidence, severity, notes, and
+  optional full credential values.
+- Encrypts stored credential values with AES-256-GCM, fingerprints them separately for deduplication,
+  and records every reveal in the activity log.
+- Matches exact approved identities automatically and routes unmatched findings to an analyst queue
+  for explicit, reasoned attribution.
+- Opens response cases with priority-based due dates and credential-specific default tasks.
+- Supports case ownership, priority and due-date changes, assigned task creation/editing, controlled
+  task lifecycles, and audited case transitions.
+- Prevents case closure while response tasks remain active; dismissing a case cancels its unfinished
+  tasks and updates linked exposure state atomically.
+- Tracks manual victim coordination through draft, planned, sent, acknowledged, and failed states.
+  These records document contact; the application does not send messages.
+- Shows each active protectee at an approved operational location on the globe with aggregate
+  unresolved credential risk.
+- Preserves append-only operator activity for intake, matching, credential reveal, roster changes,
+  case work, tasks, and communication transitions.
+
+CredSignal is intentionally local and manual in this open-source MVP. The database contains role and
+operator models for the future, but the interface currently uses a demo operator selector and does
+not enforce authentication, permissions, workspace isolation at login, external breach-feed
+ingestion, automated notification, or production key management.
 
 ## Prerequisites
 
 - Node.js 24.x
 - npm 11 or later
+- Docker with Docker Compose support, for local PostgreSQL
 - A modern WebGL-capable desktop browser
-- Google Chrome installed locally only when running the Playwright suite (the app itself is not
-  Chrome-specific)
+- Google Chrome installed locally only when running the Playwright suite
 
 Confirm the local runtime before installing:
 
 ```bash
 node --version
 npm --version
+docker --version
+docker compose version
 ```
 
-## Install and run on localhost
+## Initial local setup
+
+Complete these steps once after cloning the repository.
+
+### 1. Install the application dependencies
 
 ```bash
 git clone https://github.com/Spec700/WorldSignal.git
 cd WorldSignal
 npm install
+```
+
+### 2. Create the local environment file
+
+```bash
+cp .env.example .env
+openssl rand -base64 32
+```
+
+Open `.env` and replace `replace-with-a-base64-encoded-32-byte-key` with the value printed by
+`openssl`. Keep `.env` private and keep its key unchanged between sessions: changing or losing the
+key makes previously stored credential values unreadable.
+
+### 3. Initialize PostgreSQL and the demonstration data
+
+```bash
+npm run db:start
+npm run db:migrate
+npm run db:seed
+```
+
+`db:start` starts the PostgreSQL container. `db:migrate` creates or updates its tables, and `db:seed`
+loads the synthetic CredSignal workspace. These commands do not start the web application.
+
+### 4. Start the development application
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The initial globe intentionally contains no
-event data. Choose 24H, 7D, or 30D and select **Load current events**.
+Open [http://localhost:3000](http://localhost:3000). The root route opens WorldSignal;
+[http://localhost:3000/credsignal](http://localhost:3000/credsignal) opens CredSignal directly.
 
-For a production-mode local run:
+## Stop Priority Signals
+
+In the terminal running `npm run dev` or `npm start`, press `Ctrl+C` to stop the Next.js application.
+Then stop PostgreSQL from another terminal in the repository:
 
 ```bash
+npm run db:stop
+```
+
+This shutdown preserves `.env` and the PostgreSQL data volume. Do not add `--volumes` unless you
+intentionally want to permanently delete all local CredSignal data.
+
+## Start again after initial setup
+
+For normal development startup on later sessions, run:
+
+```bash
+npm run db:start
+npm run dev
+```
+
+You do not need to reinstall dependencies, recreate `.env`, migrate, or seed on every startup. Run
+`npm install` after dependency changes, `npm run db:migrate` after new database migrations, and
+`npm run db:seed` only when you need to create or refresh the synthetic workspace.
+
+For a production-mode local start, PostgreSQL must still be started separately:
+
+```bash
+npm run db:start
 npm run build
 npm start
 ```
 
-The application needs outbound HTTPS access to USGS and GDACS only when a user initiates a source
-retrieval or requests selected GDACS geometry. Fonts, Earth imagery, and country boundaries are
-served from the local project.
+`npm run build` only compiles the Next.js application. `npm start` only starts that compiled
+application. Neither command starts PostgreSQL. If a current production build already exists and
+the code has not changed, you can omit `npm run build`.
+
+The Docker Compose service binds PostgreSQL only to `127.0.0.1:5432` and persists its data in the
+Compose-managed `priority-signals-postgres` volume. The Next.js application runs through the local
+Node.js process.
+
+## Synthetic data and secrets
+
+`npm run db:seed` creates synthetic operators, protectees, identities, locations, credential
+exposures, cases, tasks, communications, and activity. The `.example` and `.test` identities are not
+real people or accounts. The seed is idempotent for the configured workspace and is safe to rerun.
+
+Full credential values are encrypted before PostgreSQL storage and are never written to application
+logs, URLs, or browser storage. Encryption does not compensate for the current lack of access
+control. Use synthetic values only until authentication, authorization, deployment hardening, and
+managed key storage are implemented.
 
 ## Operator behavior
 
-### Manual retrieval
+### WorldSignal retrieval
 
 - The default source range is 7 days.
-- Choosing a range before the first load changes the upcoming request but does not contact a
-  source.
+- Choosing a range before the first load changes the upcoming request but does not contact a source.
 - Choosing a different range after a successful load makes one new explicit source request.
-- **Refresh** is the only retry action. There is no timer, polling loop, WebSocket, background
-  worker, cron job, or automatic retry.
-- During refresh, the previous retrieval stays visible and is labeled as previous rather than
-  current.
-- A partial result retains successful source events and identifies every failed source. If both
-  sources fail before any successful load, WorldSignal shows a blocking error rather than an empty
-  or “all clear” result.
+- **Refresh** is the only retry action. There is no timer, polling loop, WebSocket, background worker,
+  cron job, or automatic retry.
+- A partial result retains successful source events and identifies every failed source.
+- Category, display-priority, source, lifecycle, text, and timeline filters operate locally over the
+  loaded batch.
 
-### Filters and timeline
-
-Category, display-priority, source, lifecycle, and text filters run locally over the loaded batch.
-The timeline is also a local filter: moving its cursor never makes a network request.
-
-An instantaneous event becomes visible at its occurrence time and remains visible through the
-cursor. A duration event is visible while the cursor intersects its start/end interval; ongoing
-events use the end of the requested range. The timeline is not historical replay—MVP-A stores no
-successive source snapshots.
-
-### Keyboard and motion
+Keyboard controls:
 
 - `/` or `Cmd/Ctrl+K`: focus event search
-- `R`: manual refresh when focus is outside an editable control
+- `R`: retrieve hazards again when focus is outside an editable control
 - `Arrow Up` / `Arrow Down`: move between event rows
 - `Enter` / `Space`: select the focused event row
-- `Escape`: clear selection
+- `Escape`: clear selection or close the active operational panel
 
-Every globe event has an equivalent real button in the event stream. Reduced-motion preferences
-remove the retrieval sweep, selection pulse, and animated camera travel.
+Every globe event has an equivalent button in the event stream. Reduced-motion preferences remove
+the retrieval sweep, selection pulse, and animated camera travel.
+
+### CredSignal operations
+
+- Add and maintain protectees before attributing findings to them.
+- Use an approved identity for exact matching, or leave a finding unmatched for manual triage.
+- Treat **Reveal and audit** as a sensitive operator action; the plaintext is cleared from the
+  interface after 60 seconds.
+- Move response tasks through the available lifecycle controls. Complete or cancel every task before
+  closing its case.
+- Record victim coordination only after contact occurs through an approved external channel.
+- Locations are maintained by operators and are not live tracking or breach-source locations.
 
 ## Architecture
 
 ```text
-Browser action
-    │
-    ▼
-Next.js local API route
-    ├── USGS adapter ── validate ── normalize ── source health
-    └── GDACS adapter ─ validate ── normalize ── source health
-                              │
-                              ▼
-                     validated EventBatch
-                              │
-                              ▼
-                  one client reducer/context
-                    │         │         │
-                    ▼         ▼         ▼
-               globe/list  timeline  dossier
+Priority Signals
+├── WorldSignal
+│   browser action
+│       └── validated Next.js source routes
+│           ├── USGS adapter
+│           └── GDACS adapter + selected-event geometry
+│               └── client reducer ── globe / stream / filters / dossier
+└── CredSignal
+    server-rendered dashboard + audited Server Actions
+        └── domain validation and transactional workflows
+            └── PostgreSQL via Drizzle ORM
+                ├── protectees / identities / locations
+                ├── sources / encrypted exposures / matches
+                ├── response cases / tasks / communications
+                └── append-only activity
 ```
 
-The server boundary constructs approved upstream URLs, enforces timeouts and response-size limits,
-validates raw payloads, and returns only canonical application data. The browser never accepts an
-arbitrary proxy URL. Selection-scoped GDACS geometry passes through a separate parameter-validated
-local route. There is no event database or persistent application state in MVP-A.
+WorldSignal's server boundary constructs approved upstream URLs, enforces timeouts and response-size
+limits, validates raw payloads, and returns canonical application data. CredSignal validates inputs
+at the action boundary and uses database transactions and row locks for multi-record workflow
+changes such as matching, case closure, and task coordination.
 
 ## Modules and sources
 
-| Module/category                                                 | Canonical source                                                                                   | Request scope                                             | Authentication |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | -------------- |
-| Natural Hazards — earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/)                   | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                | None           |
-| Natural Hazards — cyclone, flood, drought, volcano, forest fire | [Global Disaster Alert and Coordination System](https://www.gdacs.org/gdacsapi/swagger/index.html) | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated | None           |
+| Module                                                    | Data source                                                                      | Request or intake scope                                      | Authentication                   |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- |
+| WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                   | None                             |
+| WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated    | None                             |
+| CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator | Demo operator only; not enforced |
 
-USGS exclusively owns the MVP-A earthquake category. WorldSignal does not request GDACS earthquake
-records or attempt speculative cross-source event merging.
+USGS exclusively owns the current WorldSignal earthquake category. WorldSignal does not request
+GDACS earthquake records or attempt speculative cross-source event merging. “Authoritative source”
+means a record arrived through the documented USGS or GDACS adapter; it does not mean Priority
+Signals independently verified every upstream fact.
 
-“Authoritative source” in the dossier means the record came through the documented USGS or GDACS
-source selected for that category. It does not mean WorldSignal independently verified every
-upstream fact. Display priority is a transparent WorldSignal navigation aid derived from
-source-native magnitude/alert fields; it is not a universal emergency severity scale.
+## Verification
 
-## Source and model limitations
-
-- Upstream services provide no WorldSignal availability guarantee. A timeout, HTTP error, malformed
-  response, schema change, or defensive pagination ceiling is surfaced against the affected source.
-- USGS rolling feeds can add, revise, or remove records. USGS review status is retained as a fact and
-  is not treated as event lifecycle.
-- GDACS coverage represents significant humanitarian-impact alerts, not every natural hazard.
-  Geometry and severity fields vary by hazard and episode.
-- A centroid is a reference point, never an implied affected area. WorldSignal renders a detailed
-  path or polygon only when the selected GDACS response supplies and passes validation for it.
-- New/updated/resolved badges compare successful manual retrievals only within the open browser
-  session. Leaving a rolling window never creates a false “resolved” badge.
-- Times default to the computer's local timezone. The dossier also preserves explicit UTC source
-  timestamps.
-- No casualty estimate, forecast, official warning, or response recommendation is generated.
-
-## Verification commands
+Run the deterministic checks:
 
 ```bash
 npm run format:check
 npm run typecheck
 npm run lint
 npm test
-npm run test:coverage
 npm run test:e2e
 npm run build
 ```
 
-Unit and integration tests use frozen fixtures and mocked upstream requests. Playwright intercepts
-the local application API with committed sanitized fixtures while exercising the real browser,
-WebGL renderer, local assets, and application state. Live-source browser smoke checks are separate
-because the deterministic suite must not depend on internet availability.
+Unit and HTTP integration tests use committed sanitized fixtures. Playwright intercepts WorldSignal's
+local API while exercising the real browser, WebGL renderer, local assets, and application state.
+The browser suite uses the locally installed stable Chrome channel and does not download another
+browser into the repository.
 
-The Playwright configuration uses the locally installed stable Chrome channel; it does not download
-a second browser into the repository.
+CredSignal's PostgreSQL integration suite is opt-in because it changes a disposable test workspace
+in the local database. With PostgreSQL running and `.env` configured:
+
+```bash
+RUN_CREDSIGNAL_DB_TESTS=1 npm test -- tests/integration/credsignal-workflows.test.ts
+```
+
+The suite creates a process-scoped workspace, verifies the complete persistence and workflow chain,
+and removes that workspace afterward.
+
+## Database commands
+
+```bash
+npm run db:start      # start local PostgreSQL
+npm run db:migrate    # apply committed migrations
+npm run db:seed       # create/update the synthetic local workspace
+npm run db:studio     # inspect the database with Drizzle Studio
+npm run db:stop       # stop containers without deleting persisted data
+```
+
+To delete all local CredSignal database data and recreate it from the seed:
+
+```bash
+docker compose down --volumes
+npm run db:start
+npm run db:migrate
+npm run db:seed
+```
+
+`docker compose down --volumes` permanently removes the local PostgreSQL volume. Do not run it if
+the database contains anything you need to retain.
 
 ## Troubleshooting
 
 ### npm reports an unsupported Node version
 
-Install or activate Node 24.x, then verify `node --version`. Do not work around the engine check with
-an older runtime; Next.js and the verified toolchain are pinned for Node 24.
+Install or activate Node 24.x, then verify `node --version`. The project intentionally does not work
+around its Node engine requirement.
 
 ### What is `node_modules`?
 
-`npm install` normally creates `node_modules`. It is the local unpacked dependency tree used to run,
-build, lint, and test WorldSignal—not project source. Git ignores it, production browsers do not
-receive the whole directory, and it can be deleted and reconstructed from `package-lock.json` with
-`npm install` (or `npm ci` for an exact clean install). Do not commit it or replace project
-dependencies with global installations.
+`npm install` creates `node_modules`, the local unpacked dependency tree used to run, build, lint,
+and test Priority Signals. It is not project source, Git ignores it, and production browsers do not
+receive the whole directory. It can be deleted and reconstructed from `package-lock.json` with
+`npm install` or `npm ci`; project dependencies should not be replaced with global installations.
 
-### Port 3000 is already in use
+### CredSignal says the local workspace is required
 
-Stop the other local server or run `npm run dev -- --port 3001`, then open the printed localhost URL.
+Confirm Docker is healthy, then run `npm run db:migrate` and `npm run db:seed`. Verify that `.env`
+contains the same database URL used by the Compose service and a valid base64-encoded 32-byte
+`CREDSIGNAL_DATA_KEY`.
 
-### A source is unavailable
+### Existing credentials can no longer be revealed
 
-Read the per-source category and timestamp in the left rail. Confirm outbound HTTPS access, then use
-the explicit **Refresh** action. Repeated schema errors can indicate an upstream contract change;
-capture only safe diagnostics and update the adapter plus frozen fixture tests before accepting the
-new shape.
+Restore the exact `CREDSIGNAL_DATA_KEY` that encrypted them. `CREDSIGNAL_KEY_VERSION` records key
+metadata but the MVP does not yet provide a multi-key rotation system.
 
-### Detailed geometry is unavailable
+### Port 3000 or 5432 is already in use
 
-The event centroid and original report remain usable. Use **Retry geometry** only if the source error
-appears temporary. WorldSignal does not substitute an unvalidated geometry or repeatedly retry in
-the background.
+Stop the conflicting local process. For the application only, you can use
+`npm run dev -- --port 3001`. PostgreSQL is deliberately bound to local port 5432 by Compose.
 
-### The globe is blank or country outlines are unavailable
+### A WorldSignal source is unavailable
 
-Enable WebGL/hardware acceleration, reload in a current desktop browser, and verify that local files
-under `public/textures` and `public/data` are present. Event investigation remains available through
-the accessible stream if the canvas cannot render.
+Read the per-source status in the left rail. Confirm outbound HTTPS access and use the explicit
+**Refresh** action. Repeated schema errors can indicate an upstream contract change.
+
+### The globe is blank
+
+Enable WebGL or hardware acceleration and verify that local files under `public/textures` and
+`public/data` are present. Investigation remains available through the accessible queue or stream.
 
 ### Playwright cannot find Chrome
 
 Install stable Google Chrome in the platform's normal application location and rerun
-`npm run test:e2e`. This requirement applies only to the end-to-end test runner.
-
-### Resetting local data
-
-MVP-A has no account state, service worker, event database, or browser storage to reset. Reloading the
-page clears its in-memory batch and session change baseline. MVP-B is not implemented, so no MVP-B
-data or reset operation exists yet.
+`npm run test:e2e`.
 
 ## Attribution and license
 
 Visible in-app credits identify NASA Blue Marble imagery, Natural Earth boundaries, USGS earthquake
-data, and GDACS disaster data. Fonts and third-party software retain their own licenses. See
+data, and GDACS disaster data. Fonts and third-party software retain their licenses. See
 [NOTICE.md](NOTICE.md) for source links, terms, and bundled-asset details.
 
-WorldSignal source code is available under the [MIT License](LICENSE). Contributions should keep
-source adapters validated at their boundary, add deterministic tests for behavior changes, pass all
-verification commands above, preserve attribution, and remain within the documented MVP-A logic
-unless a scope change is explicitly approved.
+Priority Signals source code is available under the [MIT License](LICENSE). Contributions should
+preserve security and data-source boundaries, add deterministic tests for behavior changes, pass
+the verification commands above, retain attribution, and avoid introducing real secrets or personal
+data into fixtures.
