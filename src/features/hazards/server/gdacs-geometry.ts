@@ -11,6 +11,23 @@ interface GeometryDependencies {
   fetchImplementation?: FetchImplementation;
 }
 
+function logDevelopmentGeometryError(
+  eventType: string,
+  eventId: number,
+  episodeId: number,
+  error: ReturnType<typeof asSourceFetchError>,
+) {
+  if (process.env.NODE_ENV === "development") {
+    console.warn("[WorldSignal] GDACS geometry retrieval failed", {
+      eventType,
+      eventId,
+      episodeId,
+      code: error.code,
+      message: error.safeMessage,
+    });
+  }
+}
+
 function parseInteger(value: string | null, { allowZero = false } = {}) {
   if (!value || !/^\d+$/.test(value)) {
     return undefined;
@@ -69,6 +86,12 @@ export async function handleGdacsGeometryRequest(
     return jsonResponse(geometry);
   } catch (error) {
     const sourceError = asSourceFetchError(error);
+    logDevelopmentGeometryError(
+      eventTypeResult.data,
+      eventId,
+      episodeId,
+      sourceError,
+    );
     return jsonResponse(
       {
         error: {

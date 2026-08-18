@@ -26,6 +26,19 @@ interface SourceAttempt {
   attemptedAt: string;
 }
 
+function logDevelopmentSourceError(
+  source: SourceHealth["source"],
+  error: ReturnType<typeof asSourceFetchError>,
+) {
+  if (process.env.NODE_ENV === "development") {
+    console.warn("[WorldSignal] Hazard source retrieval failed", {
+      source,
+      code: error.code,
+      message: error.safeMessage,
+    });
+  }
+}
+
 export function deriveHazardRange(window: HazardWindow, to: Date) {
   return {
     from: new Date(to.getTime() - WINDOW_MILLISECONDS[window]),
@@ -104,6 +117,7 @@ export async function handleHazardBatchRequest(
     }
 
     const sourceError = asSourceFetchError(result.reason);
+    logDevelopmentSourceError(attempt.adapter.source, sourceError);
     sources.push({
       source: attempt.adapter.source,
       state: "error",
