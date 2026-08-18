@@ -4,7 +4,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL is required. Copy .env.example to .env.local or provide the variable to the database command.",
+    "DATABASE_URL is required. Copy .env.example to .env or provide the variable to the database command.",
   );
 }
 

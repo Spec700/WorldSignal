@@ -1,8 +1,9 @@
-# WorldSignal notices and attribution
+# Priority Signals notices and attribution
 
-WorldSignal is an independent open-source project. No data provider or referenced organization
-endorses it. WorldSignal is a situational-awareness and exploration tool, not an official emergency
-warning service.
+Priority Signals is an independent open-source project. No data provider or referenced organization
+endorses it. WorldSignal is a situational-awareness and exploration module, not an official
+emergency-warning service. CredSignal is a local coordination module, not a credential-vault,
+breach-feed, or notification-delivery service.
 
 ## Runtime libraries
 
@@ -12,6 +13,8 @@ warning service.
 - [Three.js](https://github.com/mrdoob/three.js) — MIT License
 - [Zod](https://github.com/colinhacks/zod) — MIT License
 - [Turf bbox](https://github.com/Turfjs/turf) — MIT License
+- [Drizzle ORM](https://github.com/drizzle-team/drizzle-orm) — Apache License 2.0
+- [node-postgres](https://github.com/brianc/node-postgres) — MIT License
 
 The complete dependency graph and exact versions are recorded in `package-lock.json`.
 
@@ -41,4 +44,5 @@ bathymetry image. The bundled boundary GeoJSON is from the Natural Earth Vector 
 
 Source data remains subject to each provider's terms, limitations, and disclaimers. WorldSignal
 preserves direct report links and source-native values and does not imply that derived display
-priority is a provider-issued universal severity scale.
+priority is a provider-issued universal severity scale. CredSignal ships only synthetic demonstration
+records and does not redistribute a third-party breach dataset.

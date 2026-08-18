@@ -19,14 +19,14 @@
     "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed-credsignal.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed-credsignal.ts",
     "db:studio": "drizzle-kit studio",
     "db:start": "docker compose up -d postgres",
     "db:stop": "docker compose down",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest",
+    "test": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run",
+    "test:coverage": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --coverage",
+    "test:watch": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
