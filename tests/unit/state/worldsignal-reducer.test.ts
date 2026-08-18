@@ -186,3 +186,65 @@ describe("WorldSignal reducer geometry flow", () => {
     expect(stale.selectedGeometry).toBeUndefined();
   });
 });
+
+describe("WorldSignal reducer filter flow", () => {
+  it("toggles every visibility dimension and resets without changing the retrieval window", () => {
+    const initial = createInitialWorldSignalState();
+    const category = worldSignalReducer(initial, {
+      type: "filters/category-toggle",
+      category: "earthquake",
+    });
+    const priority = worldSignalReducer(category, {
+      type: "filters/priority-toggle",
+      priority: "critical",
+    });
+    const source = worldSignalReducer(priority, {
+      type: "filters/source-toggle",
+      source: "gdacs",
+    });
+    const lifecycle = worldSignalReducer(source, {
+      type: "filters/lifecycle-toggle",
+      lifecycle: "ended",
+    });
+    const cursor = worldSignalReducer(lifecycle, {
+      type: "filters/time-cursor-set",
+      timeCursor: "2026-08-18T08:00:00.000Z",
+    });
+    const reset = worldSignalReducer(cursor, {
+      type: "filters/reset-visibility",
+      timeCursor: "2026-08-18T10:00:00.000Z",
+    });
+
+    expect(cursor.filters).toMatchObject({
+      categories: expect.not.arrayContaining(["earthquake"]),
+      priorities: expect.not.arrayContaining(["critical"]),
+      sources: ["usgs"],
+      lifecycle: expect.not.arrayContaining(["ended"]),
+      timeCursor: "2026-08-18T08:00:00.000Z",
+    });
+    expect(reset.filters).toMatchObject({
+      categories: expect.arrayContaining(["earthquake", "wildfire"]),
+      priorities: ["low", "medium", "high", "critical"],
+      sources: ["usgs", "gdacs"],
+      lifecycle: ["ongoing", "occurred", "ended", "unknown"],
+      query: "",
+      window: "7d",
+      timeCursor: "2026-08-18T10:00:00.000Z",
+    });
+  });
+
+  it("clears a selected event with an explanation when it becomes hidden", () => {
+    const selected = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "selection/set",
+      eventId: earthquakeFixture.id,
+    });
+    const hidden = worldSignalReducer(selected, {
+      type: "selection/hidden",
+      eventId: earthquakeFixture.id,
+    });
+
+    expect(hidden.selectedEventId).toBeUndefined();
+    expect(hidden.selectionNotice).toMatch(/hidden/i);
+    expect(hidden.announcement).toMatch(/selection cleared/i);
+  });
+});

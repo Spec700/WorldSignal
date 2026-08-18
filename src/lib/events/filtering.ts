@@ -52,6 +52,15 @@ export function selectVisibleEvents(
   events: WorldEvent[],
   filters: EventFilters,
 ): WorldEvent[] {
+  return selectEventsBeforeTimeCursor(events, filters).filter((event) =>
+    isVisibleAtCursor(event, filters.timeCursor),
+  );
+}
+
+export function selectEventsBeforeTimeCursor(
+  events: WorldEvent[],
+  filters: EventFilters,
+): WorldEvent[] {
   return events.filter(
     (event) =>
       event.module === filters.module &&
@@ -61,7 +70,6 @@ export function selectVisibleEvents(
         event.sources.some((reference) => reference.source === source),
       ) &&
       filters.lifecycle.includes(event.lifecycle) &&
-      matchesQuery(event, filters.query) &&
-      isVisibleAtCursor(event, filters.timeCursor),
+      matchesQuery(event, filters.query),
   );
 }

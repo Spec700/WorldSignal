@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { selectVisibleEvents } from "@/lib/events/filtering";
+import {
+  selectEventsBeforeTimeCursor,
+  selectVisibleEvents,
+} from "@/lib/events/filtering";
 import { sortEventsByPriority } from "@/lib/events/sorting";
 import type { EventFilters, WorldEvent } from "@/lib/events/types";
 import { cycloneFixture, earthquakeFixture } from "../../fixtures/events";
@@ -74,6 +77,19 @@ describe("selectVisibleEvents", () => {
         timeCursor: earthquakeFixture.occurredAt!,
       }),
     ).toContainEqual(earthquakeFixture);
+  });
+
+  it("exposes the same filter rules without time for timeline ticks", () => {
+    const filters = {
+      ...DEFAULT_FILTERS,
+      categories: ["earthquake" as const],
+      timeCursor: "2026-08-18T08:00:00.000Z",
+    };
+
+    expect(selectEventsBeforeTimeCursor(EVENTS, filters)).toEqual([
+      earthquakeFixture,
+    ]);
+    expect(selectVisibleEvents(EVENTS, filters)).toEqual([]);
   });
 
   it("shows duration events only while the cursor intersects their interval", () => {

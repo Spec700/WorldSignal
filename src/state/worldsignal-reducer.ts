@@ -49,6 +49,7 @@ export type WorldSignalAction =
     }
   | { type: "selection/set"; eventId: string }
   | { type: "selection/clear" }
+  | { type: "selection/hidden"; eventId: string }
   | { type: "geometry/requested"; eventId: string }
   | {
       type: "geometry/succeeded";
@@ -58,7 +59,28 @@ export type WorldSignalAction =
   | { type: "geometry/failed"; eventId: string; message: string }
   | { type: "geometry/retry" }
   | { type: "filters/query-set"; query: string }
-  | { type: "filters/window-set"; window: EventFilters["window"] };
+  | { type: "filters/window-set"; window: EventFilters["window"] }
+  | { type: "filters/category-toggle"; category: EventCategory }
+  | {
+      type: "filters/priority-toggle";
+      priority: EventFilters["priorities"][number];
+    }
+  | {
+      type: "filters/source-toggle";
+      source: EventFilters["sources"][number];
+    }
+  | {
+      type: "filters/lifecycle-toggle";
+      lifecycle: EventFilters["lifecycle"][number];
+    }
+  | { type: "filters/time-cursor-set"; timeCursor: string }
+  | { type: "filters/reset-visibility"; timeCursor: string };
+
+function toggleValue<T>(values: T[], value: T): T[] {
+  return values.includes(value)
+    ? values.filter((candidate) => candidate !== value)
+    : [...values, value];
+}
 
 export function createInitialWorldSignalState(): WorldSignalState {
   return {
@@ -188,6 +210,22 @@ export function worldSignalReducer(
         selectionNotice: undefined,
       };
 
+    case "selection/hidden":
+      if (state.selectedEventId !== action.eventId) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedEventId: undefined,
+        selectedGeometry: undefined,
+        geometryState: "idle",
+        geometryError: undefined,
+        selectionNotice:
+          "The selected event is hidden by the active filters or time cursor.",
+        announcement:
+          "Selection cleared because the event is hidden by the active filters or time cursor.",
+      };
+
     case "geometry/requested":
       if (state.selectedEventId !== action.eventId) {
         return state;
@@ -243,6 +281,62 @@ export function worldSignalReducer(
       return {
         ...state,
         filters: { ...state.filters, window: action.window },
+      };
+
+    case "filters/category-toggle":
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          categories: toggleValue(state.filters.categories, action.category),
+        },
+      };
+
+    case "filters/priority-toggle":
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          priorities: toggleValue(state.filters.priorities, action.priority),
+        },
+      };
+
+    case "filters/source-toggle":
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          sources: toggleValue(state.filters.sources, action.source),
+        },
+      };
+
+    case "filters/lifecycle-toggle":
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          lifecycle: toggleValue(state.filters.lifecycle, action.lifecycle),
+        },
+      };
+
+    case "filters/time-cursor-set":
+      return {
+        ...state,
+        filters: { ...state.filters, timeCursor: action.timeCursor },
+      };
+
+    case "filters/reset-visibility":
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          categories: [...HAZARD_CATEGORIES],
+          priorities: ["low", "medium", "high", "critical"],
+          sources: ["usgs", "gdacs"],
+          lifecycle: ["ongoing", "occurred", "ended", "unknown"],
+          query: "",
+          timeCursor: action.timeCursor,
+        },
       };
   }
 }
