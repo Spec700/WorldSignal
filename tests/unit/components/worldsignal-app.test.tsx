@@ -94,6 +94,8 @@ describe("WorldSignal application shell", () => {
     });
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(screen.getAllByText("Available")).toHaveLength(2);
+    expect(screen.getAllByText(/attempted aug 18/i)).toHaveLength(2);
+    expect(screen.getAllByText(/source updated aug 18/i)).toHaveLength(2);
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /tropical cyclone:/i }),

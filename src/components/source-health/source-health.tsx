@@ -30,9 +30,9 @@ export function SourceHealth({ health, refreshing }: SourceHealthProps) {
         const detail = refreshing
           ? "Contacting source"
           : record?.state === "ok"
-            ? `${record.eventCount} event${record.eventCount === 1 ? "" : "s"} · ${formatLocalTimestamp(record.completedAt)}`
+            ? `${record.eventCount} event${record.eventCount === 1 ? "" : "s"} · completed ${formatLocalTimestamp(record.completedAt)}`
             : record?.state === "error"
-              ? `${record.errorCode} · ${formatLocalTimestamp(record.completedAt)}`
+              ? `${record.errorCode} · failed ${formatLocalTimestamp(record.completedAt)}`
               : "Not requested";
 
         return (
@@ -44,6 +44,18 @@ export function SourceHealth({ health, refreshing }: SourceHealthProps) {
             <span className="source-health-copy">
               <span className="source-health-name">{SOURCE_NAMES[source]}</span>
               <span className="source-health-detail">{detail}</span>
+              {record ? (
+                <span className="source-health-timestamps">
+                  Attempted {formatLocalTimestamp(record.attemptedAt)}
+                  {record.upstreamUpdatedAt ? (
+                    <>
+                      {" "}
+                      · source updated{" "}
+                      {formatLocalTimestamp(record.upstreamUpdatedAt)}
+                    </>
+                  ) : null}
+                </span>
+              ) : null}
               {record?.state === "error" && record.safeMessage ? (
                 <span className="source-health-error">
                   {record.safeMessage}

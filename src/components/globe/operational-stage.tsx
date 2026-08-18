@@ -175,9 +175,38 @@ export function OperationalStage({
       ) : null}
 
       <div className="stage-credits">
-        <span>Imagery: NASA Blue Marble</span>
-        <span>Boundaries: Natural Earth</span>
-        <span>Hazard data: USGS · GDACS</span>
+        <a
+          href="https://earthobservatory.nasa.gov/features/BlueMarble/BlueMarble.php"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Imagery: NASA
+        </a>
+        <a
+          href="https://www.naturalearthdata.com/about/terms-of-use/"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Boundaries: Natural Earth
+        </a>
+        <span>
+          Hazard data:{" "}
+          <a
+            href="https://earthquake.usgs.gov/earthquakes/feed/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            USGS
+          </a>{" "}
+          ·{" "}
+          <a
+            href="https://www.gdacs.org/gdacsapi/swagger/index.html"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            GDACS
+          </a>
+        </span>
       </div>
     </main>
   );
