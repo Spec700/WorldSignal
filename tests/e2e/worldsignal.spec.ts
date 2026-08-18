@@ -21,7 +21,10 @@ async function mockSuccessfulSources(page: Page) {
 }
 
 async function loadFixtureBatch(page: Page) {
-  await page.goto("/");
+  const shellResponse = await page.goto("/");
+  expect(shellResponse?.headers()["content-security-policy"]).toContain(
+    "default-src 'self'",
+  );
   await page
     .getByRole("button", { name: /load current events/i })
     .first()
