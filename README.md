@@ -8,6 +8,8 @@ local filters and timeline controls, source health, and an evidence-oriented eve
 > unavailable. Always open the original report and follow responsible authorities and local
 > emergency guidance.
 
+![WorldSignal MVP-A showing a selected cyclone, validated geometry, event stream, filters, dossier, and timeline](docs/worldsignal-mvp-a.png)
+
 ## MVP-A capabilities
 
 - Retrieves global M4.5+ earthquakes from the U.S. Geological Survey (USGS).
