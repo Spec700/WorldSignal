@@ -10,6 +10,7 @@ interface FetchJsonOptions {
   timeoutMs: number;
   maxBytes: number;
   sourceLabel: string;
+  allowNoContent?: boolean;
   fetchImplementation?: FetchImplementation;
 }
 
@@ -69,6 +70,7 @@ export async function fetchJson(
     timeoutMs,
     maxBytes,
     sourceLabel,
+    allowNoContent = false,
     fetchImplementation = fetch,
   }: FetchJsonOptions,
 ): Promise<unknown> {
@@ -106,6 +108,17 @@ export async function fetchJson(
     throw new SourceFetchError(
       "http",
       `${sourceLabel} returned HTTP ${response.status}.`,
+    );
+  }
+
+  if (response.status === 204) {
+    if (allowNoContent) {
+      return undefined;
+    }
+
+    throw new SourceFetchError(
+      "schema",
+      `${sourceLabel} returned an empty response without data.`,
     );
   }
 

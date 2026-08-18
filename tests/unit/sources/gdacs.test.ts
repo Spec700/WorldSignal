@@ -196,6 +196,36 @@ describe("GDACS pagination and deduplication", () => {
     ]);
   });
 
+  it("treats GDACS HTTP 204 as an explicit terminal page", async () => {
+    const feature = createGdacsFeature();
+    const fetchImplementation = vi.fn(async (input: string | URL | Request) => {
+      const pageNumber = Number(
+        new URL(String(input)).searchParams.get("pageNumber"),
+      );
+      return pageNumber === 1
+        ? Response.json(
+            { type: "FeatureCollection", features: [feature] },
+            { headers: { "content-type": "application/json" } },
+          )
+        : new Response(null, { status: 204 });
+    });
+    const adapter = new GdacsAdapter({
+      fetchImplementation,
+      pageSize: 1,
+      maxPages: 3,
+      now: () => new Date("2026-08-18T18:02:35.000Z"),
+    });
+
+    const result = await adapter.fetchAndNormalize({
+      from: new Date("2026-08-17T18:02:35.000Z"),
+      to: new Date("2026-08-18T18:02:35.000Z"),
+      signal: new AbortController().signal,
+    });
+
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(result.events).toHaveLength(1);
+  });
+
   it("surfaces truncation instead of returning an incomplete success", async () => {
     const fullPage = [
       createGdacsFeature(),

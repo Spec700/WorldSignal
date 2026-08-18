@@ -17,7 +17,9 @@ describe("USGS feed selection", () => {
     ["7 days", "2026-08-11T10:00:00.000Z", "4.5_week.geojson"],
     ["30 days", "2026-07-19T10:00:00.000Z", "4.5_month.geojson"],
   ])("uses the matching rolling feed for %s", (_label, from, suffix) => {
-    expect(getUsgsFeedUrl(new Date(from), to).pathname.endsWith(suffix)).toBe(true);
+    expect(getUsgsFeedUrl(new Date(from), to).pathname.endsWith(suffix)).toBe(
+      true,
+    );
   });
 });
 

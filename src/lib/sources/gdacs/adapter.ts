@@ -292,6 +292,24 @@ export class GdacsAdapter implements EventSourceAdapter {
     }
   }
 
+  private createNormalizedResult(allFeatures: GdacsFeature[]) {
+    const deduplicated = deduplicateGdacsFeatures(allFeatures);
+    const retrievedAt = this.now().toISOString();
+    const upstreamUpdatedAt = deduplicated
+      .map((feature) =>
+        normalizeGdacsTimestamp(feature.properties.datemodified),
+      )
+      .sort()
+      .at(-1);
+
+    return {
+      events: deduplicated.map((feature) =>
+        normalizeGdacsFeature(feature, retrievedAt),
+      ),
+      ...(upstreamUpdatedAt ? { upstreamUpdatedAt } : {}),
+    };
+  }
+
   async fetchAndNormalize({
     from,
     to,
@@ -307,9 +325,15 @@ export class GdacsAdapter implements EventSourceAdapter {
           timeoutMs: GDACS_TIMEOUT_MS,
           maxBytes: GDACS_MAX_PAGE_BYTES,
           sourceLabel: "GDACS",
+          allowNoContent: true,
           fetchImplementation: this.fetchImplementation,
         },
       );
+
+      if (raw === undefined) {
+        return this.createNormalizedResult(allFeatures);
+      }
+
       const parsed = gdacsSearchResponseSchema.safeParse(raw);
 
       if (!parsed.success) {
@@ -323,21 +347,7 @@ export class GdacsAdapter implements EventSourceAdapter {
       allFeatures.push(...parsed.data.features);
 
       if (parsed.data.features.length < this.pageSize) {
-        const deduplicated = deduplicateGdacsFeatures(allFeatures);
-        const retrievedAt = this.now().toISOString();
-        const upstreamUpdatedAt = deduplicated
-          .map((feature) =>
-            normalizeGdacsTimestamp(feature.properties.datemodified),
-          )
-          .sort()
-          .at(-1);
-
-        return {
-          events: deduplicated.map((feature) =>
-            normalizeGdacsFeature(feature, retrievedAt),
-          ),
-          ...(upstreamUpdatedAt ? { upstreamUpdatedAt } : {}),
-        };
+        return this.createNormalizedResult(allFeatures);
       }
     }
 
