@@ -81,9 +81,11 @@ docker --version
 docker compose version
 ```
 
-## Install and run locally
+## Initial local setup
 
-Clone the repository and install the dependency tree:
+Complete these steps once after cloning the repository.
+
+### 1. Install the application dependencies
 
 ```bash
 git clone https://github.com/Spec700/WorldSignal.git
@@ -91,17 +93,18 @@ cd WorldSignal
 npm install
 ```
 
-Create the ignored local environment file:
+### 2. Create the local environment file
 
 ```bash
 cp .env.example .env
 openssl rand -base64 32
 ```
 
-Paste the generated key into `CREDSIGNAL_DATA_KEY` in `.env`. Keep that file private and stable:
-changing or losing the key makes previously stored credential values unreadable.
+Open `.env` and replace `replace-with-a-base64-encoded-32-byte-key` with the value printed by
+`openssl`. Keep `.env` private and keep its key unchanged between sessions: changing or losing the
+key makes previously stored credential values unreadable.
 
-Start PostgreSQL, apply committed migrations, and load the synthetic demonstration workspace:
+### 3. Initialize PostgreSQL and the demonstration data
 
 ```bash
 npm run db:start
@@ -109,7 +112,10 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Then start Priority Signals:
+`db:start` starts the PostgreSQL container. `db:migrate` creates or updates its tables, and `db:seed`
+loads the synthetic CredSignal workspace. These commands do not start the web application.
+
+### 4. Start the development application
 
 ```bash
 npm run dev
@@ -118,16 +124,46 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The root route opens WorldSignal;
 [http://localhost:3000/credsignal](http://localhost:3000/credsignal) opens CredSignal directly.
 
-The Docker Compose service binds PostgreSQL only to `127.0.0.1:5432` and persists its data in the
-named `priority-signals-postgres` volume. The Next.js application continues to run through the local
-Node.js process, which keeps development and debugging straightforward.
+## Stop Priority Signals
 
-For a production-mode local run:
+In the terminal running `npm run dev` or `npm start`, press `Ctrl+C` to stop the Next.js application.
+Then stop PostgreSQL from another terminal in the repository:
 
 ```bash
+npm run db:stop
+```
+
+This shutdown preserves `.env` and the PostgreSQL data volume. Do not add `--volumes` unless you
+intentionally want to permanently delete all local CredSignal data.
+
+## Start again after initial setup
+
+For normal development startup on later sessions, run:
+
+```bash
+npm run db:start
+npm run dev
+```
+
+You do not need to reinstall dependencies, recreate `.env`, migrate, or seed on every startup. Run
+`npm install` after dependency changes, `npm run db:migrate` after new database migrations, and
+`npm run db:seed` only when you need to create or refresh the synthetic workspace.
+
+For a production-mode local start, PostgreSQL must still be started separately:
+
+```bash
+npm run db:start
 npm run build
 npm start
 ```
+
+`npm run build` only compiles the Next.js application. `npm start` only starts that compiled
+application. Neither command starts PostgreSQL. If a current production build already exists and
+the code has not changed, you can omit `npm run build`.
+
+The Docker Compose service binds PostgreSQL only to `127.0.0.1:5432` and persists its data in the
+Compose-managed `priority-signals-postgres` volume. The Next.js application runs through the local
+Node.js process.
 
 ## Synthetic data and secrets
 
