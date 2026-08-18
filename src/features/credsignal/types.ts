@@ -67,9 +67,11 @@ export interface CredSignalTaskDto {
     | "other";
   title: string;
   status: "todo" | "in_progress" | "completed" | "cancelled";
+  assigneeId?: string;
   assigneeName?: string;
   dueAt?: string;
   completedAt?: string;
+  notes?: string;
 }
 
 export interface CredSignalCommunicationDto {

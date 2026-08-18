@@ -2,10 +2,12 @@ import {
   buildExposureDedupeKey,
   classifyCredentialSeverity,
   createCaseCommunicationInputSchema,
+  createCaseTaskInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
   normalizeIdentity,
+  updateCaseCoordinationInputSchema,
 } from "@/features/credsignal/domain";
 
 describe("CredSignal domain rules", () => {
@@ -126,5 +128,36 @@ describe("CredSignal domain rules", () => {
         status: "sent",
       }).success,
     ).toBe(false);
+  });
+
+  it("validates case accountability and optional task targets", () => {
+    const caseId = "50000000-0000-4000-8000-000000000001";
+
+    expect(
+      updateCaseCoordinationInputSchema.safeParse({
+        caseId,
+        assigneeOperatorId: "",
+        priority: "critical",
+        dueAt: "2026-08-19T20:00",
+      }).success,
+    ).toBe(true);
+    expect(
+      updateCaseCoordinationInputSchema.safeParse({
+        caseId,
+        assigneeOperatorId: "",
+        priority: "critical",
+        dueAt: "",
+      }).success,
+    ).toBe(false);
+    expect(
+      createCaseTaskInputSchema.safeParse({
+        caseId,
+        type: "enable_mfa",
+        title: "Require phishing-resistant MFA",
+        assigneeOperatorId: "",
+        dueAt: "",
+        notes: "",
+      }).success,
+    ).toBe(true);
   });
 });

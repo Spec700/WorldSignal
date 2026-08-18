@@ -6,6 +6,7 @@ import { getCredSignalDashboard } from "@/features/credsignal/server/dashboard";
 import {
   addProtecteeIdentity,
   createCaseCommunication,
+  createCaseTask,
   createExposure,
   createProtectee,
   CredSignalConflictError,
@@ -18,6 +19,8 @@ import {
   transitionCase,
   transitionCaseCommunication,
   transitionTask,
+  updateCaseCoordination,
+  updateCaseTask,
   updateProtectee,
 } from "@/features/credsignal/server/workflows";
 import { closeDatabase, getDatabase } from "@/lib/db/client";
@@ -37,6 +40,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
   const dataKey = Buffer.alloc(32, 23).toString("base64");
   let workspaceId = "";
   let operatorId = "";
+  let secondaryOperatorId = "";
 
   beforeAll(async () => {
     process.env.CREDSIGNAL_WORKSPACE_SLUG = workspaceSlug;
@@ -58,6 +62,15 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       })
       .returning();
     operatorId = operator.id;
+    const [secondaryOperator] = await database
+      .insert(operators)
+      .values({
+        workspaceId,
+        displayName: "Secondary Integration Analyst",
+        email: `secondary-analyst-${process.pid}@integration.example`,
+      })
+      .returning();
+    secondaryOperatorId = secondaryOperator.id;
   });
 
   afterAll(async () => {
@@ -167,7 +180,37 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       ),
     ).rejects.toBeInstanceOf(CredSignalWorkflowError);
 
-    await transitionTask(task!.id, "completed", operatorId);
+    const updatedCaseDueAt = new Date("2026-08-19T20:00:00.000Z");
+    await updateCaseCoordination(
+      {
+        caseId: responseCase!.id,
+        assigneeOperatorId: secondaryOperatorId,
+        priority: "high",
+        dueAt: updatedCaseDueAt,
+      },
+      operatorId,
+    );
+    const addedTask = await createCaseTask(
+      {
+        caseId: responseCase!.id,
+        type: "enable_mfa",
+        title: "Require phishing-resistant MFA",
+        assigneeOperatorId: secondaryOperatorId,
+        dueAt: new Date("2026-08-19T18:00:00.000Z"),
+        notes: "Synthetic coordination note.",
+      },
+      operatorId,
+    );
+    await updateCaseTask(
+      {
+        taskId: addedTask.taskId,
+        assigneeOperatorId: operatorId,
+        dueAt: new Date("2026-08-19T19:00:00.000Z"),
+        notes: "Updated synthetic coordination note.",
+      },
+      operatorId,
+    );
+
     await transitionCase(
       responseCase!.id,
       "investigating",
@@ -180,6 +223,23 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       undefined,
       operatorId,
     );
+    await expect(
+      transitionCase(
+        responseCase!.id,
+        "closed",
+        "This closure must wait for active tasks.",
+        operatorId,
+      ),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+
+    await transitionTask(addedTask.taskId, "in_progress", operatorId);
+    await transitionTask(addedTask.taskId, "completed", operatorId);
+    await expect(
+      transitionTask(addedTask.taskId, "cancelled", operatorId),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+    for (const responseTask of responseCase!.tasks) {
+      await transitionTask(responseTask.id, "completed", operatorId);
+    }
     await transitionCase(
       responseCase!.id,
       "closed",
@@ -193,11 +253,27 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     );
 
     expect(closedProtectee?.cases[0]?.status).toBe("closed");
+    expect(closedProtectee?.cases[0]).toMatchObject({
+      assigneeId: secondaryOperatorId,
+      assigneeName: "Secondary Integration Analyst",
+      dueAt: updatedCaseDueAt.toISOString(),
+      priority: "high",
+    });
     expect(closedProtectee?.exposures[0]?.status).toBe("remediated");
     expect(
       closedProtectee?.cases[0]?.tasks.find((entry) => entry.id === task!.id)
         ?.status,
     ).toBe("completed");
+    expect(
+      closedProtectee?.cases[0]?.tasks.find(
+        (entry) => entry.id === addedTask.taskId,
+      ),
+    ).toMatchObject({
+      assigneeId: operatorId,
+      assigneeName: "Integration Analyst",
+      notes: "Updated synthetic coordination note.",
+      status: "completed",
+    });
     expect(closedProtectee?.cases[0]?.communications[0]).toMatchObject({
       id: communication.communicationId,
       channel: "phone",
@@ -230,6 +306,21 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
         },
         operatorId,
       ),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+    await expect(
+      createCaseTask(
+        {
+          caseId: responseCase!.id,
+          type: "verify",
+          title: "Closed case task",
+          assigneeOperatorId: operatorId,
+          notes: "This must not be added to a closed case.",
+        },
+        operatorId,
+      ),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+    await expect(
+      transitionTask(task!.id, "in_progress", operatorId),
     ).rejects.toBeInstanceOf(CredSignalWorkflowError);
   });
 
@@ -321,6 +412,24 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
         (activity) => activity.action === "exposure.manually_matched",
       ),
     ).toBe(true);
+
+    await transitionCase(
+      result.caseId,
+      "dismissed",
+      "Synthetic dismissal verifies automatic task cancellation.",
+      operatorId,
+    );
+    const dismissedDashboard = await getCredSignalDashboard();
+    const dismissedProtectee = dismissedDashboard.protectees.find(
+      (entry) => entry.id === protecteeResult.protecteeId,
+    );
+    expect(dismissedProtectee?.cases[0]?.status).toBe("dismissed");
+    expect(
+      dismissedProtectee?.cases[0]?.tasks.every(
+        (task) => task.status === "cancelled",
+      ),
+    ).toBe(true);
+    expect(dismissedProtectee?.exposures[0]?.status).toBe("dismissed");
   });
 
   it("maintains protectee profiles, identities, and location history", async () => {

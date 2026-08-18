@@ -44,6 +44,22 @@ export const communicationStatuses = [
   "acknowledged",
   "failed",
 ] as const;
+export const taskTypes = [
+  "verify",
+  "notify",
+  "password_reset",
+  "revoke_sessions",
+  "enable_mfa",
+  "check_reuse",
+  "investigate_device",
+  "other",
+] as const;
+export const taskStatuses = [
+  "todo",
+  "in_progress",
+  "completed",
+  "cancelled",
+] as const;
 
 export type IdentityType = (typeof identityTypes)[number];
 export type CredentialKind = (typeof credentialKinds)[number];
@@ -154,6 +170,43 @@ export const createCaseCommunicationInputSchema = z.object({
   status: z.enum(["draft", "planned"]).default("draft"),
 });
 
+const optionalDateInput = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.coerce.date().optional(),
+);
+
+export const updateCaseCoordinationInputSchema = z.object({
+  caseId: z.string().uuid(),
+  assigneeOperatorId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .default(""),
+  priority: z.enum(priorities),
+  dueAt: z.coerce.date(),
+});
+
+export const createCaseTaskInputSchema = z.object({
+  caseId: z.string().uuid(),
+  type: z.enum(taskTypes),
+  title: trimmedText("Task title", 320),
+  assigneeOperatorId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .default(""),
+  dueAt: optionalDateInput,
+  notes: z.string().trim().max(4_000).optional().default(""),
+});
+
+export const updateCaseTaskInputSchema = z.object({
+  taskId: z.string().uuid(),
+  assigneeOperatorId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .default(""),
+  dueAt: optionalDateInput,
+  notes: z.string().trim().max(4_000).optional().default(""),
+});
+
 export type CreateProtecteeInput = z.infer<typeof createProtecteeInputSchema>;
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;
 export type MatchExposureInput = z.infer<typeof matchExposureInputSchema>;
@@ -167,6 +220,11 @@ export type ReplaceProtecteeLocationInput = z.infer<
 export type CreateCaseCommunicationInput = z.infer<
   typeof createCaseCommunicationInputSchema
 >;
+export type UpdateCaseCoordinationInput = z.infer<
+  typeof updateCaseCoordinationInputSchema
+>;
+export type CreateCaseTaskInput = z.infer<typeof createCaseTaskInputSchema>;
+export type UpdateCaseTaskInput = z.infer<typeof updateCaseTaskInputSchema>;
 
 export function normalizeIdentity(type: IdentityType, value: string): string {
   const trimmed = value.trim();

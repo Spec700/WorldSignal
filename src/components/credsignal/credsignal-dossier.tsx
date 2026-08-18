@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import {
   revealCredentialAction,
   transitionCaseAction,
-  transitionTaskAction,
 } from "@/app/credsignal/actions";
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import type {
   CredSignalCaseDto,
+  CredSignalOperatorDto,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
 import { formatLocalTimestamp } from "@/lib/time/format";
@@ -18,11 +18,13 @@ import { formatLocalTimestamp } from "@/lib/time/format";
 import styles from "@/app/credsignal/credsignal.module.css";
 
 import { CredSignalCommunications } from "./credsignal-communications";
+import { CredSignalCaseOperations } from "./credsignal-case-operations";
 
 export type CredSignalDossierTab = "overview" | "exposures" | "cases";
 
 interface CredSignalDossierProps {
   protectee: CredSignalProtecteeDto;
+  operators: CredSignalOperatorDto[];
   tab: CredSignalDossierTab;
   activeOperatorId: string;
   onTabChange: (tab: CredSignalDossierTab) => void;
@@ -52,6 +54,7 @@ function titleCase(value: string) {
 
 export function CredSignalDossier({
   protectee,
+  operators,
   tab,
   activeOperatorId,
   onTabChange,
@@ -395,43 +398,11 @@ export function CredSignalDossier({
                         </dd>
                       </div>
                     </dl>
-                    <div className={styles.taskList}>
-                      {responseCase.tasks.map((task) => (
-                        <div data-status={task.status} key={task.id}>
-                          <span aria-hidden="true">
-                            {task.status === "completed" ? "✓" : "○"}
-                          </span>
-                          <p>
-                            <strong>{task.title}</strong>
-                            <small>
-                              {task.assigneeName ?? "Unassigned"} ·{" "}
-                              {task.status.replaceAll("_", " ")}
-                            </small>
-                          </p>
-                          {task.status !== "completed" &&
-                          task.status !== "cancelled" ? (
-                            <button
-                              disabled={pendingId === task.id}
-                              onClick={() =>
-                                void runMutation(task.id, () => {
-                                  const formData = new FormData();
-                                  formData.set("taskId", task.id);
-                                  formData.set("status", "completed");
-                                  formData.set(
-                                    "actorOperatorId",
-                                    activeOperatorId,
-                                  );
-                                  return transitionTaskAction(formData);
-                                })
-                              }
-                              type="button"
-                            >
-                              Complete
-                            </button>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
+                    <CredSignalCaseOperations
+                      activeOperatorId={activeOperatorId}
+                      operators={operators}
+                      responseCase={responseCase}
+                    />
                     <CredSignalCommunications
                       activeOperatorId={activeOperatorId}
                       responseCase={responseCase}
@@ -458,11 +429,17 @@ export function CredSignalDossier({
                         <span>Next state</span>
                         <select name="status">
                           {nextCaseStatuses[responseCase.status].map(
-                            (status) => (
-                              <option key={status} value={status}>
-                                {titleCase(status)}
-                              </option>
-                            ),
+                            (status) =>
+                              status !== "closed" ||
+                              responseCase.tasks.every(
+                                (task) =>
+                                  task.status === "completed" ||
+                                  task.status === "cancelled",
+                              ) ? (
+                                <option key={status} value={status}>
+                                  {titleCase(status)}
+                                </option>
+                              ) : null,
                           )}
                         </select>
                       </label>
@@ -473,6 +450,19 @@ export function CredSignalDossier({
                           placeholder="Required for close or dismiss"
                         />
                       </label>
+                      {nextCaseStatuses[responseCase.status].includes(
+                        "closed",
+                      ) &&
+                      responseCase.tasks.some(
+                        (task) =>
+                          task.status !== "completed" &&
+                          task.status !== "cancelled",
+                      ) ? (
+                        <p className={styles.caseTransitionHint}>
+                          Closing unlocks after every response task is complete
+                          or cancelled.
+                        </p>
+                      ) : null}
                       <button
                         disabled={pendingId === responseCase.id}
                         type="submit"

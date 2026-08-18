@@ -7,16 +7,20 @@ import {
   addProtecteeIdentityInputSchema,
   communicationStatuses,
   createCaseCommunicationInputSchema,
+  createCaseTaskInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
   replaceProtecteeLocationInputSchema,
+  updateCaseCoordinationInputSchema,
+  updateCaseTaskInputSchema,
   updateProtecteeInputSchema,
 } from "@/features/credsignal/domain";
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import {
   addProtecteeIdentity,
   createCaseCommunication,
+  createCaseTask,
   createExposure,
   createProtectee,
   CredSignalWorkflowError,
@@ -28,6 +32,8 @@ import {
   transitionCase,
   transitionCaseCommunication,
   transitionTask,
+  updateCaseCoordination,
+  updateCaseTask,
   updateProtectee,
 } from "@/features/credsignal/server/workflows";
 
@@ -286,6 +292,86 @@ export async function transitionTaskAction(
     );
     revalidatePath("/credsignal");
     return { status: "success", message: "Task status updated." };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateCaseCoordinationAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = updateCaseCoordinationInputSchema.parse({
+      caseId: textValue(formData, "caseId"),
+      assigneeOperatorId: textValue(formData, "assigneeOperatorId"),
+      priority: textValue(formData, "priority"),
+      dueAt: textValue(formData, "dueAt"),
+    });
+    const result = await updateCaseCoordination(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Case owner and response targets updated.",
+      createdId: result.caseId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createCaseTaskAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = createCaseTaskInputSchema.parse({
+      caseId: textValue(formData, "caseId"),
+      type: textValue(formData, "type"),
+      title: textValue(formData, "title"),
+      assigneeOperatorId: textValue(formData, "assigneeOperatorId"),
+      dueAt: textValue(formData, "dueAt"),
+      notes: textValue(formData, "notes"),
+    });
+    const result = await createCaseTask(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Response task added to the case.",
+      createdId: result.taskId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateCaseTaskAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = updateCaseTaskInputSchema.parse({
+      taskId: textValue(formData, "taskId"),
+      assigneeOperatorId: textValue(formData, "assigneeOperatorId"),
+      dueAt: textValue(formData, "dueAt"),
+      notes: textValue(formData, "notes"),
+    });
+    const result = await updateCaseTask(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Task ownership and response target updated.",
+      createdId: result.taskId,
+    };
   } catch (error) {
     return actionError(error);
   }

@@ -301,6 +301,7 @@ export function CredSignalWorkspace({
             onClose={() => setSelectedProtecteeId(undefined)}
             onManage={() => setManagingProtectee(true)}
             onTabChange={setDossierTab}
+            operators={dashboard.operators}
             protectee={selectedProtectee}
             tab={dossierTab}
           />

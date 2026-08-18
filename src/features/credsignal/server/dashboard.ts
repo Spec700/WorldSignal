@@ -230,11 +230,13 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
         type: task.type,
         title: task.title,
         status: task.status,
+        assigneeId: task.assigneeOperatorId ?? undefined,
         assigneeName: task.assigneeOperatorId
           ? operatorNameById.get(task.assigneeOperatorId)
           : undefined,
         dueAt: task.dueAt?.toISOString(),
         completedAt: task.completedAt?.toISOString(),
+        notes: task.notes ?? undefined,
       })),
     communications: communicationRows
       .filter((communication) => communication.caseId === responseCase.id)

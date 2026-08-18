@@ -1029,6 +1029,189 @@
   opacity: 0.66;
 }
 
+.taskList > div[data-status="cancelled"] {
+  opacity: 0.5;
+}
+
+.caseOperations {
+  margin-top: 12px;
+  border-top: 1px solid var(--color-line-strong);
+}
+
+.caseCoordinationEdit,
+.addTask,
+.taskEdit {
+  color: var(--color-text-muted);
+}
+
+.caseCoordinationEdit {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.caseCoordinationEdit > summary,
+.addTask > summary,
+.taskEdit > summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.caseCoordinationEdit > summary,
+.addTask > summary {
+  min-height: 36px;
+  padding: 10px 0;
+  color: var(--color-accent-strong);
+  font-size: 0.59rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.caseCoordinationEdit form,
+.addTask form,
+.taskEdit form {
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 10px;
+}
+
+.caseCoordinationEdit label,
+.addTask label,
+.taskEdit label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.caseCoordinationEdit label > span:first-child,
+.addTask label > span:first-child,
+.taskEdit label > span:first-child {
+  color: var(--color-text-muted);
+  font-size: 0.58rem;
+}
+
+.caseCoordinationEdit input,
+.caseCoordinationEdit select,
+.addTask input,
+.addTask select,
+.addTask textarea,
+.taskEdit input,
+.taskEdit select,
+.taskEdit textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.62rem;
+}
+
+.addTask textarea,
+.taskEdit textarea {
+  min-height: 66px;
+  resize: vertical;
+}
+
+.caseOperationSubmit {
+  min-height: 38px;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 0.59rem;
+  font-weight: 700;
+}
+
+.caseOperationSubmit:hover:not(:disabled) {
+  background: var(--color-surface-active);
+}
+
+.caseOperationSubmit:disabled {
+  border-color: var(--color-line);
+  color: var(--color-text-faint);
+}
+
+.caseOperationNotice {
+  padding: 7px 8px;
+  border-left: 2px solid var(--color-ok);
+  background: var(--color-surface);
+  color: var(--color-ok);
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.caseOperationNotice[data-status="error"] {
+  border-left-color: var(--color-danger);
+  color: oklch(0.84 0.09 30);
+}
+
+.taskHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 11px;
+}
+
+.taskHeading h4 {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.63rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.taskHeading span {
+  color: var(--color-text-faint);
+  font-size: 0.53rem;
+  text-transform: uppercase;
+}
+
+.caseOperations > .caseOperationNotice {
+  margin-top: 8px;
+}
+
+.taskActionGroup {
+  display: flex;
+  max-width: 132px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.taskEdit {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: -1px;
+  border-top: 1px dashed var(--color-line);
+}
+
+.taskEdit > summary {
+  min-height: 30px;
+  padding: 7px 0 7px 27px;
+  color: var(--color-text-faint);
+  font-size: 0.54rem;
+  text-transform: uppercase;
+}
+
+.taskEdit form {
+  padding: 4px 0 11px 27px;
+}
+
+.addTask {
+  border-top: 1px solid var(--color-line);
+}
+
+.caseOperationsClosed {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-text-faint);
+  font-size: 0.58rem;
+  line-height: 1.4;
+}
+
 .communicationBlock {
   margin-top: 14px;
   border-top: 1px solid var(--color-line-strong);
@@ -1320,6 +1503,13 @@
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.64rem;
+}
+
+.caseTransitionHint {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+  line-height: 1.4;
 }
 
 .caseResolution {
@@ -1815,12 +2005,20 @@
 }
 
 @media (pointer: coarse) {
+  .addTask > summary,
+  .caseCoordinationEdit > summary,
+  .caseOperationSubmit,
   .communicationActions button,
   .communicationCreate > summary,
   .communicationSubmit,
   .managementIdentityList button,
   .primaryIdentityBadge,
   .managementForm .checkField {
+    min-height: 44px;
+  }
+
+  .taskActionGroup button,
+  .taskEdit > summary {
     min-height: 44px;
   }
 }

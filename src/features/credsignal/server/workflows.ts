@@ -7,19 +7,26 @@ import {
   classifyCredentialSeverity,
   communicationStatuses,
   createCaseCommunicationInputSchema,
+  createCaseTaskInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
   normalizeIdentity,
   replaceProtecteeLocationInputSchema,
+  taskStatuses,
+  updateCaseCoordinationInputSchema,
+  updateCaseTaskInputSchema,
   updateProtecteeInputSchema,
   type AddProtecteeIdentityInput,
   type CreateCaseCommunicationInput,
+  type CreateCaseTaskInput,
   type CreateExposureInput,
   type CreateProtecteeInput,
   type ExposurePriority,
   type MatchExposureInput,
   type ReplaceProtecteeLocationInput,
+  type UpdateCaseCoordinationInput,
+  type UpdateCaseTaskInput,
   type UpdateProtecteeInput,
 } from "@/features/credsignal/domain";
 import { getCredentialCryptoConfig } from "@/lib/credentials/config";
@@ -971,6 +978,240 @@ export async function manuallyMatchExposure(
   });
 }
 
+function requireActiveCase(status: CaseStatus) {
+  if (status === "closed" || status === "dismissed") {
+    throw new CredSignalWorkflowError(
+      "Reopen the case before changing its coordination details.",
+    );
+  }
+}
+
+async function requireCaseTaskForUpdate(
+  transaction: CredSignalTransaction,
+  workspaceId: string,
+  taskId: string,
+) {
+  const [taskReference] = await transaction
+    .select({ caseId: caseTasks.caseId })
+    .from(caseTasks)
+    .innerJoin(responseCases, eq(caseTasks.caseId, responseCases.id))
+    .where(
+      and(eq(caseTasks.id, taskId), eq(responseCases.workspaceId, workspaceId)),
+    )
+    .limit(1);
+
+  if (!taskReference) {
+    throw new CredSignalNotFoundError("The remediation task no longer exists.");
+  }
+
+  const [responseCase] = await transaction
+    .select({ id: responseCases.id, status: responseCases.status })
+    .from(responseCases)
+    .where(
+      and(
+        eq(responseCases.id, taskReference.caseId),
+        eq(responseCases.workspaceId, workspaceId),
+      ),
+    )
+    .limit(1)
+    .for("update");
+  const [task] = await transaction
+    .select({
+      id: caseTasks.id,
+      caseId: caseTasks.caseId,
+      status: caseTasks.status,
+      title: caseTasks.title,
+      assigneeOperatorId: caseTasks.assigneeOperatorId,
+      dueAt: caseTasks.dueAt,
+    })
+    .from(caseTasks)
+    .where(
+      and(eq(caseTasks.id, taskId), eq(caseTasks.caseId, taskReference.caseId)),
+    )
+    .limit(1)
+    .for("update");
+
+  if (!responseCase || !task) {
+    throw new CredSignalNotFoundError("The remediation task no longer exists.");
+  }
+
+  return { caseStatus: responseCase.status, task };
+}
+
+export async function updateCaseCoordination(
+  rawInput: UpdateCaseCoordinationInput,
+  actorOperatorId?: string,
+) {
+  const input = updateCaseCoordinationInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const assignee = await resolveActor(
+    workspace.id,
+    input.assigneeOperatorId || undefined,
+  );
+
+  return database.transaction(async (transaction) => {
+    const [responseCase] = await transaction
+      .select()
+      .from(responseCases)
+      .where(
+        and(
+          eq(responseCases.id, input.caseId),
+          eq(responseCases.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!responseCase) {
+      throw new CredSignalNotFoundError("The response case no longer exists.");
+    }
+    requireActiveCase(responseCase.status);
+
+    await transaction
+      .update(responseCases)
+      .set({
+        assigneeOperatorId: assignee?.id ?? null,
+        priority: input.priority,
+        dueAt: input.dueAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(responseCases.id, responseCase.id));
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "case.coordination_updated",
+      entityType: "response_case",
+      entityId: responseCase.id,
+      summary: `Case ownership and response targets updated for ${responseCase.title}.`,
+      metadata: {
+        assigneeOperatorId: assignee?.id ?? null,
+        dueAt: input.dueAt.toISOString(),
+        previousAssigneeOperatorId: responseCase.assigneeOperatorId,
+        previousDueAt: responseCase.dueAt?.toISOString() ?? null,
+        previousPriority: responseCase.priority,
+        priority: input.priority,
+      },
+    });
+
+    return { caseId: responseCase.id };
+  });
+}
+
+export async function createCaseTask(
+  rawInput: CreateCaseTaskInput,
+  actorOperatorId?: string,
+) {
+  const input = createCaseTaskInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const assignee = await resolveActor(
+    workspace.id,
+    input.assigneeOperatorId || undefined,
+  );
+
+  return database.transaction(async (transaction) => {
+    const [responseCase] = await transaction
+      .select({
+        id: responseCases.id,
+        dueAt: responseCases.dueAt,
+        status: responseCases.status,
+        title: responseCases.title,
+      })
+      .from(responseCases)
+      .where(
+        and(
+          eq(responseCases.id, input.caseId),
+          eq(responseCases.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!responseCase) {
+      throw new CredSignalNotFoundError("The response case no longer exists.");
+    }
+    requireActiveCase(responseCase.status);
+
+    const [task] = await transaction
+      .insert(caseTasks)
+      .values({
+        caseId: responseCase.id,
+        type: input.type,
+        title: input.title,
+        assigneeOperatorId: assignee?.id,
+        dueAt: input.dueAt ?? responseCase.dueAt,
+        notes: input.notes || null,
+      })
+      .returning({ id: caseTasks.id });
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "task.created",
+      entityType: "case_task",
+      entityId: task.id,
+      summary: `${input.title} added to ${responseCase.title}.`,
+      metadata: {
+        assigneeOperatorId: assignee?.id ?? null,
+        caseId: responseCase.id,
+        dueAt: (input.dueAt ?? responseCase.dueAt)?.toISOString() ?? null,
+        type: input.type,
+      },
+    });
+
+    return { taskId: task.id, caseId: responseCase.id };
+  });
+}
+
+export async function updateCaseTask(
+  rawInput: UpdateCaseTaskInput,
+  actorOperatorId?: string,
+) {
+  const input = updateCaseTaskInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const assignee = await resolveActor(
+    workspace.id,
+    input.assigneeOperatorId || undefined,
+  );
+
+  return database.transaction(async (transaction) => {
+    const { caseStatus, task } = await requireCaseTaskForUpdate(
+      transaction,
+      workspace.id,
+      input.taskId,
+    );
+    requireActiveCase(caseStatus);
+
+    await transaction
+      .update(caseTasks)
+      .set({
+        assigneeOperatorId: assignee?.id ?? null,
+        dueAt: input.dueAt ?? null,
+        notes: input.notes || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(caseTasks.id, task.id));
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "task.coordination_updated",
+      entityType: "case_task",
+      entityId: task.id,
+      summary: `Ownership and response target updated for ${task.title}.`,
+      metadata: {
+        assigneeOperatorId: assignee?.id ?? null,
+        caseId: task.caseId,
+        dueAt: input.dueAt?.toISOString() ?? null,
+        previousAssigneeOperatorId: task.assigneeOperatorId,
+        previousDueAt: task.dueAt?.toISOString() ?? null,
+      },
+    });
+
+    return { taskId: task.id, caseId: task.caseId };
+  });
+}
+
 const caseStatusSchema = z.enum([
   "open",
   "investigating",
@@ -1002,39 +1243,55 @@ export async function transitionCase(
   const parsedStatus = caseStatusSchema.parse(nextStatus);
   const { database, workspace } = await getLocalWorkspace();
   const actor = await resolveActor(workspace.id, actorOperatorId);
-  const [responseCase] = await database
-    .select()
-    .from(responseCases)
-    .where(
-      and(
-        eq(responseCases.id, parsedCaseId),
-        eq(responseCases.workspaceId, workspace.id),
-      ),
-    )
-    .limit(1);
-
-  if (!responseCase) {
-    throw new CredSignalNotFoundError("The response case no longer exists.");
-  }
-  if (responseCase.status === parsedStatus) {
-    return;
-  }
-  if (!allowedCaseTransitions[responseCase.status].includes(parsedStatus)) {
-    throw new CredSignalWorkflowError(
-      `A ${responseCase.status} case cannot move directly to ${parsedStatus}.`,
-    );
-  }
   const trimmedResolution = resolution?.trim();
-  if (
-    (parsedStatus === "closed" || parsedStatus === "dismissed") &&
-    !trimmedResolution
-  ) {
-    throw new CredSignalWorkflowError(
-      "A resolution is required before closing or dismissing a case.",
-    );
-  }
 
-  await database.transaction(async (transaction) => {
+  return database.transaction(async (transaction) => {
+    const [responseCase] = await transaction
+      .select()
+      .from(responseCases)
+      .where(
+        and(
+          eq(responseCases.id, parsedCaseId),
+          eq(responseCases.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!responseCase) {
+      throw new CredSignalNotFoundError("The response case no longer exists.");
+    }
+    if (responseCase.status === parsedStatus) {
+      return { caseId: responseCase.id };
+    }
+    if (!allowedCaseTransitions[responseCase.status].includes(parsedStatus)) {
+      throw new CredSignalWorkflowError(
+        `A ${responseCase.status} case cannot move directly to ${parsedStatus}.`,
+      );
+    }
+    if (
+      (parsedStatus === "closed" || parsedStatus === "dismissed") &&
+      !trimmedResolution
+    ) {
+      throw new CredSignalWorkflowError(
+        "A resolution is required before closing or dismissing a case.",
+      );
+    }
+
+    const taskRows = await transaction
+      .select({ id: caseTasks.id, status: caseTasks.status })
+      .from(caseTasks)
+      .where(eq(caseTasks.caseId, responseCase.id));
+    const activeTasks = taskRows.filter(
+      (task) => task.status !== "completed" && task.status !== "cancelled",
+    );
+    if (parsedStatus === "closed" && activeTasks.length > 0) {
+      throw new CredSignalWorkflowError(
+        `Complete or cancel ${activeTasks.length === 1 ? "the remaining task" : `all ${activeTasks.length} remaining tasks`} before closing this case.`,
+      );
+    }
+
+    const now = new Date();
     await transaction
       .update(responseCases)
       .set({
@@ -1042,11 +1299,23 @@ export async function transitionCase(
         resolution: trimmedResolution || null,
         closedAt:
           parsedStatus === "closed" || parsedStatus === "dismissed"
-            ? new Date()
+            ? now
             : null,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(responseCases.id, responseCase.id));
+
+    if (parsedStatus === "dismissed" && activeTasks.length > 0) {
+      await transaction
+        .update(caseTasks)
+        .set({ status: "cancelled", completedAt: null, updatedAt: now })
+        .where(
+          inArray(
+            caseTasks.id,
+            activeTasks.map((task) => task.id),
+          ),
+        );
+    }
     const attachedExposures = await transaction
       .select({ exposureId: caseExposures.exposureId })
       .from(caseExposures)
@@ -1062,7 +1331,7 @@ export async function transitionCase(
               : parsedStatus === "dismissed"
                 ? "dismissed"
                 : "in_case",
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(
           inArray(
@@ -1080,19 +1349,26 @@ export async function transitionCase(
       summary: `Case moved from ${responseCase.status} to ${parsedStatus}.`,
       metadata: {
         from: responseCase.status,
+        cancelledTaskCount:
+          parsedStatus === "dismissed" ? activeTasks.length : 0,
         resolution: trimmedResolution,
         to: parsedStatus,
       },
     });
+
+    return { caseId: responseCase.id };
   });
 }
 
-const taskStatusSchema = z.enum([
-  "todo",
-  "in_progress",
-  "completed",
-  "cancelled",
-]);
+type TaskStatus = (typeof taskStatuses)[number];
+
+const taskStatusSchema = z.enum(taskStatuses);
+const allowedTaskTransitions: Record<TaskStatus, TaskStatus[]> = {
+  todo: ["in_progress", "completed", "cancelled"],
+  in_progress: ["todo", "completed", "cancelled"],
+  completed: ["in_progress"],
+  cancelled: ["todo"],
+};
 
 export async function transitionTask(
   taskId: string,
@@ -1103,36 +1379,38 @@ export async function transitionTask(
   const parsedStatus = taskStatusSchema.parse(nextStatus);
   const { database, workspace } = await getLocalWorkspace();
   const actor = await resolveActor(workspace.id, actorOperatorId);
-  const [task] = await database
-    .select({
-      id: caseTasks.id,
-      caseId: caseTasks.caseId,
-      status: caseTasks.status,
-      title: caseTasks.title,
-    })
-    .from(caseTasks)
-    .innerJoin(responseCases, eq(caseTasks.caseId, responseCases.id))
-    .where(
-      and(
-        eq(caseTasks.id, parsedTaskId),
-        eq(responseCases.workspaceId, workspace.id),
-      ),
-    )
-    .limit(1);
 
-  if (!task) {
-    throw new CredSignalNotFoundError("The remediation task no longer exists.");
-  }
+  return database.transaction(async (transaction) => {
+    const { caseStatus, task } = await requireCaseTaskForUpdate(
+      transaction,
+      workspace.id,
+      parsedTaskId,
+    );
+    requireActiveCase(caseStatus);
+    if (task.status === parsedStatus) {
+      return { taskId: task.id, caseId: task.caseId };
+    }
+    if (!allowedTaskTransitions[task.status].includes(parsedStatus)) {
+      throw new CredSignalWorkflowError(
+        `A ${task.status.replaceAll("_", " ")} task cannot move directly to ${parsedStatus.replaceAll("_", " ")}.`,
+      );
+    }
 
-  await database.transaction(async (transaction) => {
-    await transaction
+    const [updatedTask] = await transaction
       .update(caseTasks)
       .set({
         status: parsedStatus,
         completedAt: parsedStatus === "completed" ? new Date() : null,
         updatedAt: new Date(),
       })
-      .where(eq(caseTasks.id, task.id));
+      .where(and(eq(caseTasks.id, task.id), eq(caseTasks.status, task.status)))
+      .returning({ id: caseTasks.id });
+
+    if (!updatedTask) {
+      throw new CredSignalConflictError(
+        "Another analyst updated this task before this change was saved.",
+      );
+    }
     await transaction.insert(activityLog).values({
       workspaceId: workspace.id,
       actorOperatorId: actor?.id,
@@ -1142,6 +1420,8 @@ export async function transitionTask(
       summary: `${task.title} moved from ${task.status} to ${parsedStatus}.`,
       metadata: { caseId: task.caseId, from: task.status, to: parsedStatus },
     });
+
+    return { taskId: task.id, caseId: task.caseId };
   });
 }
 
