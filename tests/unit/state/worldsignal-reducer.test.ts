@@ -9,6 +9,7 @@ import {
   earthquakeFixture,
   eventBatchFixture,
 } from "../../fixtures/events";
+import { gdacsGeometryFixture } from "../../fixtures/gdacs-geometry";
 
 describe("WorldSignal reducer refresh flow", () => {
   it("does not mutate state for a duplicate refresh submission", () => {
@@ -115,5 +116,67 @@ describe("WorldSignal reducer refresh flow", () => {
 
     expect(refreshed.selectedEventId).toBeUndefined();
     expect(refreshed.selectionNotice).toMatch(/not present/i);
+  });
+});
+
+describe("WorldSignal reducer geometry flow", () => {
+  it("accepts geometry only for the currently selected event", () => {
+    const selected = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "selection/set",
+      eventId: cycloneFixture.id,
+    });
+    const loading = worldSignalReducer(selected, {
+      type: "geometry/requested",
+      eventId: cycloneFixture.id,
+    });
+    const stale = worldSignalReducer(loading, {
+      type: "geometry/succeeded",
+      eventId: earthquakeFixture.id,
+      geometry: gdacsGeometryFixture,
+    });
+    const ready = worldSignalReducer(stale, {
+      type: "geometry/succeeded",
+      eventId: cycloneFixture.id,
+      geometry: gdacsGeometryFixture,
+    });
+
+    expect(loading.geometryState).toBe("loading");
+    expect(stale).toBe(loading);
+    expect(ready.geometryState).toBe("ready");
+    expect(ready.selectedGeometry).toBe(gdacsGeometryFixture);
+  });
+
+  it("records a safe geometry error and enables an explicit retry", () => {
+    const selected = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "selection/set",
+      eventId: cycloneFixture.id,
+    });
+    const failed = worldSignalReducer(selected, {
+      type: "geometry/failed",
+      eventId: cycloneFixture.id,
+      message: "Detailed geometry is unavailable for this event.",
+    });
+    const retry = worldSignalReducer(failed, { type: "geometry/retry" });
+
+    expect(failed.geometryState).toBe("error");
+    expect(failed.geometryError).toMatch(/unavailable/i);
+    expect(retry.geometryState).toBe("idle");
+    expect(retry.geometryRequestVersion).toBe(1);
+  });
+
+  it("ignores geometry completion after selection is cleared", () => {
+    const selected = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "selection/set",
+      eventId: cycloneFixture.id,
+    });
+    const cleared = worldSignalReducer(selected, { type: "selection/clear" });
+    const stale = worldSignalReducer(cleared, {
+      type: "geometry/succeeded",
+      eventId: cycloneFixture.id,
+      geometry: gdacsGeometryFixture,
+    });
+
+    expect(stale).toBe(cleared);
+    expect(stale.selectedGeometry).toBeUndefined();
   });
 });

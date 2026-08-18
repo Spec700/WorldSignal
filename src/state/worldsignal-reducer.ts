@@ -28,6 +28,8 @@ export interface WorldSignalState {
   selectedEventId?: string;
   selectedGeometry?: GdacsGeometryCollection;
   geometryState: "idle" | "loading" | "ready" | "error";
+  geometryError?: string;
+  geometryRequestVersion: number;
   refreshState: "idle" | "loading" | "error";
   refreshError?: string;
   latestSourceHealth: SourceHealth[];
@@ -47,6 +49,14 @@ export type WorldSignalAction =
     }
   | { type: "selection/set"; eventId: string }
   | { type: "selection/clear" }
+  | { type: "geometry/requested"; eventId: string }
+  | {
+      type: "geometry/succeeded";
+      eventId: string;
+      geometry: GdacsGeometryCollection;
+    }
+  | { type: "geometry/failed"; eventId: string; message: string }
+  | { type: "geometry/retry" }
   | { type: "filters/query-set"; query: string }
   | { type: "filters/window-set"; window: EventFilters["window"] };
 
@@ -55,6 +65,7 @@ export function createInitialWorldSignalState(): WorldSignalState {
     batchFreshness: "none",
     previousEventsById: new Map(),
     geometryState: "idle",
+    geometryRequestVersion: 0,
     refreshState: "idle",
     latestSourceHealth: [],
     filters: {
@@ -127,6 +138,7 @@ export function worldSignalReducer(
           : undefined,
         selectedGeometry: undefined,
         geometryState: "idle",
+        geometryError: undefined,
         refreshState: "idle",
         refreshError: undefined,
         latestSourceHealth: action.batch.sources,
@@ -159,6 +171,7 @@ export function worldSignalReducer(
         selectedEventId: action.eventId,
         selectedGeometry: undefined,
         geometryState: "idle",
+        geometryError: undefined,
         selectionNotice: undefined,
       };
 
@@ -168,7 +181,53 @@ export function worldSignalReducer(
         selectedEventId: undefined,
         selectedGeometry: undefined,
         geometryState: "idle",
+        geometryError: undefined,
         selectionNotice: undefined,
+      };
+
+    case "geometry/requested":
+      if (state.selectedEventId !== action.eventId) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedGeometry: undefined,
+        geometryState: "loading",
+        geometryError: undefined,
+      };
+
+    case "geometry/succeeded":
+      if (state.selectedEventId !== action.eventId) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedGeometry: action.geometry,
+        geometryState: "ready",
+        geometryError: undefined,
+      };
+
+    case "geometry/failed":
+      if (state.selectedEventId !== action.eventId) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedGeometry: undefined,
+        geometryState: "error",
+        geometryError: action.message,
+      };
+
+    case "geometry/retry":
+      if (!state.selectedEventId || state.geometryState === "loading") {
+        return state;
+      }
+      return {
+        ...state,
+        selectedGeometry: undefined,
+        geometryState: "idle",
+        geometryError: undefined,
+        geometryRequestVersion: state.geometryRequestVersion + 1,
       };
 
     case "filters/query-set":
