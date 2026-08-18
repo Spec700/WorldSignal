@@ -1029,6 +1029,272 @@
   opacity: 0.66;
 }
 
+.communicationBlock {
+  margin-top: 14px;
+  border-top: 1px solid var(--color-line-strong);
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.communicationHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.communicationHeading h4 {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communicationHeading small,
+.communicationHeading > span {
+  color: var(--color-text-faint);
+  font-size: 0.54rem;
+}
+
+.communicationHeading small {
+  display: block;
+  margin-top: 2px;
+}
+
+.communicationHeading > span {
+  flex: 0 0 auto;
+  text-transform: uppercase;
+}
+
+.communicationNotice {
+  margin-bottom: 9px;
+  padding: 7px 8px;
+  border-left: 2px solid var(--color-ok);
+  background: var(--color-surface);
+  color: var(--color-ok);
+  font-size: 0.59rem;
+  line-height: 1.35;
+}
+
+.communicationNotice[data-status="error"] {
+  border-left-color: var(--color-danger);
+  color: oklch(0.84 0.09 30);
+}
+
+.communicationLedger {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.communicationLedger > article {
+  padding: 9px;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+
+.communicationLedger article > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.communicationLedger article > header span,
+.communicationLedger article > header small {
+  color: var(--color-text-faint);
+  font-size: 0.53rem;
+  text-transform: uppercase;
+}
+
+.communicationLedger article > header span {
+  padding: 3px 5px;
+  border: 1px solid var(--color-line-strong);
+}
+
+.communicationLedger article > header span[data-status="sent"],
+.communicationLedger article > header span[data-status="acknowledged"] {
+  border-color: var(--color-ok);
+  color: var(--color-ok);
+}
+
+.communicationLedger article > header span[data-status="failed"] {
+  border-color: var(--color-danger);
+  color: oklch(0.84 0.09 30);
+}
+
+.communicationLedger article > header strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.63rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.communicationSubject {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.61rem;
+  line-height: 1.35;
+}
+
+.communicationNotes {
+  margin-top: 7px;
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+}
+
+.communicationNotes summary,
+.communicationCreate > summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.communicationNotes p {
+  margin: 7px 0 0;
+  padding-left: 9px;
+  border-left: 1px solid var(--color-line-strong);
+  color: var(--color-text-muted);
+  font-size: 0.59rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.communicationTimes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 8px 0 0;
+}
+
+.communicationTimes div {
+  display: flex;
+  gap: 4px;
+}
+
+.communicationTimes dt,
+.communicationTimes dd {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: 0.52rem;
+}
+
+.communicationTimes dd {
+  color: var(--color-text-muted);
+}
+
+.communicationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.communicationActions button,
+.communicationSubmit {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.56rem;
+}
+
+.communicationActions button:hover:not(:disabled),
+.communicationSubmit:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.communicationActions button:disabled,
+.communicationSubmit:disabled {
+  color: var(--color-text-faint);
+}
+
+.communicationEmpty,
+.communicationClosedNotice {
+  margin: 0;
+  padding: 0 0 10px;
+  color: var(--color-text-faint);
+  font-size: 0.59rem;
+  line-height: 1.4;
+}
+
+.communicationClosedNotice {
+  padding-top: 9px;
+  border-top: 1px solid var(--color-line);
+}
+
+.communicationCreate {
+  border-top: 1px solid var(--color-line);
+}
+
+.communicationCreate > summary {
+  min-height: 36px;
+  padding: 10px 0;
+  color: var(--color-accent-strong);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.communicationCreate form {
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 10px;
+}
+
+.communicationCreate label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.communicationCreate label > span:first-child {
+  color: var(--color-text-muted);
+  font-size: 0.58rem;
+}
+
+.communicationCreate input,
+.communicationCreate select,
+.communicationCreate textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.63rem;
+}
+
+.communicationCreate textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.communicationCreate input::placeholder,
+.communicationCreate textarea::placeholder {
+  color: var(--color-text-faint);
+  opacity: 1;
+}
+
+.communicationFormHint {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: 0.55rem;
+  line-height: 1.4;
+}
+
+.communicationSubmit {
+  min-height: 38px;
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+}
+
 .caseTransition {
   display: grid;
   gap: 8px;
@@ -1549,6 +1815,9 @@
 }
 
 @media (pointer: coarse) {
+  .communicationActions button,
+  .communicationCreate > summary,
+  .communicationSubmit,
   .managementIdentityList button,
   .primaryIdentityBadge,
   .managementForm .checkField {

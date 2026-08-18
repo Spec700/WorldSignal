@@ -5,6 +5,8 @@ import {
   addProtecteeIdentityInputSchema,
   buildExposureDedupeKey,
   classifyCredentialSeverity,
+  communicationStatuses,
+  createCaseCommunicationInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
@@ -12,6 +14,7 @@ import {
   replaceProtecteeLocationInputSchema,
   updateProtecteeInputSchema,
   type AddProtecteeIdentityInput,
+  type CreateCaseCommunicationInput,
   type CreateExposureInput,
   type CreateProtecteeInput,
   type ExposurePriority,
@@ -30,6 +33,7 @@ import {
   activityLog,
   caseExposures,
   caseTasks,
+  communications,
   credentialExposures,
   exposureMatches,
   exposureSources,
@@ -1138,6 +1142,173 @@ export async function transitionTask(
       summary: `${task.title} moved from ${task.status} to ${parsedStatus}.`,
       metadata: { caseId: task.caseId, from: task.status, to: parsedStatus },
     });
+  });
+}
+
+type CommunicationStatus = (typeof communicationStatuses)[number];
+
+const communicationStatusSchema = z.enum(communicationStatuses);
+const allowedCommunicationTransitions: Record<
+  CommunicationStatus,
+  CommunicationStatus[]
+> = {
+  draft: ["planned", "sent"],
+  planned: ["draft", "sent", "failed"],
+  sent: ["acknowledged", "failed"],
+  acknowledged: [],
+  failed: ["planned", "sent"],
+};
+
+export async function createCaseCommunication(
+  rawInput: CreateCaseCommunicationInput,
+  actorOperatorId?: string,
+) {
+  const input = createCaseCommunicationInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+
+  return database.transaction(async (transaction) => {
+    const [responseCase] = await transaction
+      .select({ id: responseCases.id, status: responseCases.status })
+      .from(responseCases)
+      .where(
+        and(
+          eq(responseCases.id, input.caseId),
+          eq(responseCases.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!responseCase) {
+      throw new CredSignalNotFoundError("The response case no longer exists.");
+    }
+    if (
+      responseCase.status === "closed" ||
+      responseCase.status === "dismissed"
+    ) {
+      throw new CredSignalWorkflowError(
+        "Reopen the case before adding a communication record.",
+      );
+    }
+
+    const [communication] = await transaction
+      .insert(communications)
+      .values({
+        caseId: responseCase.id,
+        channel: input.channel,
+        status: input.status,
+        recipientLabel: input.recipientLabel,
+        subject: input.subject || null,
+        body: input.body || null,
+        createdByOperatorId: actor?.id,
+      })
+      .returning({ id: communications.id });
+
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "communication.created",
+      entityType: "communication",
+      entityId: communication.id,
+      summary: `${input.channel.replaceAll("_", " ")} communication ${input.status} for ${input.recipientLabel}.`,
+      metadata: {
+        caseId: responseCase.id,
+        channel: input.channel,
+        status: input.status,
+      },
+    });
+
+    return { communicationId: communication.id, caseId: responseCase.id };
+  });
+}
+
+export async function transitionCaseCommunication(
+  communicationId: string,
+  nextStatus: CommunicationStatus,
+  actorOperatorId?: string,
+) {
+  const parsedCommunicationId = z.string().uuid().parse(communicationId);
+  const parsedStatus = communicationStatusSchema.parse(nextStatus);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const [communication] = await database
+    .select({
+      id: communications.id,
+      caseId: communications.caseId,
+      recipientLabel: communications.recipientLabel,
+      status: communications.status,
+      sentAt: communications.sentAt,
+      acknowledgedAt: communications.acknowledgedAt,
+    })
+    .from(communications)
+    .innerJoin(responseCases, eq(communications.caseId, responseCases.id))
+    .where(
+      and(
+        eq(communications.id, parsedCommunicationId),
+        eq(responseCases.workspaceId, workspace.id),
+      ),
+    )
+    .limit(1);
+
+  if (!communication) {
+    throw new CredSignalNotFoundError(
+      "The communication record no longer exists.",
+    );
+  }
+  if (communication.status === parsedStatus) {
+    return { communicationId: communication.id, caseId: communication.caseId };
+  }
+  if (
+    !allowedCommunicationTransitions[communication.status].includes(
+      parsedStatus,
+    )
+  ) {
+    throw new CredSignalWorkflowError(
+      `A ${communication.status} communication cannot move directly to ${parsedStatus}.`,
+    );
+  }
+
+  const now = new Date();
+  return database.transaction(async (transaction) => {
+    const [updatedCommunication] = await transaction
+      .update(communications)
+      .set({
+        status: parsedStatus,
+        sentAt: parsedStatus === "sent" ? now : communication.sentAt,
+        acknowledgedAt:
+          parsedStatus === "acknowledged" ? now : communication.acknowledgedAt,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(communications.id, communication.id),
+          eq(communications.status, communication.status),
+        ),
+      )
+      .returning({ id: communications.id });
+
+    if (!updatedCommunication) {
+      throw new CredSignalConflictError(
+        "Another analyst updated this communication before this change was saved.",
+      );
+    }
+
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "communication.status_changed",
+      entityType: "communication",
+      entityId: communication.id,
+      summary: `Communication for ${communication.recipientLabel} moved from ${communication.status} to ${parsedStatus}.`,
+      metadata: {
+        caseId: communication.caseId,
+        from: communication.status,
+        to: parsedStatus,
+      },
+    });
+
+    return { communicationId: communication.id, caseId: communication.caseId };
   });
 }
 

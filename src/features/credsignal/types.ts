@@ -72,6 +72,18 @@ export interface CredSignalTaskDto {
   completedAt?: string;
 }
 
+export interface CredSignalCommunicationDto {
+  id: string;
+  channel: "email" | "phone" | "chat" | "in_person" | "other";
+  status: "draft" | "planned" | "sent" | "acknowledged" | "failed";
+  recipientLabel: string;
+  subject?: string;
+  body?: string;
+  sentAt?: string;
+  acknowledgedAt?: string;
+  createdAt: string;
+}
+
 export interface CredSignalCaseDto {
   id: string;
   title: string;
@@ -92,6 +104,7 @@ export interface CredSignalCaseDto {
   resolution?: string;
   exposureIds: string[];
   tasks: CredSignalTaskDto[];
+  communications: CredSignalCommunicationDto[];
 }
 
 export interface CredSignalProtecteeDto {

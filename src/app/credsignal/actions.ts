@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import {
   addProtecteeIdentityInputSchema,
+  communicationStatuses,
+  createCaseCommunicationInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
@@ -14,6 +16,7 @@ import {
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import {
   addProtecteeIdentity,
+  createCaseCommunication,
   createExposure,
   createProtectee,
   CredSignalWorkflowError,
@@ -23,6 +26,7 @@ import {
   revealCredential,
   setPrimaryProtecteeIdentity,
   transitionCase,
+  transitionCaseCommunication,
   transitionTask,
   updateProtectee,
 } from "@/features/credsignal/server/workflows";
@@ -282,6 +286,56 @@ export async function transitionTaskAction(
     );
     revalidatePath("/credsignal");
     return { status: "success", message: "Task status updated." };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function createCaseCommunicationAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = createCaseCommunicationInputSchema.parse({
+      caseId: textValue(formData, "caseId"),
+      channel: textValue(formData, "channel"),
+      recipientLabel: textValue(formData, "recipientLabel"),
+      subject: textValue(formData, "subject"),
+      body: textValue(formData, "body"),
+      status: textValue(formData, "status"),
+    });
+    const result = await createCaseCommunication(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: `Communication record saved as ${input.status}.`,
+      createdId: result.communicationId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function transitionCaseCommunicationAction(
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const status = z
+      .enum(communicationStatuses)
+      .parse(textValue(formData, "status"));
+    await transitionCaseCommunication(
+      textValue(formData, "communicationId"),
+      status,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: `Communication recorded as ${status}.`,
+    };
   } catch (error) {
     return actionError(error);
   }

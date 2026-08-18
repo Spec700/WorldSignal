@@ -1,6 +1,7 @@
 import {
   buildExposureDedupeKey,
   classifyCredentialSeverity,
+  createCaseCommunicationInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
@@ -102,5 +103,28 @@ describe("CredSignal domain rules", () => {
         reason: "Source context confirms this alias belongs to the protectee.",
       }).success,
     ).toBe(true);
+  });
+
+  it("accepts only unsent states when logging a new communication", () => {
+    const input = {
+      caseId: "50000000-0000-4000-8000-000000000001",
+      channel: "email",
+      recipientLabel: "Jordan Kim",
+      subject: "Credential response",
+      body: "Contact through the approved channel.",
+    };
+
+    expect(
+      createCaseCommunicationInputSchema.safeParse({
+        ...input,
+        status: "planned",
+      }).success,
+    ).toBe(true);
+    expect(
+      createCaseCommunicationInputSchema.safeParse({
+        ...input,
+        status: "sent",
+      }).success,
+    ).toBe(false);
   });
 });

@@ -17,6 +17,8 @@ import { formatLocalTimestamp } from "@/lib/time/format";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
+import { CredSignalCommunications } from "./credsignal-communications";
+
 export type CredSignalDossierTab = "overview" | "exposures" | "cases";
 
 interface CredSignalDossierProps {
@@ -430,6 +432,10 @@ export function CredSignalDossier({
                         </div>
                       ))}
                     </div>
+                    <CredSignalCommunications
+                      activeOperatorId={activeOperatorId}
+                      responseCase={responseCase}
+                    />
                     <form
                       action={async (formData) =>
                         runMutation(responseCase.id, () =>

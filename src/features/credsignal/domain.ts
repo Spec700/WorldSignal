@@ -30,6 +30,20 @@ export const exposureSourceTypes = [
 ] as const;
 export const priorities = ["low", "medium", "high", "critical"] as const;
 export const confidences = ["low", "medium", "high", "confirmed"] as const;
+export const communicationChannels = [
+  "email",
+  "phone",
+  "chat",
+  "in_person",
+  "other",
+] as const;
+export const communicationStatuses = [
+  "draft",
+  "planned",
+  "sent",
+  "acknowledged",
+  "failed",
+] as const;
 
 export type IdentityType = (typeof identityTypes)[number];
 export type CredentialKind = (typeof credentialKinds)[number];
@@ -131,6 +145,15 @@ export const replaceProtecteeLocationInputSchema = z.object({
   precision: z.enum(["exact", "city", "region", "country"]),
 });
 
+export const createCaseCommunicationInputSchema = z.object({
+  caseId: z.string().uuid(),
+  channel: z.enum(communicationChannels),
+  recipientLabel: trimmedText("Recipient", 200),
+  subject: z.string().trim().max(320).optional().default(""),
+  body: z.string().trim().max(10_000).optional().default(""),
+  status: z.enum(["draft", "planned"]).default("draft"),
+});
+
 export type CreateProtecteeInput = z.infer<typeof createProtecteeInputSchema>;
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;
 export type MatchExposureInput = z.infer<typeof matchExposureInputSchema>;
@@ -140,6 +163,9 @@ export type AddProtecteeIdentityInput = z.infer<
 >;
 export type ReplaceProtecteeLocationInput = z.infer<
   typeof replaceProtecteeLocationInputSchema
+>;
+export type CreateCaseCommunicationInput = z.infer<
+  typeof createCaseCommunicationInputSchema
 >;
 
 export function normalizeIdentity(type: IdentityType, value: string): string {

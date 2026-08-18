@@ -5,6 +5,7 @@ import { eq, inArray } from "drizzle-orm";
 import { getCredSignalDashboard } from "@/features/credsignal/server/dashboard";
 import {
   addProtecteeIdentity,
+  createCaseCommunication,
   createExposure,
   createProtectee,
   CredSignalConflictError,
@@ -15,6 +16,7 @@ import {
   revealCredential,
   setPrimaryProtecteeIdentity,
   transitionCase,
+  transitionCaseCommunication,
   transitionTask,
   updateProtectee,
 } from "@/features/credsignal/server/workflows";
@@ -136,6 +138,35 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       "INTEGRATION-ONLY-SESSION-TOKEN",
     );
 
+    const communication = await createCaseCommunication(
+      {
+        caseId: responseCase!.id,
+        channel: "phone",
+        recipientLabel: "Integration Protectee",
+        subject: "Credential response coordination",
+        body: "Synthetic notification record for integration testing.",
+        status: "planned",
+      },
+      operatorId,
+    );
+    await transitionCaseCommunication(
+      communication.communicationId,
+      "sent",
+      operatorId,
+    );
+    await transitionCaseCommunication(
+      communication.communicationId,
+      "acknowledged",
+      operatorId,
+    );
+    await expect(
+      transitionCaseCommunication(
+        communication.communicationId,
+        "planned",
+        operatorId,
+      ),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+
     await transitionTask(task!.id, "completed", operatorId);
     await transitionCase(
       responseCase!.id,
@@ -167,11 +198,39 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       closedProtectee?.cases[0]?.tasks.find((entry) => entry.id === task!.id)
         ?.status,
     ).toBe("completed");
+    expect(closedProtectee?.cases[0]?.communications[0]).toMatchObject({
+      id: communication.communicationId,
+      channel: "phone",
+      recipientLabel: "Integration Protectee",
+      status: "acknowledged",
+    });
+    expect(closedProtectee?.cases[0]?.communications[0]?.sentAt).toBeDefined();
+    expect(
+      closedProtectee?.cases[0]?.communications[0]?.acknowledgedAt,
+    ).toBeDefined();
     expect(
       closedDashboard.recentActivity.some(
         (activity) => activity.action === "credential.revealed",
       ),
     ).toBe(true);
+    expect(
+      closedDashboard.recentActivity.some(
+        (activity) => activity.action === "communication.status_changed",
+      ),
+    ).toBe(true);
+    await expect(
+      createCaseCommunication(
+        {
+          caseId: responseCase!.id,
+          channel: "email",
+          recipientLabel: "Integration Protectee",
+          subject: "Closed case notification",
+          body: "This must not be added to a closed case.",
+          status: "draft",
+        },
+        operatorId,
+      ),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
   });
 
   it("moves an unmatched exposure into a manually confirmed protectee case", async () => {

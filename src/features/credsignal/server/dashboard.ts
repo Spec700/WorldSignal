@@ -12,6 +12,7 @@ import {
   activityLog,
   caseExposures,
   caseTasks,
+  communications,
   credentialExposures,
   exposureMatches,
   exposureSources,
@@ -126,40 +127,52 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
   const protecteeIds = protecteeRows.map((protectee) => protectee.id);
   const exposureIds = exposureRows.map((exposure) => exposure.id);
   const caseIds = caseRows.map((responseCase) => responseCase.id);
-  const [locationRows, matchRows, caseExposureRows, taskRows] =
-    await Promise.all([
-      protecteeIds.length > 0
-        ? database
-            .select()
-            .from(protecteeLocations)
-            .where(
-              and(
-                inArray(protecteeLocations.protecteeId, protecteeIds),
-                eq(protecteeLocations.isActive, true),
-              ),
-            )
-            .orderBy(desc(protecteeLocations.effectiveFrom))
-        : [],
-      exposureIds.length > 0
-        ? database
-            .select()
-            .from(exposureMatches)
-            .where(inArray(exposureMatches.exposureId, exposureIds))
-        : [],
-      caseIds.length > 0
-        ? database
-            .select()
-            .from(caseExposures)
-            .where(inArray(caseExposures.caseId, caseIds))
-        : [],
-      caseIds.length > 0
-        ? database
-            .select()
-            .from(caseTasks)
-            .where(inArray(caseTasks.caseId, caseIds))
-            .orderBy(asc(caseTasks.dueAt))
-        : [],
-    ]);
+  const [
+    locationRows,
+    matchRows,
+    caseExposureRows,
+    taskRows,
+    communicationRows,
+  ] = await Promise.all([
+    protecteeIds.length > 0
+      ? database
+          .select()
+          .from(protecteeLocations)
+          .where(
+            and(
+              inArray(protecteeLocations.protecteeId, protecteeIds),
+              eq(protecteeLocations.isActive, true),
+            ),
+          )
+          .orderBy(desc(protecteeLocations.effectiveFrom))
+      : [],
+    exposureIds.length > 0
+      ? database
+          .select()
+          .from(exposureMatches)
+          .where(inArray(exposureMatches.exposureId, exposureIds))
+      : [],
+    caseIds.length > 0
+      ? database
+          .select()
+          .from(caseExposures)
+          .where(inArray(caseExposures.caseId, caseIds))
+      : [],
+    caseIds.length > 0
+      ? database
+          .select()
+          .from(caseTasks)
+          .where(inArray(caseTasks.caseId, caseIds))
+          .orderBy(asc(caseTasks.dueAt))
+      : [],
+    caseIds.length > 0
+      ? database
+          .select()
+          .from(communications)
+          .where(inArray(communications.caseId, caseIds))
+          .orderBy(desc(communications.createdAt))
+      : [],
+  ]);
 
   const operatorNameById = new Map(
     operatorRows.map((operator) => [operator.id, operator.displayName]),
@@ -222,6 +235,19 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
           : undefined,
         dueAt: task.dueAt?.toISOString(),
         completedAt: task.completedAt?.toISOString(),
+      })),
+    communications: communicationRows
+      .filter((communication) => communication.caseId === responseCase.id)
+      .map((communication) => ({
+        id: communication.id,
+        channel: communication.channel,
+        status: communication.status,
+        recipientLabel: communication.recipientLabel,
+        subject: communication.subject ?? undefined,
+        body: communication.body ?? undefined,
+        sentAt: communication.sentAt?.toISOString(),
+        acknowledgedAt: communication.acknowledgedAt?.toISOString(),
+        createdAt: communication.createdAt.toISOString(),
       })),
   }));
 
