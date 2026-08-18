@@ -210,8 +210,9 @@ function ExposureForm({
     setSelectedProtecteeId(protecteeId);
     const protectee = protectees.find((entry) => entry.id === protecteeId);
     const identity =
-      protectee?.identities.find((entry) => entry.isPrimary) ??
-      protectee?.identities[0];
+      protectee?.identities.find(
+        (entry) => entry.isPrimary && entry.isActive,
+      ) ?? protectee?.identities.find((entry) => entry.isActive);
     if (identity) {
       setIdentityType(identity.type);
       setIdentityValue(identity.displayValue);

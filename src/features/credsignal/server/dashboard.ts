@@ -273,6 +273,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
             type: identity.type,
             displayValue: identity.displayValue,
             isPrimary: identity.isPrimary,
+            isActive: identity.isActive,
           })),
         location: locationRows.find(
           (location) => location.protecteeId === protectee.id,

@@ -194,12 +194,14 @@ export function CredSignalTriage({
                     ? "Select an approved identity"
                     : "Select a protectee first"}
                 </option>
-                {selectedProtectee?.identities.map((identity) => (
-                  <option key={identity.id} value={identity.id}>
-                    {titleCase(identity.type)} · {identity.displayValue}
-                    {identity.isPrimary ? " · Primary" : ""}
-                  </option>
-                ))}
+                {selectedProtectee?.identities
+                  .filter((identity) => identity.isActive)
+                  .map((identity) => (
+                    <option key={identity.id} value={identity.id}>
+                      {titleCase(identity.type)} · {identity.displayValue}
+                      {identity.isPrimary ? " · Primary" : ""}
+                    </option>
+                  ))}
               </select>
               <FieldError field="identityId" state={state} />
             </label>

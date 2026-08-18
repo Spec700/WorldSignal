@@ -12,6 +12,7 @@ export interface CredSignalIdentityDto {
     "work_email" | "personal_email" | "username" | "phone" | "domain" | "other";
   displayValue: string;
   isPrimary: boolean;
+  isActive: boolean;
 }
 
 export interface CredSignalLocationDto {

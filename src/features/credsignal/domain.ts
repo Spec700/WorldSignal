@@ -99,9 +99,48 @@ export const matchExposureInputSchema = z.object({
   reason: trimmedText("Match rationale", 1_000),
 });
 
+export const updateProtecteeInputSchema = z.object({
+  protecteeId: z.string().uuid(),
+  displayName: trimmedText("Protectee name", 160),
+  title: z.string().trim().max(160).optional().default(""),
+  organization: z.string().trim().max(200).optional().default(""),
+  tier: z.enum(protecteeTiers),
+  status: z.enum(["active", "paused", "archived"]),
+});
+
+export const addProtecteeIdentityInputSchema = z.object({
+  protecteeId: z.string().uuid(),
+  type: z.enum(identityTypes),
+  value: trimmedText("Identity", 320),
+  makePrimary: z.boolean().default(false),
+});
+
+export const replaceProtecteeLocationInputSchema = z.object({
+  protecteeId: z.string().uuid(),
+  label: trimmedText("Location label", 160),
+  latitude: z.coerce
+    .number()
+    .finite()
+    .min(-90, "Latitude must be between -90 and 90.")
+    .max(90, "Latitude must be between -90 and 90."),
+  longitude: z.coerce
+    .number()
+    .finite()
+    .min(-180, "Longitude must be between -180 and 180.")
+    .max(180, "Longitude must be between -180 and 180."),
+  precision: z.enum(["exact", "city", "region", "country"]),
+});
+
 export type CreateProtecteeInput = z.infer<typeof createProtecteeInputSchema>;
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;
 export type MatchExposureInput = z.infer<typeof matchExposureInputSchema>;
+export type UpdateProtecteeInput = z.infer<typeof updateProtecteeInputSchema>;
+export type AddProtecteeIdentityInput = z.infer<
+  typeof addProtecteeIdentityInputSchema
+>;
+export type ReplaceProtecteeLocationInput = z.infer<
+  typeof replaceProtecteeLocationInputSchema
+>;
 
 export function normalizeIdentity(type: IdentityType, value: string): string {
   const trimmed = value.trim();

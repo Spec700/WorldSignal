@@ -4,13 +4,19 @@ import { eq, inArray } from "drizzle-orm";
 
 import { getCredSignalDashboard } from "@/features/credsignal/server/dashboard";
 import {
+  addProtecteeIdentity,
   createExposure,
   createProtectee,
   CredSignalConflictError,
+  CredSignalWorkflowError,
+  deactivateProtecteeIdentity,
   manuallyMatchExposure,
+  replaceProtecteeLocation,
   revealCredential,
+  setPrimaryProtecteeIdentity,
   transitionCase,
   transitionTask,
+  updateProtectee,
 } from "@/features/credsignal/server/workflows";
 import { closeDatabase, getDatabase } from "@/lib/db/client";
 import {
@@ -254,6 +260,130 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     expect(
       matchedDashboard.recentActivity.some(
         (activity) => activity.action === "exposure.manually_matched",
+      ),
+    ).toBe(true);
+  });
+
+  it("maintains protectee profiles, identities, and location history", async () => {
+    const protecteeResult = await createProtectee(
+      {
+        displayName: "Roster Maintenance Protectee",
+        title: "Original Title",
+        organization: "Integration Labs",
+        tier: "standard",
+        identityType: "work_email",
+        identityValue: "roster-maintenance@integration.example",
+        locationLabel: "Original City",
+        latitude: 34.0522,
+        longitude: -118.2437,
+      },
+      operatorId,
+    );
+    const initialDashboard = await getCredSignalDashboard();
+    const initialProtectee = initialDashboard.protectees.find(
+      (entry) => entry.id === protecteeResult.protecteeId,
+    );
+    const originalIdentity = initialProtectee!.identities[0];
+
+    await updateProtectee(
+      {
+        protecteeId: protecteeResult.protecteeId,
+        displayName: "Updated Roster Protectee",
+        title: "Updated Title",
+        organization: "Updated Integration Labs",
+        tier: "critical",
+        status: "active",
+      },
+      operatorId,
+    );
+    const addedIdentity = await addProtecteeIdentity(
+      {
+        protecteeId: protecteeResult.protecteeId,
+        type: "username",
+        value: "roster-maintenance-alias",
+        makePrimary: false,
+      },
+      operatorId,
+    );
+    await setPrimaryProtecteeIdentity(addedIdentity.identityId, operatorId);
+    await deactivateProtecteeIdentity(originalIdentity.id, operatorId);
+    await expect(
+      deactivateProtecteeIdentity(addedIdentity.identityId, operatorId),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+    await replaceProtecteeLocation(
+      {
+        protecteeId: protecteeResult.protecteeId,
+        label: "Updated Region",
+        latitude: 47.6062,
+        longitude: -122.3321,
+        precision: "region",
+      },
+      operatorId,
+    );
+    await updateProtectee(
+      {
+        protecteeId: protecteeResult.protecteeId,
+        displayName: "Updated Roster Protectee",
+        title: "Updated Title",
+        organization: "Updated Integration Labs",
+        tier: "critical",
+        status: "paused",
+      },
+      operatorId,
+    );
+
+    const exposureResult = await createExposure(
+      {
+        identityType: "username",
+        identityValue: "roster-maintenance-alias",
+        credentialKind: "api_key",
+        credentialValue: "INTEGRATION-ONLY-PAUSED-KEY",
+        service: "Paused protectee service",
+        serviceDomain: "paused.integration.example",
+        sourceType: "internal_report",
+        sourceName: "Paused protectee integration source",
+        sourceRecordId: `paused-protectee-${process.pid}`,
+        observedAt: new Date("2026-08-18T18:00:00.000Z"),
+        confidence: "confirmed",
+        notes: "A paused protectee must not be matched automatically.",
+      },
+      operatorId,
+    );
+    expect(exposureResult.caseId).toBeUndefined();
+
+    const updatedDashboard = await getCredSignalDashboard();
+    const updatedProtectee = updatedDashboard.protectees.find(
+      (entry) => entry.id === protecteeResult.protecteeId,
+    );
+    expect(updatedProtectee).toMatchObject({
+      displayName: "Updated Roster Protectee",
+      title: "Updated Title",
+      organization: "Updated Integration Labs",
+      tier: "critical",
+      status: "paused",
+      location: {
+        label: "Updated Region",
+        precision: "region",
+      },
+    });
+    expect(
+      updatedProtectee?.identities.find(
+        (identity) => identity.id === originalIdentity.id,
+      ),
+    ).toMatchObject({ isActive: false, isPrimary: false });
+    expect(
+      updatedProtectee?.identities.find(
+        (identity) => identity.id === addedIdentity.identityId,
+      ),
+    ).toMatchObject({ isActive: true, isPrimary: true });
+    expect(
+      updatedDashboard.unmatchedExposures.some(
+        (exposure) => exposure.id === exposureResult.exposureId,
+      ),
+    ).toBe(true);
+    expect(
+      updatedDashboard.recentActivity.some(
+        (activity) => activity.action === "protectee.location_changed",
       ),
     ).toBe(true);
   });
