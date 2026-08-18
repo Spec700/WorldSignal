@@ -130,7 +130,29 @@ export async function fetchJson(
     );
   }
 
-  const bytes = await readBoundedBody(response, maxBytes);
+  let bytes: Uint8Array;
+
+  try {
+    bytes = await readBoundedBody(response, maxBytes);
+  } catch (error) {
+    if (error instanceof SourceFetchError) {
+      throw error;
+    }
+
+    if (timeoutSignal.aborted) {
+      throw new SourceFetchError(
+        "timeout",
+        `${sourceLabel} did not finish before the request timed out.`,
+        { cause: error },
+      );
+    }
+
+    throw new SourceFetchError(
+      "network",
+      `${sourceLabel} disconnected before its response completed.`,
+      { cause: error },
+    );
+  }
 
   try {
     return JSON.parse(new TextDecoder().decode(bytes));
