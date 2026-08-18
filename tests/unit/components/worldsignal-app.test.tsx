@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -37,6 +43,43 @@ describe("WorldSignal application shell", () => {
     expect(screen.getByText(/no polling will follow/i)).toBeInTheDocument();
   });
 
+  it("uses a pre-load window choice on the first request without fetching early", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(eventBatchFixture));
+
+    render(<WorldSignalApp />);
+    await user.click(screen.getByRole("button", { name: "24H" }));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "24H" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(loadButton());
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetchSpy.mock.calls[0][0]).toBe("/api/events/hazards?window=24h");
+  });
+
+  it("retrieves a changed source window exactly once after data is loaded", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(eventBatchFixture));
+
+    render(<WorldSignalApp />);
+    await user.click(loadButton());
+    await screen.findByRole("button", {
+      name: /earthquake: m6\.4 earthquake/i,
+    });
+    await user.click(screen.getByRole("button", { name: "30D" }));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toBe("/api/events/hazards?window=30d");
+  });
+
   it("loads one validated batch, exposes source health, filters locally, and synchronizes selection", async () => {
     const user = userEvent.setup();
     const fetchSpy = vi
@@ -73,6 +116,74 @@ describe("WorldSignal application shell", () => {
     expect(
       screen.getByRole("button", { name: /tropical cyclone:/i }),
     ).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("scrubs temporal visibility locally and keeps globe, stream, and counts aligned", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(eventBatchFixture));
+
+    render(<WorldSignalApp />);
+    await user.click(loadButton());
+    await screen.findByRole("button", {
+      name: /earthquake: m6\.4 earthquake/i,
+    });
+
+    fireEvent.change(screen.getByRole("slider", { name: /time cursor/i }), {
+      target: { value: Date.parse("2026-08-17T00:00:00.000Z") },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /earthquake: m6\.4 earthquake/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /tropical cyclone:/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("mock-world-globe")).toHaveAttribute(
+      "data-event-count",
+      "1",
+    );
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("clears a selection consistently when a local filter hides it", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(eventBatchFixture));
+
+    render(<WorldSignalApp />);
+    await user.click(loadButton());
+    await user.click(
+      await screen.findByRole("button", {
+        name: /earthquake: m6\.4 earthquake/i,
+      }),
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: /m6\.4 earthquake/i,
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /earthquake, 1 loaded/i }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: /m6\.4 earthquake/i }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getAllByText(/selected event is hidden/i)).not.toHaveLength(
+      0,
+    );
+    expect(screen.getByTestId("mock-world-globe")).toHaveAttribute(
+      "data-event-count",
+      "1",
+    );
     expect(fetchSpy).toHaveBeenCalledOnce();
   });
 

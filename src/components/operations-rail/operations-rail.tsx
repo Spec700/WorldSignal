@@ -1,46 +1,76 @@
 import type { RefObject } from "react";
 
+import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
 import { EventStream } from "@/components/event-stream/event-stream";
 import { SourceHealth } from "@/components/source-health/source-health";
 import type { EventChange } from "@/lib/events/change-detection";
 import type {
-  HazardWindow,
+  DisplayPriority,
+  EventCategory,
+  EventFilters,
+  EventLifecycle,
   SourceHealth as SourceHealthRecord,
   WorldEvent,
 } from "@/lib/events/types";
 
 interface OperationsRailProps {
-  query: string;
-  window: HazardWindow;
+  categoryCounts: ReadonlyMap<EventCategory, number>;
+  filters: EventFilters;
   events: WorldEvent[];
   selectedEventId?: string;
   changesByEventId: ReadonlyMap<string, EventChange>;
   sourceHealth: SourceHealthRecord[];
   refreshing: boolean;
   searchInputRef: RefObject<HTMLInputElement | null>;
+  onCategoryToggle: (category: EventCategory) => void;
+  onLifecycleToggle: (lifecycle: EventLifecycle) => void;
+  onPriorityToggle: (priority: DisplayPriority) => void;
   onQueryChange: (query: string) => void;
-  onWindowChange: (window: HazardWindow) => void;
   onSelect: (eventId: string) => void;
+  onSourceToggle: (source: EventFilters["sources"][number]) => void;
 }
 
-const WINDOWS: Array<{ value: HazardWindow; label: string }> = [
-  { value: "24h", label: "24H" },
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
+const CATEGORIES: EventCategory[] = [
+  "earthquake",
+  "tropical-cyclone",
+  "flood",
+  "drought",
+  "volcano",
+  "wildfire",
+];
+
+const PRIORITIES: DisplayPriority[] = ["critical", "high", "medium", "low"];
+
+const SOURCES: Array<{
+  value: EventFilters["sources"][number];
+  label: string;
+}> = [
+  { value: "usgs", label: "USGS" },
+  { value: "gdacs", label: "GDACS" },
+];
+
+const LIFECYCLES: Array<{ value: EventLifecycle; label: string }> = [
+  { value: "ongoing", label: "Ongoing" },
+  { value: "occurred", label: "Occurred" },
+  { value: "ended", label: "Ended" },
+  { value: "unknown", label: "Unknown" },
 ];
 
 export function OperationsRail({
-  query,
-  window,
+  categoryCounts,
+  filters,
   events,
   selectedEventId,
   changesByEventId,
   sourceHealth,
   refreshing,
   searchInputRef,
+  onCategoryToggle,
+  onLifecycleToggle,
+  onPriorityToggle,
   onQueryChange,
-  onWindowChange,
   onSelect,
+  onSourceToggle,
 }: OperationsRailProps) {
   return (
     <aside className="operations-rail" aria-label="Event controls and stream">
@@ -73,27 +103,88 @@ export function OperationsRail({
             placeholder="Place, category, source…"
             ref={searchInputRef}
             type="search"
-            value={query}
+            value={filters.query}
           />
         </div>
       </div>
 
-      <fieldset className="window-control">
-        <legend>Retrieval window</legend>
-        <div className="segmented-control">
-          {WINDOWS.map((option) => (
-            <button
-              aria-pressed={window === option.value}
-              className={window === option.value ? "is-active" : undefined}
-              key={option.value}
-              onClick={() => onWindowChange(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
+      <section className="rail-filters" aria-labelledby="filters-heading">
+        <div className="rail-section-heading">
+          <h2 id="filters-heading">Filters</h2>
+          <span>Local</span>
         </div>
-      </fieldset>
+
+        <fieldset className="category-filters">
+          <legend>Category</legend>
+          <div className="category-filter-grid">
+            {CATEGORIES.map((category) => (
+              <button
+                aria-label={`${eventCategoryLabel(category)}, ${categoryCounts.get(category) ?? 0} loaded`}
+                aria-pressed={filters.categories.includes(category)}
+                key={category}
+                onClick={() => onCategoryToggle(category)}
+                type="button"
+              >
+                <EventIcon category={category} />
+                <span>{eventCategoryLabel(category)}</span>
+                <strong>{categoryCounts.get(category) ?? 0}</strong>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="priority-filters">
+          <legend>Display priority</legend>
+          <div>
+            {PRIORITIES.map((priority) => (
+              <button
+                aria-pressed={filters.priorities.includes(priority)}
+                className={`priority-filter priority-filter--${priority}`}
+                key={priority}
+                onClick={() => onPriorityToggle(priority)}
+                type="button"
+              >
+                <span aria-hidden="true" />
+                {priority}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <details className="advanced-filters">
+          <summary>Source &amp; lifecycle</summary>
+          <fieldset>
+            <legend>Source</legend>
+            <div className="compact-filter-buttons">
+              {SOURCES.map((source) => (
+                <button
+                  aria-pressed={filters.sources.includes(source.value)}
+                  key={source.value}
+                  onClick={() => onSourceToggle(source.value)}
+                  type="button"
+                >
+                  {source.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Lifecycle</legend>
+            <div className="compact-filter-buttons compact-filter-buttons--lifecycle">
+              {LIFECYCLES.map((lifecycle) => (
+                <button
+                  aria-pressed={filters.lifecycle.includes(lifecycle.value)}
+                  key={lifecycle.value}
+                  onClick={() => onLifecycleToggle(lifecycle.value)}
+                  type="button"
+                >
+                  {lifecycle.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </details>
+      </section>
 
       <section
         className="source-health-section"

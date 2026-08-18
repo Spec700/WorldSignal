@@ -26,14 +26,14 @@ interface OperationalStageProps {
   hasLoadedBatch: boolean;
   loadedCount: number;
   visibleCount: number;
-  hasActiveQuery: boolean;
   refreshError?: string;
   refreshing: boolean;
   batchIsPrevious: boolean;
   selectedEvent?: WorldEvent;
   selectedGeometry?: GdacsGeometryCollection;
+  selectionNotice?: string;
   onRefresh: () => void;
-  onClearQuery: () => void;
+  onClearFilters: () => void;
   onSelect: (eventId: string) => void;
   onClearSelection: () => void;
 }
@@ -43,14 +43,14 @@ export function OperationalStage({
   hasLoadedBatch,
   loadedCount,
   visibleCount,
-  hasActiveQuery,
   refreshError,
   refreshing,
   batchIsPrevious,
   selectedEvent,
   selectedGeometry,
+  selectionNotice,
   onRefresh,
-  onClearQuery,
+  onClearFilters,
   onSelect,
   onClearSelection,
 }: OperationalStageProps) {
@@ -103,11 +103,9 @@ export function OperationalStage({
         <span className="stage-kicker">No matching events</span>
         <h1>The active filters hide all loaded events</h1>
         <p>{loadedCount} events remain in the current retrieval.</p>
-        {hasActiveQuery ? (
-          <button className="stage-action" onClick={onClearQuery} type="button">
-            Clear search
-          </button>
-        ) : null}
+        <button className="stage-action" onClick={onClearFilters} type="button">
+          Clear filters
+        </button>
       </div>
     );
   }
@@ -142,6 +140,12 @@ export function OperationalStage({
           selectedEvent={selectedEvent}
         />
         {overlay}
+
+        {selectionNotice ? (
+          <div className="stage-selection-notice" role="status">
+            {selectionNotice}
+          </div>
+        ) : null}
 
         {selectedEvent && !overlay ? (
           <div
