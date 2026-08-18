@@ -14,6 +14,7 @@ import {
   CredSignalIntake,
   type CredSignalIntakeMode,
 } from "@/components/credsignal/credsignal-intake";
+import { CredSignalManageProtectee } from "@/components/credsignal/credsignal-manage-protectee";
 import {
   CredSignalRail,
   type CredSignalQueueView,
@@ -53,6 +54,7 @@ export function CredSignalWorkspace({
   const [dossierTab, setDossierTab] =
     useState<CredSignalDossierTab>("overview");
   const [intakeMode, setIntakeMode] = useState<CredSignalIntakeMode>();
+  const [managingProtectee, setManagingProtectee] = useState(false);
   const [activeOperatorId, setActiveOperatorId] = useState(
     dashboard.operators[0]?.id ?? "",
   );
@@ -63,6 +65,11 @@ export function CredSignalWorkspace({
         (protectee) => protectee.id === selectedProtecteeId,
       ),
     [dashboard.protectees, selectedProtecteeId],
+  );
+  const activeProtectees = useMemo(
+    () =>
+      dashboard.protectees.filter((protectee) => protectee.status === "active"),
+    [dashboard.protectees],
   );
   const selectedUnmatchedExposure = useMemo(
     () =>
@@ -86,6 +93,8 @@ export function CredSignalWorkspace({
       if (event.key === "Escape" && !editable) {
         if (intakeMode) {
           setIntakeMode(undefined);
+        } else if (managingProtectee) {
+          setManagingProtectee(false);
         } else if (selectedUnmatchedExposure) {
           setSelectedExposureId(undefined);
         } else {
@@ -95,11 +104,12 @@ export function CredSignalWorkspace({
     }
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [intakeMode, selectedUnmatchedExposure]);
+  }, [intakeMode, managingProtectee, selectedUnmatchedExposure]);
 
   const selectProtectee = useCallback(
     (protecteeId: string, tab: CredSignalDossierTab = "overview") => {
       setIntakeMode(undefined);
+      setManagingProtectee(false);
       setSelectedExposureId(undefined);
       setSelectedProtecteeId(protecteeId);
       setDossierTab(tab);
@@ -109,11 +119,13 @@ export function CredSignalWorkspace({
 
   const selectUnmatchedExposure = useCallback((exposureId: string) => {
     setIntakeMode(undefined);
+    setManagingProtectee(false);
     setSelectedProtecteeId(undefined);
     setSelectedExposureId(exposureId);
   }, []);
 
   const openIntake = useCallback((mode: CredSignalIntakeMode) => {
+    setManagingProtectee(false);
     setSelectedProtecteeId(undefined);
     setSelectedExposureId(undefined);
     setIntakeMode(mode);
@@ -123,6 +135,7 @@ export function CredSignalWorkspace({
     (createdId?: string) => {
       setIntakeMode(undefined);
       setSelectedExposureId(undefined);
+      setManagingProtectee(false);
       if (
         createdId &&
         dashboard.protectees.some((protectee) => protectee.id === createdId)
@@ -137,6 +150,7 @@ export function CredSignalWorkspace({
   const handleMatched = useCallback(
     (protecteeId: string) => {
       setSelectedExposureId(undefined);
+      setManagingProtectee(false);
       setSelectedProtecteeId(protecteeId);
       setDossierTab("cases");
       router.refresh();
@@ -205,7 +219,7 @@ export function CredSignalWorkspace({
             </span>
             <span className={styles.stageCount}>
               {
-                dashboard.protectees.filter((protectee) => protectee.location)
+                activeProtectees.filter((protectee) => protectee.location)
                   .length
               }{" "}
               located protectees
@@ -214,6 +228,7 @@ export function CredSignalWorkspace({
           <div className={styles.globeArea}>
             <CredSignalGlobe
               onClearSelection={() => {
+                setManagingProtectee(false);
                 setSelectedProtecteeId(undefined);
                 setSelectedExposureId(undefined);
               }}
@@ -260,7 +275,7 @@ export function CredSignalWorkspace({
             onClose={() => setIntakeMode(undefined)}
             onSaved={handleSaved}
             operators={dashboard.operators}
-            protectees={dashboard.protectees}
+            protectees={activeProtectees}
           />
         ) : selectedUnmatchedExposure ? (
           <CredSignalTriage
@@ -270,13 +285,21 @@ export function CredSignalWorkspace({
             onClose={() => setSelectedExposureId(undefined)}
             onCreateProtectee={() => openIntake("protectee")}
             onMatched={handleMatched}
-            protectees={dashboard.protectees}
+            protectees={activeProtectees}
+          />
+        ) : selectedProtectee && managingProtectee ? (
+          <CredSignalManageProtectee
+            activeOperatorId={activeOperatorId}
+            key={selectedProtectee.id}
+            onClose={() => setManagingProtectee(false)}
+            protectee={selectedProtectee}
           />
         ) : selectedProtectee ? (
           <CredSignalDossier
             activeOperatorId={activeOperatorId}
             key={selectedProtectee.id}
             onClose={() => setSelectedProtecteeId(undefined)}
+            onManage={() => setManagingProtectee(true)}
             onTabChange={setDossierTab}
             protectee={selectedProtectee}
             tab={dossierTab}

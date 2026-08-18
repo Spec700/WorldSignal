@@ -24,6 +24,7 @@ interface CredSignalDossierProps {
   tab: CredSignalDossierTab;
   activeOperatorId: string;
   onTabChange: (tab: CredSignalDossierTab) => void;
+  onManage: () => void;
   onClose: () => void;
 }
 
@@ -52,6 +53,7 @@ export function CredSignalDossier({
   tab,
   activeOperatorId,
   onTabChange,
+  onManage,
   onClose,
 }: CredSignalDossierProps) {
   const router = useRouter();
@@ -137,6 +139,13 @@ export function CredSignalDossier({
         data-priority={protectee.activePriority ?? "low"}
       >
         <span className={styles.eyebrow}>Protectee dossier</span>
+        <button
+          className={styles.manageProtecteeAction}
+          onClick={onManage}
+          type="button"
+        >
+          Manage
+        </button>
         <button
           aria-label="Close protectee dossier"
           onClick={onClose}
@@ -226,10 +235,16 @@ export function CredSignalDossier({
               <h3>Approved identities</h3>
               <ul className={styles.identityList}>
                 {protectee.identities.map((identity) => (
-                  <li key={identity.id}>
+                  <li data-active={identity.isActive} key={identity.id}>
                     <span>{titleCase(identity.type)}</span>
                     <strong>{identity.displayValue}</strong>
-                    {identity.isPrimary ? <small>Primary</small> : null}
+                    <small>
+                      {identity.isActive
+                        ? identity.isPrimary
+                          ? "Primary"
+                          : "Active"
+                        : "Inactive"}
+                    </small>
                   </li>
                 ))}
               </ul>

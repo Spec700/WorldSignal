@@ -4,19 +4,27 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import {
+  addProtecteeIdentityInputSchema,
   createExposureInputSchema,
   createProtecteeInputSchema,
   matchExposureInputSchema,
+  replaceProtecteeLocationInputSchema,
+  updateProtecteeInputSchema,
 } from "@/features/credsignal/domain";
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import {
+  addProtecteeIdentity,
   createExposure,
   createProtectee,
   CredSignalWorkflowError,
+  deactivateProtecteeIdentity,
   manuallyMatchExposure,
+  replaceProtecteeLocation,
   revealCredential,
+  setPrimaryProtecteeIdentity,
   transitionCase,
   transitionTask,
+  updateProtectee,
 } from "@/features/credsignal/server/workflows";
 
 function textValue(formData: FormData, field: string): string {
@@ -135,6 +143,125 @@ export async function matchExposureAction(
       status: "success",
       message: "Exposure assigned and response case opened.",
       createdId: result.caseId,
+      protecteeId: result.protecteeId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateProtecteeAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = updateProtecteeInputSchema.parse({
+      protecteeId: textValue(formData, "protecteeId"),
+      displayName: textValue(formData, "displayName"),
+      title: textValue(formData, "title"),
+      organization: textValue(formData, "organization"),
+      tier: textValue(formData, "tier"),
+      status: textValue(formData, "status"),
+    });
+    const result = await updateProtectee(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Protectee profile updated.",
+      protecteeId: result.protecteeId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function addProtecteeIdentityAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = addProtecteeIdentityInputSchema.parse({
+      protecteeId: textValue(formData, "protecteeId"),
+      type: textValue(formData, "type"),
+      value: textValue(formData, "value"),
+      makePrimary: textValue(formData, "makePrimary") === "on",
+    });
+    const result = await addProtecteeIdentity(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Approved identity added to monitoring.",
+      protecteeId: result.protecteeId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function setPrimaryProtecteeIdentityAction(
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const result = await setPrimaryProtecteeIdentity(
+      textValue(formData, "identityId"),
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Primary identity updated.",
+      protecteeId: result.protecteeId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function deactivateProtecteeIdentityAction(
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const result = await deactivateProtecteeIdentity(
+      textValue(formData, "identityId"),
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Identity deactivated and retained in history.",
+      protecteeId: result.protecteeId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function replaceProtecteeLocationAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = replaceProtecteeLocationInputSchema.parse({
+      protecteeId: textValue(formData, "protecteeId"),
+      label: textValue(formData, "label"),
+      latitude: textValue(formData, "latitude"),
+      longitude: textValue(formData, "longitude"),
+      precision: textValue(formData, "precision"),
+    });
+    const result = await replaceProtecteeLocation(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidatePath("/credsignal");
+    return {
+      status: "success",
+      message: "Operational location replaced; prior location retained.",
       protecteeId: result.protecteeId,
     };
   } catch (error) {

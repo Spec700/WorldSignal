@@ -670,12 +670,25 @@
   font-size: 1.1rem;
 }
 
+.dossierHeader > .manageProtecteeAction {
+  right: 54px;
+  width: auto;
+  padding: 0 10px;
+  color: var(--color-accent-strong);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
 .dossierHeader h2,
 .intakeHeader h2 {
   margin: 5px 32px 0 0;
   font-family: var(--font-display), sans-serif;
   font-size: 1.35rem;
   font-weight: 600;
+}
+
+.dossierHeader h2 {
+  margin-right: 116px;
 }
 
 .dossierHeader p,
@@ -809,6 +822,10 @@
   gap: 7px;
   padding: 8px 0;
   border-bottom: 1px solid var(--color-line);
+}
+
+.identityList li[data-active="false"] {
+  opacity: 0.56;
 }
 
 .identityList span,
@@ -1070,20 +1087,25 @@
   border-bottom: 1px solid var(--color-line);
 }
 
-.formSection label {
+.formSection label,
+.managementForm label {
   display: grid;
   min-width: 0;
   gap: 4px;
 }
 
-.formSection label > span:first-child {
+.formSection label > span:first-child,
+.managementForm label > span:first-child {
   color: var(--color-text-muted);
   font-size: 0.61rem;
 }
 
 .formSection input,
 .formSection select,
-.formSection textarea {
+.formSection textarea,
+.managementForm input,
+.managementForm select,
+.managementForm textarea {
   width: 100%;
   min-height: 38px;
   padding: 8px 9px;
@@ -1094,13 +1116,16 @@
   font-size: 0.68rem;
 }
 
-.formSection textarea {
+.formSection textarea,
+.managementForm textarea {
   min-height: 76px;
   resize: vertical;
 }
 
 .formSection input::placeholder,
-.formSection textarea::placeholder {
+.formSection textarea::placeholder,
+.managementForm input::placeholder,
+.managementForm textarea::placeholder {
   color: var(--color-text-faint);
   opacity: 1;
 }
@@ -1141,6 +1166,140 @@
   border-color: var(--color-line-strong);
   background: var(--color-surface-active);
   color: var(--color-text-muted);
+}
+
+.managementBody {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+.managementSection {
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.managementSection > header {
+  padding: 14px 16px 10px;
+}
+
+.managementSection > header p {
+  margin: 4px 0 0;
+  color: var(--color-text-faint);
+  font-size: 0.59rem;
+  line-height: 1.4;
+}
+
+.managementForm {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.managementForm .actionNotice {
+  margin: 2px 0 0;
+}
+
+.managementSubmit {
+  min-height: 42px;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.managementSubmit:hover:not(:disabled) {
+  background: var(--color-surface-active);
+}
+
+.managementSubmit:disabled {
+  border-color: var(--color-line);
+  color: var(--color-text-faint);
+}
+
+.managementForm .checkField {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.managementForm .checkField input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: var(--color-accent);
+}
+
+.managementForm .checkField span {
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+}
+
+.managementIdentityList {
+  margin: 0;
+  padding: 0 16px 12px;
+  list-style: none;
+}
+
+.managementIdentityList li {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--color-line);
+}
+
+.managementIdentityList li[data-active="false"] {
+  opacity: 0.55;
+}
+
+.managementIdentityList strong,
+.managementIdentityList small {
+  display: block;
+}
+
+.managementIdentityList strong {
+  overflow: hidden;
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+}
+
+.managementIdentityList small {
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+}
+
+.managementIdentityList li > div {
+  display: flex;
+  gap: 5px;
+}
+
+.managementIdentityList button,
+.primaryIdentityBadge {
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.56rem;
+}
+
+.managementIdentityList button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.primaryIdentityBadge {
+  display: grid;
+  place-content: center;
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .activityStrip {
@@ -1386,5 +1545,13 @@
   .activityHeading {
     border-right: 0;
     border-bottom: 1px solid var(--color-line);
+  }
+}
+
+@media (pointer: coarse) {
+  .managementIdentityList button,
+  .primaryIdentityBadge,
+  .managementForm .checkField {
+    min-height: 44px;
   }
 }

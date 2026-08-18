@@ -176,7 +176,9 @@ export function CredSignalRail({
                   </span>
                 </span>
                 <span className={styles.priorityText}>
-                  {protectee.activePriority ?? "clear"}
+                  {protectee.status === "active"
+                    ? (protectee.activePriority ?? "clear")
+                    : protectee.status}
                 </span>
               </button>
             ))
