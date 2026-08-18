@@ -1,9 +1,9 @@
 {
-  "name": "worldsignal",
+  "name": "priority-signals",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A local-first global natural-hazard situational-awareness dashboard.",
+  "description": "An open-source security operations platform for protecting important people from physical and digital threats.",
   "license": "MIT",
   "engines": {
     "node": ">=24 <25"
@@ -17,6 +17,12 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed-credsignal.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:start": "docker compose up -d postgres",
+    "db:stop": "docker compose down",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -25,7 +31,9 @@
   },
   "dependencies": {
     "@turf/bbox": "7.4.0",
+    "drizzle-orm": "^0.45.2",
     "next": "16.3.1",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-globe.gl": "2.38.0",
@@ -40,15 +48,18 @@
     "@testing-library/user-event": "14.6.1",
     "@types/geojson": "7946.0.16",
     "@types/node": "24.10.1",
+    "@types/pg": "^8.23.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@types/three": "0.183.1",
     "@vitest/coverage-v8": "4.1.11",
+    "drizzle-kit": "^0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.1",
     "eslint-config-prettier": "10.1.8",
     "jsdom": "28.0.0",
     "prettier": "3.9.6",
+    "tsx": "^4.23.12",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }
