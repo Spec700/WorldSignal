@@ -166,6 +166,9 @@ export function worldSignalReducer(
       };
 
     case "selection/set":
+      if (state.selectedEventId === action.eventId) {
+        return state;
+      }
       return {
         ...state,
         selectedEventId: action.eventId,

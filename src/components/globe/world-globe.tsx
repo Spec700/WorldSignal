@@ -21,9 +21,24 @@ import {
   toGlobeEventPoints,
   type GlobeEventPoint,
 } from "@/components/globe/globe-model";
+import {
+  deriveGeometryCameraView,
+  toGlobeGeometryLayers,
+  type GlobeGeometryPolygon,
+} from "@/components/globe/geometry-model";
 import type { WorldEvent } from "@/lib/events/types";
+import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 
 type CountryFeature = Feature<Polygon | MultiPolygon, { ADMIN?: string }>;
+
+interface CountryPolygonDatum {
+  kind: "country";
+  id: string;
+  geometry: Polygon | MultiPolygon;
+  label: string;
+}
+
+type GlobePolygonDatum = CountryPolygonDatum | GlobeGeometryPolygon;
 
 const GLOBAL_VIEW = { lat: 14, lng: 8, altitude: 2.25 } as const;
 
@@ -83,6 +98,7 @@ function useElementSize(elementRef: React.RefObject<HTMLElement | null>) {
 interface WorldGlobeProps {
   events: WorldEvent[];
   selectedEvent?: WorldEvent;
+  selectedGeometry?: GdacsGeometryCollection;
   onSelect: (eventId: string) => void;
   onClearSelection: () => void;
 }
@@ -90,6 +106,7 @@ interface WorldGlobeProps {
 export function WorldGlobe({
   events,
   selectedEvent,
+  selectedGeometry,
   onSelect,
   onClearSelection,
 }: WorldGlobeProps) {
@@ -101,6 +118,22 @@ export function WorldGlobe({
   const reducedMotion = useReducedMotion();
   const size = useElementSize(containerRef);
   const points = useMemo(() => toGlobeEventPoints(events), [events]);
+  const detailLayers = useMemo(
+    () => toGlobeGeometryLayers(selectedGeometry),
+    [selectedGeometry],
+  );
+  const polygonData = useMemo<GlobePolygonDatum[]>(
+    () => [
+      ...countries.map((feature, index) => ({
+        kind: "country" as const,
+        id: `country:${index}`,
+        geometry: feature.geometry,
+        label: feature.properties.ADMIN ?? "",
+      })),
+      ...detailLayers.polygons,
+    ],
+    [countries, detailLayers.polygons],
+  );
   const selectedPoint = useMemo(
     () => points.find((point) => point.id === selectedEvent?.id),
     [points, selectedEvent?.id],
@@ -188,6 +221,19 @@ export function WorldGlobe({
   }, [globeReady, reducedMotion, selectedEvent]);
 
   useEffect(() => {
+    if (!globeReady || !selectedEvent || !selectedGeometry) {
+      return;
+    }
+    const view = deriveGeometryCameraView(selectedGeometry, {
+      latitude: selectedEvent.centroid.latitude,
+      longitude: selectedEvent.centroid.longitude,
+    });
+    if (view) {
+      globeRef.current?.pointOfView(view, reducedMotion ? 0 : 850);
+    }
+  }, [globeReady, reducedMotion, selectedEvent, selectedGeometry]);
+
+  useEffect(() => {
     if (!globeReady) {
       return;
     }
@@ -232,6 +278,8 @@ export function WorldGlobe({
     <div
       aria-label="Interactive global hazard map"
       className="globe-shell"
+      data-detail-path-count={detailLayers.paths.length}
+      data-detail-polygon-count={detailLayers.polygons.length}
       data-event-count={points.length}
       data-focused-event-id={selectedEvent?.id}
       ref={containerRef}
@@ -258,6 +306,17 @@ export function WorldGlobe({
           onGlobeReady={handleGlobeReady}
           onLabelClick={(value) => onSelect((value as GlobeEventPoint).id)}
           onPointClick={(value) => onSelect((value as GlobeEventPoint).id)}
+          pathColor={(value: object) => (value as { color: string }).color}
+          pathDashAnimateTime={0}
+          pathLabel={(value) => (value as { label: string }).label}
+          pathPointAlt={() => 0.018}
+          pathPointLat={(value) => (value as number[])[1]}
+          pathPointLng={(value) => (value as number[])[0]}
+          pathPoints={(value) => (value as { points: number[][] }).points}
+          pathResolution={2}
+          pathStroke={0.65}
+          pathsData={detailLayers.paths}
+          pathTransitionDuration={reducedMotion ? 0 : 250}
           pointAltitude={(value) => (value as GlobeEventPoint).altitude}
           pointColor={(value) => (value as GlobeEventPoint).color}
           pointLabel={(value) => globePointTooltip(value as GlobeEventPoint)}
@@ -267,18 +326,28 @@ export function WorldGlobe({
           pointResolution={8}
           pointsData={points}
           pointsTransitionDuration={reducedMotion ? 0 : 250}
-          polygonAltitude={0.004}
-          polygonCapColor={() => "rgba(20, 35, 42, 0.08)"}
+          polygonAltitude={(value) =>
+            (value as GlobePolygonDatum).kind === "detail" ? 0.012 : 0.004
+          }
+          polygonCapColor={(value) => {
+            const polygon = value as GlobePolygonDatum;
+            return polygon.kind === "detail"
+              ? polygon.capColor
+              : "rgba(20, 35, 42, 0.08)";
+          }}
           polygonGeoJsonGeometry={(value) =>
-            (value as CountryFeature).geometry as never
+            (value as GlobePolygonDatum).geometry as never
           }
-          polygonLabel={(value) =>
-            (value as CountryFeature).properties.ADMIN ?? ""
-          }
+          polygonLabel={(value) => (value as GlobePolygonDatum).label}
           polygonSideColor={() => "rgba(0, 0, 0, 0)"}
-          polygonStrokeColor={() => "rgba(159, 219, 224, 0.42)"}
-          polygonsData={countries}
-          polygonsTransitionDuration={0}
+          polygonStrokeColor={(value) => {
+            const polygon = value as GlobePolygonDatum;
+            return polygon.kind === "detail"
+              ? polygon.strokeColor
+              : "rgba(159, 219, 224, 0.42)";
+          }}
+          polygonsData={polygonData}
+          polygonsTransitionDuration={reducedMotion ? 0 : 250}
           ref={globeRef}
           ringAltitude={0.025}
           ringColor={() => [

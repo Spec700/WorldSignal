@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorldGlobe } from "@/components/globe/world-globe";
 import { cycloneFixture, earthquakeFixture } from "../../fixtures/events";
+import { gdacsGeometryFixture } from "../../fixtures/gdacs-geometry";
 
 const globeHarness = vi.hoisted(() => ({
   props: {} as Record<string, unknown>,
@@ -148,6 +149,7 @@ describe("WorldGlobe", () => {
         events={[earthquakeFixture, cycloneFixture]}
         onClearSelection={onClearSelection}
         onSelect={onSelect}
+        selectedGeometry={gdacsGeometryFixture}
         selectedEvent={earthquakeFixture}
       />,
     );
@@ -156,6 +158,12 @@ describe("WorldGlobe", () => {
         { lat: 38.322, lng: 143.248, altitude: 1.35 },
         850,
       ),
+    );
+    await waitFor(() => expect(globeHarness.props.pathsData).toHaveLength(1));
+    expect(globeHarness.props.polygonsData).toHaveLength(1);
+    expect(globeHarness.pointOfView).toHaveBeenCalledWith(
+      { lat: 21, lng: -167, altitude: 0.95 },
+      850,
     );
 
     await user.click(screen.getByRole("button", { name: /global view/i }));

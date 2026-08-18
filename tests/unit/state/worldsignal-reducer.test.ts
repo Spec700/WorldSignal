@@ -144,6 +144,12 @@ describe("WorldSignal reducer geometry flow", () => {
     expect(stale).toBe(loading);
     expect(ready.geometryState).toBe("ready");
     expect(ready.selectedGeometry).toBe(gdacsGeometryFixture);
+    expect(
+      worldSignalReducer(ready, {
+        type: "selection/set",
+        eventId: cycloneFixture.id,
+      }),
+    ).toBe(ready);
   });
 
   it("records a safe geometry error and enables an explicit retry", () => {
