@@ -17,7 +17,11 @@ function sourceRecord(health: SourceHealthRecord[], source: "usgs" | "gdacs") {
 
 export function SourceHealth({ health, refreshing }: SourceHealthProps) {
   return (
-    <div className="source-health-list" aria-label="Hazard source health">
+    <div
+      className="source-health-list"
+      aria-label="Hazard source health"
+      role="group"
+    >
       {(["usgs", "gdacs"] as const).map((source) => {
         const record = sourceRecord(health, source);
         const state = refreshing

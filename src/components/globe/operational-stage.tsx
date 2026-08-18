@@ -151,6 +151,7 @@ export function OperationalStage({
           <div
             className="globe-selection-chip"
             aria-label="Selected event preview"
+            role="status"
           >
             <EventIcon category={selectedEvent.category} />
             <span>

@@ -25,7 +25,7 @@ export function CommandBar({
 }: CommandBarProps) {
   return (
     <header className="command-bar">
-      <div className="wordmark-lockup" aria-label="WorldSignal">
+      <div className="wordmark-lockup">
         <span className="wordmark-symbol" aria-hidden="true">
           W
         </span>
@@ -37,7 +37,11 @@ export function CommandBar({
         <span>Natural Hazards</span>
       </div>
 
-      <div className="command-summary" aria-label="Event query summary">
+      <div
+        className="command-summary"
+        aria-label="Event query summary"
+        role="group"
+      >
         <span className="command-label">Visible / loaded</span>
         <strong>
           {visibleCount} / {loadedCount}
