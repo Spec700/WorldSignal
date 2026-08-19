@@ -43,7 +43,7 @@ describe("WorldSignal application shell", () => {
         name: /build the current hazard picture/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Not requested")).toHaveLength(2);
+    expect(screen.getAllByText("Not requested")).toHaveLength(3);
     expect(screen.getByText(/no polling will follow/i)).toBeInTheDocument();
   });
 
@@ -98,8 +98,8 @@ describe("WorldSignal application shell", () => {
       name: /earthquake: m6\.4 earthquake/i,
     });
     expect(fetchSpy).toHaveBeenCalledOnce();
-    expect(screen.getAllByText("Available")).toHaveLength(2);
-    expect(screen.getAllByText(/attempted aug 18/i)).toHaveLength(2);
+    expect(screen.getAllByText("Available")).toHaveLength(3);
+    expect(screen.getAllByText(/attempted aug 18/i)).toHaveLength(3);
     expect(screen.getAllByText(/source updated aug 18/i)).toHaveLength(2);
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
     expect(
@@ -373,7 +373,7 @@ describe("WorldSignal application shell", () => {
     expect(
       screen.getByText("Previous retrieval displayed"),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Contacting")).toHaveLength(2);
+    expect(screen.getAllByText("Contacting")).toHaveLength(3);
     expect(screen.getByRole("button", { name: /refreshing/i })).toBeDisabled();
 
     resolveRefresh?.(Response.json(eventBatchFixture));
@@ -413,7 +413,7 @@ describe("WorldSignal application shell", () => {
         name: /no current hazard data is available/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+    expect(screen.getAllByText("Unavailable")).toHaveLength(3);
     expect(
       screen.getAllByText("WorldSignal could not retrieve any hazard source."),
     ).toHaveLength(2);

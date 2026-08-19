@@ -5,13 +5,18 @@ export type FetchImplementation = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-interface FetchJsonOptions {
+interface FetchSourceOptions {
   signal: AbortSignal;
   timeoutMs: number;
   maxBytes: number;
   sourceLabel: string;
   allowNoContent?: boolean;
   fetchImplementation?: FetchImplementation;
+}
+
+interface FetchBodyOptions extends FetchSourceOptions {
+  accept: string;
+  acceptedContentTypes: string[];
 }
 
 async function readBoundedBody(
@@ -65,6 +70,53 @@ async function readBoundedBody(
 
 export async function fetchJson(
   url: URL,
+  options: FetchSourceOptions,
+): Promise<unknown> {
+  const bytes = await fetchBoundedSourceBody(url, {
+    ...options,
+    accept: "application/json, application/geo+json",
+    acceptedContentTypes: ["json", "geo+json"],
+  });
+
+  if (bytes === undefined) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (error) {
+    throw new SourceFetchError(
+      "schema",
+      `${options.sourceLabel} returned malformed JSON.`,
+      {
+        cause: error,
+      },
+    );
+  }
+}
+
+export async function fetchText(
+  url: URL,
+  options: Omit<FetchSourceOptions, "allowNoContent">,
+): Promise<string> {
+  const bytes = await fetchBoundedSourceBody(url, {
+    ...options,
+    accept: "text/csv",
+    acceptedContentTypes: ["text/csv"],
+  });
+
+  if (!bytes || bytes.byteLength === 0) {
+    throw new SourceFetchError(
+      "schema",
+      `${options.sourceLabel} returned an empty response without data.`,
+    );
+  }
+
+  return new TextDecoder().decode(bytes);
+}
+
+async function fetchBoundedSourceBody(
+  url: URL,
   {
     signal,
     timeoutMs,
@@ -72,8 +124,10 @@ export async function fetchJson(
     sourceLabel,
     allowNoContent = false,
     fetchImplementation = fetch,
-  }: FetchJsonOptions,
-): Promise<unknown> {
+    accept,
+    acceptedContentTypes,
+  }: FetchBodyOptions,
+): Promise<Uint8Array | undefined> {
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
   let response: Response;
@@ -82,7 +136,7 @@ export async function fetchJson(
     response = await fetchImplementation(url, {
       cache: "no-store",
       headers: {
-        Accept: "application/json, application/geo+json",
+        Accept: accept,
       },
       signal: combinedSignal,
     });
@@ -123,17 +177,15 @@ export async function fetchJson(
   }
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("json") && !contentType.includes("geo+json")) {
+  if (!acceptedContentTypes.some((type) => contentType.includes(type))) {
     throw new SourceFetchError(
       "schema",
       `${sourceLabel} returned an unsupported content type.`,
     );
   }
 
-  let bytes: Uint8Array;
-
   try {
-    bytes = await readBoundedBody(response, maxBytes);
+    return await readBoundedBody(response, maxBytes);
   } catch (error) {
     if (error instanceof SourceFetchError) {
       throw error;
@@ -151,18 +203,6 @@ export async function fetchJson(
       "network",
       `${sourceLabel} disconnected before its response completed.`,
       { cause: error },
-    );
-  }
-
-  try {
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch (error) {
-    throw new SourceFetchError(
-      "schema",
-      `${sourceLabel} returned malformed JSON.`,
-      {
-        cause: error,
-      },
     );
   }
 }

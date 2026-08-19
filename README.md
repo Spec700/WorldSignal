@@ -23,6 +23,8 @@ Use the product switcher in the application header to move between modules.
 - Retrieves global M4.5+ earthquakes from the U.S. Geological Survey (USGS).
 - Retrieves GDACS tropical cyclones, floods, droughts, volcanoes, and significant forest fires,
   including paginated results.
+- Retrieves U.S. preliminary observed tornado reports from NOAA's Storm Prediction Center (SPC)
+  filtered daily report files. Reports are clearly marked preliminary and may be revised.
 - Makes no event request until an operator selects **Load current events** for an uncached range and
   never polls afterward.
 - Normalizes both providers behind one validated event contract while retaining source-native
@@ -223,7 +225,8 @@ Priority Signals
 │   browser action
 │       └── validated Next.js source routes
 │           ├── USGS adapter
-│           └── GDACS adapter + selected-event geometry
+│           ├── GDACS adapter + selected-event geometry
+│           └── NOAA SPC preliminary tornado-report adapter
 │               └── client reducer ── globe / stream / filters / dossier
 │                       └── validated browser-local range snapshots (IndexedDB)
 └── CredSignal
@@ -243,16 +246,19 @@ changes such as matching, case closure, and task coordination.
 
 ## Modules and sources
 
-| Module                                                    | Data source                                                                      | Request or intake scope                                      | Authentication                   |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- |
-| WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                   | None                             |
-| WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated    | None                             |
-| CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator | Demo operator only; not enforced |
+| Module                                                    | Data source                                                                      | Request or intake scope                                           | Authentication                   |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------- |
+| WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                        | None                             |
+| WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated         | None                             |
+| WorldSignal tornadoes                                     | [NOAA Storm Prediction Center](https://www.spc.noaa.gov/climo/reports/)          | U.S. filtered preliminary reports for each 12Z–12Z convective day | None                             |
+| CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator      | Demo operator only; not enforced |
 
 USGS exclusively owns the current WorldSignal earthquake category. WorldSignal does not request
 GDACS earthquake records or attempt speculative cross-source event merging. “Authoritative source”
-means a record arrived through the documented USGS or GDACS adapter; it does not mean Priority
-Signals independently verified every upstream fact.
+means a record arrived through a documented USGS, GDACS, or NOAA SPC adapter; it does not mean
+Priority Signals independently verified every upstream fact. SPC tornado reports are preliminary
+observations rather than forecasts or active warnings, cover the United States, and can change
+during NOAA review.
 
 ## Verification
 
@@ -354,7 +360,8 @@ Install stable Google Chrome in the platform's normal application location and r
 ## Attribution and license
 
 Visible in-app credits identify NASA Blue Marble imagery, Natural Earth boundaries, USGS earthquake
-data, and GDACS disaster data. Fonts and third-party software retain their licenses. See
+data, GDACS disaster data, and NOAA SPC preliminary tornado reports. Fonts and third-party software
+retain their licenses. See
 [NOTICE.md](NOTICE.md) for source links, terms, and bundled-asset details.
 
 Priority Signals source code is available under the [MIT License](LICENSE). Contributions should

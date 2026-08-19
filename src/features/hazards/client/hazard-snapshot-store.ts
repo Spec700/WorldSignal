@@ -18,7 +18,7 @@ const eventChangeSchema = z.enum(["new", "updated", "resolved", "unchanged"]);
 
 export const hazardSnapshotSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     window: hazardWindowSchema,
     savedAt: z.iso.datetime({ offset: false, precision: 3 }),
     batch: eventBatchSchema,
@@ -60,7 +60,7 @@ export const hazardSnapshotSchema = z
   });
 
 export interface HazardSnapshot {
-  schemaVersion: 1;
+  schemaVersion: 2;
   window: HazardWindow;
   savedAt: string;
   batch: EventBatch;
@@ -147,7 +147,7 @@ export function createHazardSnapshot(input: {
   savedAt?: string;
 }): HazardSnapshot {
   return hazardSnapshotSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     window: input.window,
     savedAt: input.savedAt ?? new Date().toISOString(),
     batch: input.batch,

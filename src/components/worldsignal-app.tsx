@@ -45,6 +45,7 @@ const HAZARD_CATEGORIES: EventCategory[] = [
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
 ];

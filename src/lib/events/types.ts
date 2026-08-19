@@ -18,7 +18,7 @@ export interface EventFilters {
   module: "natural-hazards";
   categories: EventCategory[];
   priorities: DisplayPriority[];
-  sources: Array<"usgs" | "gdacs">;
+  sources: Array<"usgs" | "gdacs" | "spc">;
   lifecycle: EventLifecycle[];
   query: string;
   window: HazardWindow;

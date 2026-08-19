@@ -18,6 +18,7 @@ const HAZARD_CATEGORIES: EventCategory[] = [
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
 ];
@@ -117,7 +118,7 @@ export function createInitialWorldSignalState(): WorldSignalState {
       module: "natural-hazards",
       categories: HAZARD_CATEGORIES,
       priorities: ["low", "medium", "high", "critical"],
-      sources: ["usgs", "gdacs"],
+      sources: ["usgs", "gdacs", "spc"],
       lifecycle: ["ongoing", "occurred", "ended", "unknown"],
       query: "",
       window: "7d",
@@ -144,7 +145,7 @@ export function worldSignalReducer(
         batchFreshness: state.batch ? "previous" : "none",
         refreshState: "loading",
         refreshError: undefined,
-        announcement: "Refreshing USGS and GDACS hazard sources.",
+        announcement: "Refreshing hazard sources.",
       };
 
     case "refresh/succeeded": {
@@ -441,7 +442,7 @@ export function worldSignalReducer(
           ...state.filters,
           categories: [...HAZARD_CATEGORIES],
           priorities: ["low", "medium", "high", "critical"],
-          sources: ["usgs", "gdacs"],
+          sources: ["usgs", "gdacs", "spc"],
           lifecycle: ["ongoing", "occurred", "ended", "unknown"],
           query: "",
           timeCursor: action.timeCursor,

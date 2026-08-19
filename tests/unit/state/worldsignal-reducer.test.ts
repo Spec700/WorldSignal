@@ -250,14 +250,14 @@ describe("WorldSignal reducer filter flow", () => {
     expect(cursor.filters).toMatchObject({
       categories: expect.not.arrayContaining(["earthquake"]),
       priorities: expect.not.arrayContaining(["critical"]),
-      sources: ["usgs"],
+      sources: ["usgs", "spc"],
       lifecycle: expect.not.arrayContaining(["ended"]),
       timeCursor: "2026-08-18T08:00:00.000Z",
     });
     expect(reset.filters).toMatchObject({
       categories: expect.arrayContaining(["earthquake", "wildfire"]),
       priorities: ["low", "medium", "high", "critical"],
-      sources: ["usgs", "gdacs"],
+      sources: ["usgs", "gdacs", "spc"],
       lifecycle: ["ongoing", "occurred", "ended", "unknown"],
       query: "",
       window: "7d",

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchJson } from "@/lib/sources/fetch-json";
+import { fetchJson, fetchText } from "@/lib/sources/fetch-json";
 
 const sourceUrl = new URL("https://source.example/events");
 
@@ -131,5 +131,35 @@ describe("bounded source JSON retrieval", () => {
     await expect(
       fetchJson(sourceUrl, options(noContent, { allowNoContent: true })),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("bounded source text retrieval", () => {
+  it("accepts CSV and rejects an empty body", async () => {
+    await expect(
+      fetchText(
+        sourceUrl,
+        options(async () =>
+          Promise.resolve(
+            new Response("Time,Lat,Lon\n1200,35,-97", {
+              headers: { "content-type": "text/csv" },
+            }),
+          ),
+        ),
+      ),
+    ).resolves.toContain("1200");
+
+    await expect(
+      fetchText(
+        sourceUrl,
+        options(async () =>
+          Promise.resolve(
+            new Response("", {
+              headers: { "content-type": "text/csv" },
+            }),
+          ),
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "schema" });
   });
 });

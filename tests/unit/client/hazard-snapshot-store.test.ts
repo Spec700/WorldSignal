@@ -24,7 +24,7 @@ describe("WorldSignal hazard snapshots", () => {
     });
 
     expect(snapshot).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       window: "7d",
       savedAt: "2026-08-18T10:00:01.000Z",
       batch: eventBatchFixture,

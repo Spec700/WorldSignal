@@ -82,7 +82,7 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   await expect(
     page.getByRole("heading", { name: /build the current hazard picture/i }),
   ).toBeVisible();
-  await expect(page.getByText("Not requested")).toHaveCount(2);
+  await expect(page.getByText("Not requested")).toHaveCount(3);
   await expect(
     page.getByRole("link", { name: /imagery: nasa/i }),
   ).toHaveAttribute("href", /earthobservatory\.nasa\.gov/);
@@ -91,6 +91,10 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
     "noopener noreferrer",
   );
   await expect(page.getByRole("link", { name: "GDACS" })).toHaveAttribute(
+    "target",
+    "_blank",
+  );
+  await expect(page.getByRole("link", { name: "NOAA SPC" })).toHaveAttribute(
     "target",
     "_blank",
   );

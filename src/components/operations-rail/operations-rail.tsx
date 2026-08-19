@@ -35,6 +35,7 @@ const CATEGORIES: EventCategory[] = [
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
 ];
@@ -47,6 +48,7 @@ const SOURCES: Array<{
 }> = [
   { value: "usgs", label: "USGS" },
   { value: "gdacs", label: "GDACS" },
+  { value: "spc", label: "NOAA SPC" },
 ];
 
 const LIFECYCLES: Array<{ value: EventLifecycle; label: string }> = [

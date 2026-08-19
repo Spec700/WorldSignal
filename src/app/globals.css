@@ -933,6 +933,11 @@ button:disabled {
   color: oklch(0.83 0.12 86);
 }
 
+.event-icon--tornado {
+  border-color: var(--color-cyan);
+  color: var(--color-cyan);
+}
+
 .event-icon--volcano {
   border-radius: 50% 50% 3px 3px;
   color: oklch(0.77 0.15 42);

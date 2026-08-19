@@ -88,8 +88,8 @@ export function OperationalStage({
         <span className="stage-kicker">Manual source retrieval</span>
         <h1>Build the current hazard picture</h1>
         <p>
-          WorldSignal has not contacted USGS or GDACS. Load the selected range
-          when you are ready; no polling will follow.
+          WorldSignal has not contacted USGS, GDACS, or NOAA SPC. Load the
+          selected range when you are ready; no polling will follow.
         </p>
         <button
           className="stage-action"
@@ -107,7 +107,7 @@ export function OperationalStage({
         <span className="stage-kicker">Retrieval complete</span>
         <h1>No hazards were returned</h1>
         <p>
-          Both source states remain visible at left. This is a successful empty
+          Each source state remains visible at left. This is a successful empty
           retrieval, not an “all clear” claim.
         </p>
       </div>
@@ -237,6 +237,14 @@ export function OperationalStage({
             target="_blank"
           >
             GDACS
+          </a>{" "}
+          ·{" "}
+          <a
+            href="https://www.spc.noaa.gov/climo/reports/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            NOAA SPC
           </a>
         </span>
       </div>

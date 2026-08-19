@@ -114,5 +114,12 @@ export const eventBatchFixture: EventBatch = {
       upstreamUpdatedAt: "2026-08-18T09:30:00.000Z",
       eventCount: 1,
     },
+    {
+      source: "spc",
+      state: "ok",
+      attemptedAt: "2026-08-18T09:59:58.000Z",
+      completedAt: "2026-08-18T10:00:00.000Z",
+      eventCount: 0,
+    },
   ],
 };

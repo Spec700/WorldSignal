@@ -8,6 +8,7 @@ import type {
 import type { EventSourceAdapter } from "@/lib/sources/adapter";
 import { asSourceFetchError } from "@/lib/sources/errors";
 import { GdacsAdapter } from "@/lib/sources/gdacs/adapter";
+import { SpcTornadoAdapter } from "@/lib/sources/spc/adapter";
 import { UsgsAdapter } from "@/lib/sources/usgs/adapter";
 
 const WINDOW_MILLISECONDS: Record<HazardWindow, number> = {
@@ -81,6 +82,7 @@ export async function handleHazardBatchRequest(
   const adapters = dependencies.adapters ?? [
     new UsgsAdapter({ now }),
     new GdacsAdapter({ now }),
+    new SpcTornadoAdapter({ now }),
   ];
   const attempts: SourceAttempt[] = adapters.map((adapter) => ({
     adapter,
