@@ -1,27 +1,15 @@
+import type {
+  PersonDto,
+  PersonIdentityDto,
+  PersonLocationDto,
+  PrioritySignalsOperatorDto,
+} from "@/features/people/types";
+
 export type CredSignalPriority = "low" | "medium" | "high" | "critical";
 
-export interface CredSignalOperatorDto {
-  id: string;
-  displayName: string;
-  email: string;
-}
-
-export interface CredSignalIdentityDto {
-  id: string;
-  type:
-    "work_email" | "personal_email" | "username" | "phone" | "domain" | "other";
-  displayValue: string;
-  isPrimary: boolean;
-  isActive: boolean;
-}
-
-export interface CredSignalLocationDto {
-  id: string;
-  label: string;
-  latitude: number;
-  longitude: number;
-  precision: "exact" | "city" | "region" | "country";
-}
+export type CredSignalOperatorDto = PrioritySignalsOperatorDto;
+export type CredSignalIdentityDto = PersonIdentityDto;
+export type CredSignalLocationDto = PersonLocationDto;
 
 export interface CredSignalExposureDto {
   id: string;
@@ -109,15 +97,7 @@ export interface CredSignalCaseDto {
   communications: CredSignalCommunicationDto[];
 }
 
-export interface CredSignalProtecteeDto {
-  id: string;
-  displayName: string;
-  title?: string;
-  organization?: string;
-  tier: "standard" | "high" | "critical";
-  status: "active" | "paused" | "archived";
-  identities: CredSignalIdentityDto[];
-  location?: CredSignalLocationDto;
+export interface CredSignalProtecteeDto extends PersonDto {
   exposures: CredSignalExposureDto[];
   cases: CredSignalCaseDto[];
   activePriority?: CredSignalPriority;

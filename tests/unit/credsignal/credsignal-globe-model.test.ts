@@ -20,12 +20,17 @@ function protectee(
       latitude: 40.7128,
       longitude: -74.006,
       precision: "city",
+      isActive: true,
+      effectiveFrom: "2026-08-01T12:00:00.000Z",
     },
     exposures: [],
     cases: [],
     activePriority: "critical",
     openCaseCount: 2,
     openTaskCount: 3,
+    locationHistory: [],
+    createdAt: "2026-08-01T12:00:00.000Z",
+    updatedAt: "2026-08-18T12:00:00.000Z",
     ...overrides,
   };
 }

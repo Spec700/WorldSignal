@@ -7,6 +7,8 @@ import type {
   CredSignalPriority,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
+import { currentPersonLocation } from "@/features/people/location-model";
+import type { PersonLocationDto } from "@/features/people/types";
 import { getDatabase } from "@/lib/db/client";
 import {
   activityLog,
@@ -138,12 +140,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
       ? database
           .select()
           .from(protecteeLocations)
-          .where(
-            and(
-              inArray(protecteeLocations.protecteeId, protecteeIds),
-              eq(protecteeLocations.isActive, true),
-            ),
-          )
+          .where(inArray(protecteeLocations.protecteeId, protecteeIds))
           .orderBy(desc(protecteeLocations.effectiveFrom))
       : [],
     exposureIds.length > 0
@@ -286,6 +283,18 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
           )
           .map((exposure) => exposure.severity),
       ]);
+      const locationHistory = locationRows
+        .filter((location) => location.protecteeId === protectee.id)
+        .map<PersonLocationDto>((location) => ({
+          id: location.id,
+          label: location.label,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          precision: location.precision,
+          isActive: location.isActive,
+          effectiveFrom: location.effectiveFrom.toISOString(),
+          effectiveTo: location.effectiveTo?.toISOString(),
+        }));
 
       return {
         id: protectee.id,
@@ -294,6 +303,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
         organization: protectee.organization ?? undefined,
         tier: protectee.tier,
         status: protectee.status,
+        notes: protectee.notes ?? undefined,
         identities: identityRows
           .filter((identity) => identity.protecteeId === protectee.id)
           .map((identity) => ({
@@ -302,10 +312,12 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
             displayValue: identity.displayValue,
             isPrimary: identity.isPrimary,
             isActive: identity.isActive,
+            verifiedAt: identity.verifiedAt?.toISOString(),
           })),
-        location: locationRows.find(
-          (location) => location.protecteeId === protectee.id,
-        ),
+        location: currentPersonLocation(locationHistory),
+        locationHistory,
+        createdAt: protectee.createdAt.toISOString(),
+        updatedAt: protectee.updatedAt.toISOString(),
         exposures,
         cases,
         activePriority,
