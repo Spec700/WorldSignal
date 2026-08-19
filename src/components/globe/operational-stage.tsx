@@ -29,6 +29,7 @@ interface OperationalStageProps {
   visibleCount: number;
   refreshError?: string;
   refreshing: boolean;
+  restoring: boolean;
   batchIsPrevious: boolean;
   selectedEvent?: WorldEvent;
   selectedGeometry?: GdacsGeometryCollection;
@@ -47,6 +48,7 @@ export function OperationalStage({
   visibleCount,
   refreshError,
   refreshing,
+  restoring,
   batchIsPrevious,
   selectedEvent,
   selectedGeometry,
@@ -58,7 +60,18 @@ export function OperationalStage({
 }: OperationalStageProps) {
   let overlay: ReactNode = null;
 
-  if (!hasLoadedBatch && refreshError) {
+  if (!hasLoadedBatch && restoring) {
+    overlay = (
+      <div className="stage-message">
+        <span className="stage-kicker">Browser snapshot</span>
+        <h1>Restoring the latest hazard picture</h1>
+        <p>
+          WorldSignal is checking this browser before contacting any hazard
+          source.
+        </p>
+      </div>
+    );
+  } else if (!hasLoadedBatch && refreshError) {
     overlay = (
       <div className="stage-message stage-message--error" role="alert">
         <span className="stage-kicker">Retrieval failed</span>

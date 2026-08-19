@@ -149,6 +149,47 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   expect(hazardRequests).toHaveLength(2);
 });
 
+test("browser snapshots survive reloads and only explicit refresh retrieves again", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  const hazardRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/events/hazards")) {
+      hazardRequests.push(request.url());
+    }
+  });
+
+  await page.goto("/worldsignal");
+  await page
+    .getByRole("button", { name: /load current events/i })
+    .first()
+    .click();
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  await expect(page.getByLabel("Browser snapshot status")).toContainText(
+    "7D · Stored locally",
+  );
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.reload();
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  await expect(page.getByLabel("Browser snapshot status")).toContainText(
+    "7D · Restored locally",
+  );
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.goto("about:blank");
+  await page.goto("/worldsignal");
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect.poll(() => hazardRequests.length).toBe(2);
+  await expect(page.getByLabel("Browser snapshot status")).toContainText(
+    "7D · Stored locally",
+  );
+});
+
 test("list selection opens authoritative evidence and validated detail geometry", async ({
   page,
 }) => {

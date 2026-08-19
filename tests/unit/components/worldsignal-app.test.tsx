@@ -23,19 +23,23 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function loadButton() {
-  return screen.getAllByRole("button", { name: /load current events/i })[0];
+async function loadButton() {
+  return (
+    await screen.findAllByRole("button", {
+      name: /load current events/i,
+    })
+  )[0];
 }
 
 describe("WorldSignal application shell", () => {
-  it("starts idle and performs no source request until the user asks", () => {
+  it("starts idle and performs no source request until the user asks", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     render(<WorldSignalApp />);
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("heading", {
+      await screen.findByRole("heading", {
         name: /build the current hazard picture/i,
       }),
     ).toBeInTheDocument();
@@ -50,6 +54,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValue(Response.json(eventBatchFixture));
 
     render(<WorldSignalApp />);
+    await loadButton();
     await user.click(screen.getByRole("button", { name: "24H" }));
 
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -58,7 +63,7 @@ describe("WorldSignal application shell", () => {
       "true",
     );
 
-    await user.click(loadButton());
+    await user.click(await loadButton());
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(fetchSpy.mock.calls[0][0]).toBe("/api/events/hazards?window=24h");
   });
@@ -70,7 +75,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValue(Response.json(eventBatchFixture));
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     await screen.findByRole("button", {
       name: /earthquake: m6\.4 earthquake/i,
     });
@@ -87,7 +92,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValue(Response.json(eventBatchFixture));
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
 
     const earthquakeRow = await screen.findByRole("button", {
       name: /earthquake: m6\.4 earthquake/i,
@@ -128,7 +133,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValue(Response.json(eventBatchFixture));
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     await screen.findByRole("button", {
       name: /earthquake: m6\.4 earthquake/i,
     });
@@ -168,7 +173,7 @@ describe("WorldSignal application shell", () => {
     );
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     await screen.findByRole("button", {
       name: /earthquake: m6\.4 earthquake/i,
     });
@@ -199,7 +204,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValue(Response.json(eventBatchFixture));
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     await user.click(
       await screen.findByRole("button", {
         name: /earthquake: m6\.4 earthquake/i,
@@ -254,7 +259,7 @@ describe("WorldSignal application shell", () => {
     );
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
 
     expect(
       await screen.findByRole("button", {
@@ -276,7 +281,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValueOnce(Response.json(gdacsGeometryFixture));
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     await user.click(
       await screen.findByRole("button", { name: /tropical cyclone:/i }),
     );
@@ -325,7 +330,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValueOnce(Response.json(gdacsGeometryFixture));
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     await user.click(
       await screen.findByRole("button", { name: /tropical cyclone:/i }),
     );
@@ -356,7 +361,7 @@ describe("WorldSignal application shell", () => {
       .mockReturnValueOnce(pendingRefresh);
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
     const earthquakeRow = await screen.findByRole("button", {
       name: /earthquake: m6\.4 earthquake/i,
     });
@@ -401,7 +406,7 @@ describe("WorldSignal application shell", () => {
     );
 
     render(<WorldSignalApp />);
-    await user.click(loadButton());
+    await user.click(await loadButton());
 
     expect(
       await screen.findByRole("heading", {
@@ -421,6 +426,7 @@ describe("WorldSignal application shell", () => {
       .mockResolvedValue(Response.json(eventBatchFixture));
 
     render(<WorldSignalApp />);
+    await loadButton();
 
     await user.keyboard("/");
     const search = screen.getByRole("searchbox", {

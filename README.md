@@ -23,19 +23,22 @@ Use the product switcher in the application header to move between modules.
 - Retrieves global M4.5+ earthquakes from the U.S. Geological Survey (USGS).
 - Retrieves GDACS tropical cyclones, floods, droughts, volcanoes, and significant forest fires,
   including paginated results.
-- Makes no event request until an operator selects **Load current events** and never polls
-  afterward.
+- Makes no event request until an operator selects **Load current events** for an uncached range and
+  never polls afterward.
 - Normalizes both providers behind one validated event contract while retaining source-native
   severity and provenance.
 - Keeps the globe, keyboard-accessible event stream, filters, timeline, selection, and dossier on
   one reducer-coordinated state model.
 - Fetches validated GDACS paths and polygons only for the selected event.
-- Tracks new, updated, resolved, and unchanged events between successful manual retrievals in the
-  current browser session.
+- Stores the latest validated 24-hour, 7-day, and 30-day snapshots in the current browser so module
+  switches, page reloads, browser restarts, and local server restarts do not recontact sources.
+- Tracks new, updated, resolved, and unchanged events between successful manual retrievals and
+  preserves the comparison baseline with each browser snapshot.
 - Runs without an account, API key, commercial map token, analytics, or paid service.
 
-WorldSignal remains its original MVP-A: incident signals, persistent hazard history/replay, alerts,
-accounts, collaboration, and mobile-native applications are not implemented yet.
+WorldSignal remains its original MVP-A: incident signals, historical source-revision replay, alerts,
+accounts, collaboration, and mobile-native applications are not implemented yet. Browser snapshots
+retain the latest retrieved batch; they are not a historical event archive.
 
 ### CredSignal
 
@@ -177,9 +180,15 @@ deployment hardening, and managed key storage are implemented.
 
 - The default source range is 7 days.
 - Choosing a range before the first load changes the upcoming request but does not contact a source.
-- Choosing a different range after a successful load makes one new explicit source request.
-- **Refresh** is the only retry action. There is no timer, polling loop, WebSocket, background worker,
-  cron job, or automatic retry.
+- Choosing a different range after a successful load restores that range's browser snapshot when one
+  exists. An uncached range makes one explicit source request and is then stored.
+- Reloading WorldSignal or switching between WorldSignal and CredSignal restores the last-used
+  browser snapshot without a source request.
+- **Refresh** is the only action that replaces a stored snapshot by retrieving that range again.
+  There is no timer, polling loop, WebSocket, background worker, cron job, automatic expiration, or
+  automatic retry.
+- Browser snapshots are local to one browser profile and localhost origin. Clearing site data removes
+  them; stopping or recreating the Docker Compose containers does not.
 - A partial result retains successful source events and identifies every failed source.
 - Category, display-priority, source, lifecycle, text, and timeline filters operate locally over the
   loaded batch.
@@ -216,6 +225,7 @@ Priority Signals
 │           ├── USGS adapter
 │           └── GDACS adapter + selected-event geometry
 │               └── client reducer ── globe / stream / filters / dossier
+│                       └── validated browser-local range snapshots (IndexedDB)
 └── CredSignal
     server-rendered dashboard + audited Server Actions
         └── domain validation and transactional workflows

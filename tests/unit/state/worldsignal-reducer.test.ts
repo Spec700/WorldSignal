@@ -4,6 +4,7 @@ import {
   createInitialWorldSignalState,
   worldSignalReducer,
 } from "@/state/worldsignal-reducer";
+import { createHazardSnapshot } from "@/features/hazards/client/hazard-snapshot-store";
 import {
   cycloneFixture,
   earthquakeFixture,
@@ -116,6 +117,37 @@ describe("WorldSignal reducer refresh flow", () => {
 
     expect(refreshed.selectedEventId).toBeUndefined();
     expect(refreshed.selectionNotice).toMatch(/not present/i);
+  });
+
+  it("restores a validated browser snapshot as the comparison baseline", () => {
+    const loaded = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "refresh/succeeded",
+      batch: eventBatchFixture,
+    });
+    const snapshot = createHazardSnapshot({
+      window: "7d",
+      batch: eventBatchFixture,
+      previousEventsById: loaded.previousEventsById,
+      changesByEventId: loaded.changesByEventId,
+      savedAt: "2026-08-18T10:00:01.000Z",
+    });
+
+    const restored = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "cache/restored",
+      snapshot,
+    });
+
+    expect(restored.batch).toEqual(eventBatchFixture);
+    expect(restored.cacheState).toBe("stored");
+    expect(restored.batchOrigin).toBe("stored");
+    expect(restored.filters.window).toBe("7d");
+    expect(restored.filters.timeCursor).toBe(
+      eventBatchFixture.requestedRange.to,
+    );
+    expect(restored.previousEventsById.get(earthquakeFixture.id)).toEqual(
+      earthquakeFixture,
+    );
+    expect(restored.changesByEventId.get(earthquakeFixture.id)).toBe("new");
   });
 });
 
