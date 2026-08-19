@@ -148,7 +148,48 @@ describe("WorldSignal application shell", () => {
       "1",
     );
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /earthquake, 0 at current time/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /tropical cyclone, 1 at current time/i,
+      }),
+    ).toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("distinguishes time-cursor exclusions from category filters", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(eventBatchFixture),
+    );
+
+    render(<WorldSignalApp />);
+    await user.click(loadButton());
+    await screen.findByRole("button", {
+      name: /earthquake: m6\.4 earthquake/i,
+    });
+
+    fireEvent.change(screen.getByRole("slider", { name: /time cursor/i }), {
+      target: { value: Date.parse("2026-08-17T00:00:00.000Z") },
+    });
+    await user.click(
+      screen.getByRole("button", {
+        name: /tropical cyclone, 1 at current time/i,
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: /matching events exist elsewhere in the loaded interval/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 matching event is outside/i),
+    ).toBeInTheDocument();
   });
 
   it("clears a selection consistently when a local filter hides it", async () => {
@@ -171,7 +212,9 @@ describe("WorldSignal application shell", () => {
     ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: /earthquake, 1 loaded/i }),
+      screen.getByRole("button", {
+        name: /earthquake, 1 at current time/i,
+      }),
     );
 
     await waitFor(() =>

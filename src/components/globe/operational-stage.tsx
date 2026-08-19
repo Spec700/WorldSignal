@@ -25,6 +25,7 @@ interface OperationalStageProps {
   events: WorldEvent[];
   hasLoadedBatch: boolean;
   loadedCount: number;
+  matchingBeforeTimeCount: number;
   visibleCount: number;
   refreshError?: string;
   refreshing: boolean;
@@ -42,6 +43,7 @@ export function OperationalStage({
   events,
   hasLoadedBatch,
   loadedCount,
+  matchingBeforeTimeCount,
   visibleCount,
   refreshError,
   refreshing,
@@ -98,16 +100,32 @@ export function OperationalStage({
       </div>
     );
   } else if (visibleCount === 0) {
-    overlay = (
-      <div className="stage-message">
-        <span className="stage-kicker">No matching events</span>
-        <h1>The active filters hide all loaded events</h1>
-        <p>{loadedCount} events remain in the current retrieval.</p>
-        <button className="stage-action" onClick={onClearFilters} type="button">
-          Clear filters
-        </button>
-      </div>
-    );
+    overlay =
+      matchingBeforeTimeCount > 0 ? (
+        <div className="stage-message">
+          <span className="stage-kicker">No events at this time</span>
+          <h1>Matching events exist elsewhere in the loaded interval</h1>
+          <p>
+            {matchingBeforeTimeCount} matching event
+            {matchingBeforeTimeCount === 1 ? " is" : "s are"} outside the
+            current time cursor. Move the timeline to inspect when they were
+            active.
+          </p>
+        </div>
+      ) : (
+        <div className="stage-message">
+          <span className="stage-kicker">No matching events</span>
+          <h1>The active filters hide all loaded events</h1>
+          <p>{loadedCount} events remain in the current retrieval.</p>
+          <button
+            className="stage-action"
+            onClick={onClearFilters}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </div>
+      );
   }
 
   return (

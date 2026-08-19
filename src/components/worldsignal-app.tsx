@@ -135,17 +135,25 @@ function WorldSignalWorkspace() {
       sortEventsByPriority(selectVisibleEvents(loadedEvents, state.filters)),
     [loadedEvents, state.filters],
   );
+  const categoryCountEvents = useMemo(
+    () =>
+      selectVisibleEvents(loadedEvents, {
+        ...state.filters,
+        categories: HAZARD_CATEGORIES,
+      }),
+    [loadedEvents, state.filters],
+  );
   const categoryCounts = useMemo(() => {
     const counts = new Map<EventCategory, number>(
       HAZARD_CATEGORIES.map((category) => [category, 0]),
     );
-    for (const event of loadedEvents) {
+    for (const event of categoryCountEvents) {
       if (counts.has(event.category)) {
         counts.set(event.category, (counts.get(event.category) ?? 0) + 1);
       }
     }
     return counts;
-  }, [loadedEvents]);
+  }, [categoryCountEvents]);
   const selectedEvent = state.selectedEventId
     ? visibleEvents.find((event) => event.id === state.selectedEventId)
     : undefined;
@@ -268,6 +276,7 @@ function WorldSignalWorkspace() {
           events={visibleEvents}
           hasLoadedBatch={Boolean(state.batch)}
           loadedCount={loadedEvents.length}
+          matchingBeforeTimeCount={preTimeEvents.length}
           onClearFilters={clearVisibilityFilters}
           onClearSelection={() => dispatch({ type: "selection/clear" })}
           onRefresh={() => void refresh()}

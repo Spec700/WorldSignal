@@ -113,7 +113,9 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   expect(hazardRequests).toHaveLength(1);
   expect(hazardRequests[0]).toContain("window=24h");
 
-  await page.getByRole("button", { name: /earthquake, 1 loaded/i }).click();
+  await page
+    .getByRole("button", { name: /earthquake, 1 at current time/i })
+    .click();
   await expect(page.locator("[data-event-row]")).toHaveCount(1);
   await expect(page.locator(".globe-shell")).toHaveAttribute(
     "data-event-count",
@@ -123,7 +125,9 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   await expect(page.getByLabel("Event query summary")).toContainText("1 / 2");
   expect(hazardRequests).toHaveLength(1);
 
-  await page.getByRole("button", { name: /earthquake, 1 loaded/i }).click();
+  await page
+    .getByRole("button", { name: /earthquake, 1 at current time/i })
+    .click();
   const slider = page.getByRole("slider", { name: /time cursor/i });
   await slider.fill(String(Date.parse("2026-08-17T00:00:00.000Z")));
   await expect(page.locator("[data-event-row]")).toHaveCount(1);

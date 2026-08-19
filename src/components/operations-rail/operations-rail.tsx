@@ -119,7 +119,7 @@ export function OperationsRail({
           <div className="category-filter-grid">
             {CATEGORIES.map((category) => (
               <button
-                aria-label={`${eventCategoryLabel(category)}, ${categoryCounts.get(category) ?? 0} loaded`}
+                aria-label={`${eventCategoryLabel(category)}, ${categoryCounts.get(category) ?? 0} at current time`}
                 aria-pressed={filters.categories.includes(category)}
                 key={category}
                 onClick={() => onCategoryToggle(category)}
