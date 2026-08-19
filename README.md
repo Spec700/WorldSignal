@@ -23,19 +23,24 @@ Use the product switcher in the application header to move between modules.
 - Retrieves global M4.5+ earthquakes from the U.S. Geological Survey (USGS).
 - Retrieves GDACS tropical cyclones, floods, droughts, volcanoes, and significant forest fires,
   including paginated results.
-- Makes no event request until an operator selects **Load current events** and never polls
-  afterward.
+- Retrieves U.S. preliminary observed tornado reports from NOAA's Storm Prediction Center (SPC)
+  filtered daily report files. Reports are clearly marked preliminary and may be revised.
+- Makes no event request until an operator selects **Load current events** for an uncached range and
+  never polls afterward.
 - Normalizes both providers behind one validated event contract while retaining source-native
   severity and provenance.
 - Keeps the globe, keyboard-accessible event stream, filters, timeline, selection, and dossier on
   one reducer-coordinated state model.
 - Fetches validated GDACS paths and polygons only for the selected event.
-- Tracks new, updated, resolved, and unchanged events between successful manual retrievals in the
-  current browser session.
+- Stores the latest validated 24-hour, 7-day, and 30-day snapshots in the current browser so module
+  switches, page reloads, browser restarts, and local server restarts do not recontact sources.
+- Tracks new, updated, resolved, and unchanged events between successful manual retrievals and
+  preserves the comparison baseline with each browser snapshot.
 - Runs without an account, API key, commercial map token, analytics, or paid service.
 
-WorldSignal remains its original MVP-A: incident signals, persistent hazard history/replay, alerts,
-accounts, collaboration, and mobile-native applications are not implemented yet.
+WorldSignal remains its original MVP-A: incident signals, historical source-revision replay, alerts,
+accounts, collaboration, and mobile-native applications are not implemented yet. Browser snapshots
+retain the latest retrieved batch; they are not a historical event archive.
 
 ### CredSignal
 
@@ -177,9 +182,15 @@ deployment hardening, and managed key storage are implemented.
 
 - The default source range is 7 days.
 - Choosing a range before the first load changes the upcoming request but does not contact a source.
-- Choosing a different range after a successful load makes one new explicit source request.
-- **Refresh** is the only retry action. There is no timer, polling loop, WebSocket, background worker,
-  cron job, or automatic retry.
+- Choosing a different range after a successful load restores that range's browser snapshot when one
+  exists. An uncached range makes one explicit source request and is then stored.
+- Reloading WorldSignal or switching between WorldSignal and CredSignal restores the last-used
+  browser snapshot without a source request.
+- **Refresh** is the only action that replaces a stored snapshot by retrieving that range again.
+  There is no timer, polling loop, WebSocket, background worker, cron job, automatic expiration, or
+  automatic retry.
+- Browser snapshots are local to one browser profile and localhost origin. Clearing site data removes
+  them; stopping or recreating the Docker Compose containers does not.
 - A partial result retains successful source events and identifies every failed source.
 - Category, display-priority, source, lifecycle, text, and timeline filters operate locally over the
   loaded batch.
@@ -212,10 +223,12 @@ the retrieval sweep, selection pulse, and animated camera travel.
 Priority Signals
 ├── WorldSignal
 │   browser action
-│       └── validated Next.js source routes
-│           ├── USGS adapter
-│           └── GDACS adapter + selected-event geometry
-│               └── client reducer ── globe / stream / filters / dossier
+│       ├── validated Next.js source routes
+│       │   ├── USGS adapter
+│       │   ├── GDACS adapter + selected-event geometry
+│       │   └── NOAA SPC preliminary tornado-report adapter
+│       └── client reducer ── globe / stream / filters / dossier
+│               └── validated browser-local range snapshots (IndexedDB)
 └── CredSignal
     server-rendered dashboard + audited Server Actions
         └── domain validation and transactional workflows
@@ -233,16 +246,19 @@ changes such as matching, case closure, and task coordination.
 
 ## Modules and sources
 
-| Module                                                    | Data source                                                                      | Request or intake scope                                      | Authentication                   |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- |
-| WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                   | None                             |
-| WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated    | None                             |
-| CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator | Demo operator only; not enforced |
+| Module                                                    | Data source                                                                      | Request or intake scope                                           | Authentication                   |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------- |
+| WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                        | None                             |
+| WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated         | None                             |
+| WorldSignal tornadoes                                     | [NOAA Storm Prediction Center](https://www.spc.noaa.gov/climo/reports/)          | U.S. filtered preliminary reports for each 12Z–12Z convective day | None                             |
+| CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator      | Demo operator only; not enforced |
 
 USGS exclusively owns the current WorldSignal earthquake category. WorldSignal does not request
 GDACS earthquake records or attempt speculative cross-source event merging. “Authoritative source”
-means a record arrived through the documented USGS or GDACS adapter; it does not mean Priority
-Signals independently verified every upstream fact.
+means a record arrived through a documented USGS, GDACS, or NOAA SPC adapter; it does not mean
+Priority Signals independently verified every upstream fact. SPC tornado reports are preliminary
+observations rather than forecasts or active warnings, cover the United States, and can change
+during NOAA review.
 
 ## Verification
 
@@ -344,7 +360,8 @@ Install stable Google Chrome in the platform's normal application location and r
 ## Attribution and license
 
 Visible in-app credits identify NASA Blue Marble imagery, Natural Earth boundaries, USGS earthquake
-data, and GDACS disaster data. Fonts and third-party software retain their licenses. See
+data, GDACS disaster data, and NOAA SPC preliminary tornado reports. Fonts and third-party software
+retain their licenses. See
 [NOTICE.md](NOTICE.md) for source links, terms, and bundled-asset details.
 
 Priority Signals source code is available under the [MIT License](LICENSE). Contributions should

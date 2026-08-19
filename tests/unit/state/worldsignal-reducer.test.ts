@@ -4,6 +4,7 @@ import {
   createInitialWorldSignalState,
   worldSignalReducer,
 } from "@/state/worldsignal-reducer";
+import { createHazardSnapshot } from "@/features/hazards/client/hazard-snapshot-store";
 import {
   cycloneFixture,
   earthquakeFixture,
@@ -117,6 +118,37 @@ describe("WorldSignal reducer refresh flow", () => {
     expect(refreshed.selectedEventId).toBeUndefined();
     expect(refreshed.selectionNotice).toMatch(/not present/i);
   });
+
+  it("restores a validated browser snapshot as the comparison baseline", () => {
+    const loaded = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "refresh/succeeded",
+      batch: eventBatchFixture,
+    });
+    const snapshot = createHazardSnapshot({
+      window: "7d",
+      batch: eventBatchFixture,
+      previousEventsById: loaded.previousEventsById,
+      changesByEventId: loaded.changesByEventId,
+      savedAt: "2026-08-18T10:00:01.000Z",
+    });
+
+    const restored = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "cache/restored",
+      snapshot,
+    });
+
+    expect(restored.batch).toEqual(eventBatchFixture);
+    expect(restored.cacheState).toBe("stored");
+    expect(restored.batchOrigin).toBe("stored");
+    expect(restored.filters.window).toBe("7d");
+    expect(restored.filters.timeCursor).toBe(
+      eventBatchFixture.requestedRange.to,
+    );
+    expect(restored.previousEventsById.get(earthquakeFixture.id)).toEqual(
+      earthquakeFixture,
+    );
+    expect(restored.changesByEventId.get(earthquakeFixture.id)).toBe("new");
+  });
 });
 
 describe("WorldSignal reducer geometry flow", () => {
@@ -218,14 +250,14 @@ describe("WorldSignal reducer filter flow", () => {
     expect(cursor.filters).toMatchObject({
       categories: expect.not.arrayContaining(["earthquake"]),
       priorities: expect.not.arrayContaining(["critical"]),
-      sources: ["usgs"],
+      sources: ["usgs", "spc"],
       lifecycle: expect.not.arrayContaining(["ended"]),
       timeCursor: "2026-08-18T08:00:00.000Z",
     });
     expect(reset.filters).toMatchObject({
       categories: expect.arrayContaining(["earthquake", "wildfire"]),
       priorities: ["low", "medium", "high", "critical"],
-      sources: ["usgs", "gdacs"],
+      sources: ["usgs", "gdacs", "spc"],
       lifecycle: ["ongoing", "occurred", "ended", "unknown"],
       query: "",
       window: "7d",

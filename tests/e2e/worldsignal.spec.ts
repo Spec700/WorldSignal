@@ -82,7 +82,7 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   await expect(
     page.getByRole("heading", { name: /build the current hazard picture/i }),
   ).toBeVisible();
-  await expect(page.getByText("Not requested")).toHaveCount(2);
+  await expect(page.getByText("Not requested")).toHaveCount(3);
   await expect(
     page.getByRole("link", { name: /imagery: nasa/i }),
   ).toHaveAttribute("href", /earthobservatory\.nasa\.gov/);
@@ -91,6 +91,10 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
     "noopener noreferrer",
   );
   await expect(page.getByRole("link", { name: "GDACS" })).toHaveAttribute(
+    "target",
+    "_blank",
+  );
+  await expect(page.getByRole("link", { name: "NOAA SPC" })).toHaveAttribute(
     "target",
     "_blank",
   );
@@ -113,7 +117,9 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   expect(hazardRequests).toHaveLength(1);
   expect(hazardRequests[0]).toContain("window=24h");
 
-  await page.getByRole("button", { name: /earthquake, 1 loaded/i }).click();
+  await page
+    .getByRole("button", { name: /earthquake, 1 at current time/i })
+    .click();
   await expect(page.locator("[data-event-row]")).toHaveCount(1);
   await expect(page.locator(".globe-shell")).toHaveAttribute(
     "data-event-count",
@@ -123,7 +129,9 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   await expect(page.getByLabel("Event query summary")).toContainText("1 / 2");
   expect(hazardRequests).toHaveLength(1);
 
-  await page.getByRole("button", { name: /earthquake, 1 loaded/i }).click();
+  await page
+    .getByRole("button", { name: /earthquake, 1 at current time/i })
+    .click();
   const slider = page.getByRole("slider", { name: /time cursor/i });
   await slider.fill(String(Date.parse("2026-08-17T00:00:00.000Z")));
   await expect(page.locator("[data-event-row]")).toHaveCount(1);
@@ -143,6 +151,47 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
   expect(hazardRequests[1]).toContain("window=30d");
   await page.waitForTimeout(350);
   expect(hazardRequests).toHaveLength(2);
+});
+
+test("browser snapshots survive reloads and only explicit refresh retrieves again", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  const hazardRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/events/hazards")) {
+      hazardRequests.push(request.url());
+    }
+  });
+
+  await page.goto("/worldsignal");
+  await page
+    .getByRole("button", { name: /load current events/i })
+    .first()
+    .click();
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  await expect(page.getByLabel("Browser snapshot status")).toContainText(
+    "7D · Stored locally",
+  );
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.reload();
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  await expect(page.getByLabel("Browser snapshot status")).toContainText(
+    "7D · Restored locally",
+  );
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.goto("about:blank");
+  await page.goto("/worldsignal");
+  await expect(page.locator("[data-event-row]")).toHaveCount(2);
+  expect(hazardRequests).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect.poll(() => hazardRequests.length).toBe(2);
+  await expect(page.getByLabel("Browser snapshot status")).toContainText(
+    "7D · Stored locally",
+  );
 });
 
 test("list selection opens authoritative evidence and validated detail geometry", async ({

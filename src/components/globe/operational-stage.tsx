@@ -25,9 +25,11 @@ interface OperationalStageProps {
   events: WorldEvent[];
   hasLoadedBatch: boolean;
   loadedCount: number;
+  matchingBeforeTimeCount: number;
   visibleCount: number;
   refreshError?: string;
   refreshing: boolean;
+  restoring: boolean;
   batchIsPrevious: boolean;
   selectedEvent?: WorldEvent;
   selectedGeometry?: GdacsGeometryCollection;
@@ -42,9 +44,11 @@ export function OperationalStage({
   events,
   hasLoadedBatch,
   loadedCount,
+  matchingBeforeTimeCount,
   visibleCount,
   refreshError,
   refreshing,
+  restoring,
   batchIsPrevious,
   selectedEvent,
   selectedGeometry,
@@ -56,7 +60,18 @@ export function OperationalStage({
 }: OperationalStageProps) {
   let overlay: ReactNode = null;
 
-  if (!hasLoadedBatch && refreshError) {
+  if (!hasLoadedBatch && restoring) {
+    overlay = (
+      <div className="stage-message">
+        <span className="stage-kicker">Browser snapshot</span>
+        <h1>Restoring the latest hazard picture</h1>
+        <p>
+          WorldSignal is checking this browser before contacting any hazard
+          source.
+        </p>
+      </div>
+    );
+  } else if (!hasLoadedBatch && refreshError) {
     overlay = (
       <div className="stage-message stage-message--error" role="alert">
         <span className="stage-kicker">Retrieval failed</span>
@@ -73,8 +88,8 @@ export function OperationalStage({
         <span className="stage-kicker">Manual source retrieval</span>
         <h1>Build the current hazard picture</h1>
         <p>
-          WorldSignal has not contacted USGS or GDACS. Load the selected range
-          when you are ready; no polling will follow.
+          WorldSignal has not contacted USGS, GDACS, or NOAA SPC. Load the
+          selected range when you are ready; no polling will follow.
         </p>
         <button
           className="stage-action"
@@ -92,22 +107,38 @@ export function OperationalStage({
         <span className="stage-kicker">Retrieval complete</span>
         <h1>No hazards were returned</h1>
         <p>
-          Both source states remain visible at left. This is a successful empty
+          Each source state remains visible at left. This is a successful empty
           retrieval, not an “all clear” claim.
         </p>
       </div>
     );
   } else if (visibleCount === 0) {
-    overlay = (
-      <div className="stage-message">
-        <span className="stage-kicker">No matching events</span>
-        <h1>The active filters hide all loaded events</h1>
-        <p>{loadedCount} events remain in the current retrieval.</p>
-        <button className="stage-action" onClick={onClearFilters} type="button">
-          Clear filters
-        </button>
-      </div>
-    );
+    overlay =
+      matchingBeforeTimeCount > 0 ? (
+        <div className="stage-message">
+          <span className="stage-kicker">No events at this time</span>
+          <h1>Matching events exist elsewhere in the loaded interval</h1>
+          <p>
+            {matchingBeforeTimeCount} matching event
+            {matchingBeforeTimeCount === 1 ? " is" : "s are"} outside the
+            current time cursor. Move the timeline to inspect when they were
+            active.
+          </p>
+        </div>
+      ) : (
+        <div className="stage-message">
+          <span className="stage-kicker">No matching events</span>
+          <h1>The active filters hide all loaded events</h1>
+          <p>{loadedCount} events remain in the current retrieval.</p>
+          <button
+            className="stage-action"
+            onClick={onClearFilters}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </div>
+      );
   }
 
   return (
@@ -206,6 +237,14 @@ export function OperationalStage({
             target="_blank"
           >
             GDACS
+          </a>{" "}
+          ·{" "}
+          <a
+            href="https://www.spc.noaa.gov/climo/reports/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            NOAA SPC
           </a>
         </span>
       </div>

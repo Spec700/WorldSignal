@@ -1,4 +1,4 @@
-import type { SourceHealth } from "@/lib/events/types";
+import type { HazardWindow, SourceHealth } from "@/lib/events/types";
 import { formatLocalTimestamp } from "@/lib/time/format";
 import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import { SourceHealthSummary } from "@/components/source-health/source-health";
@@ -11,7 +11,29 @@ interface CommandBarProps {
   sourceHealth: SourceHealth[];
   refreshing: boolean;
   hasLoadedBatch: boolean;
+  cacheState: "checking" | "empty" | "saving" | "stored" | "error";
+  batchOrigin: "none" | "retrieved" | "stored";
+  window: HazardWindow;
   onRefresh: () => void;
+}
+
+function snapshotLabel(
+  cacheState: CommandBarProps["cacheState"],
+  batchOrigin: CommandBarProps["batchOrigin"],
+): string {
+  if (cacheState === "checking") {
+    return "Checking browser";
+  }
+  if (cacheState === "saving") {
+    return "Saving locally";
+  }
+  if (cacheState === "stored") {
+    return batchOrigin === "stored" ? "Restored locally" : "Stored locally";
+  }
+  if (cacheState === "error") {
+    return "Storage unavailable";
+  }
+  return "Not stored";
 }
 
 export function CommandBar({
@@ -22,6 +44,9 @@ export function CommandBar({
   sourceHealth,
   refreshing,
   hasLoadedBatch,
+  cacheState,
+  batchOrigin,
+  window,
   onRefresh,
 }: CommandBarProps) {
   return (
@@ -44,7 +69,12 @@ export function CommandBar({
         </strong>
       </div>
 
-      <div className="command-spacer" />
+      <div className="command-snapshot" aria-label="Browser snapshot status">
+        <span className="command-label">Snapshot</span>
+        <span>
+          {window.toUpperCase()} · {snapshotLabel(cacheState, batchOrigin)}
+        </span>
+      </div>
 
       <SourceHealthSummary health={sourceHealth} refreshing={refreshing} />
 
@@ -58,18 +88,20 @@ export function CommandBar({
       <button
         aria-busy={refreshing}
         className="refresh-button"
-        disabled={refreshing}
+        disabled={refreshing || cacheState === "checking"}
         onClick={onRefresh}
         type="button"
       >
         <span className="refresh-button-icon" aria-hidden="true">
           ↻
         </span>
-        {refreshing
-          ? "Refreshing…"
-          : hasLoadedBatch
-            ? "Refresh"
-            : "Load current events"}
+        {cacheState === "checking"
+          ? "Restoring…"
+          : refreshing
+            ? "Refreshing…"
+            : hasLoadedBatch
+              ? "Refresh"
+              : "Load current events"}
       </button>
     </header>
   );

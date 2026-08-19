@@ -4,14 +4,20 @@ import { formatLocalTimestamp } from "@/lib/time/format";
 const SOURCE_NAMES = {
   usgs: "USGS",
   gdacs: "GDACS",
+  spc: "NOAA SPC",
 } as const;
+
+const HAZARD_SOURCES = ["usgs", "gdacs", "spc"] as const;
 
 interface SourceHealthProps {
   health: SourceHealthRecord[];
   refreshing: boolean;
 }
 
-function sourceRecord(health: SourceHealthRecord[], source: "usgs" | "gdacs") {
+function sourceRecord(
+  health: SourceHealthRecord[],
+  source: (typeof HAZARD_SOURCES)[number],
+) {
   return health.find((item) => item.source === source);
 }
 
@@ -22,7 +28,7 @@ export function SourceHealth({ health, refreshing }: SourceHealthProps) {
       aria-label="Hazard source health"
       role="group"
     >
-      {(["usgs", "gdacs"] as const).map((source) => {
+      {HAZARD_SOURCES.map((source) => {
         const record = sourceRecord(health, source);
         const state = refreshing
           ? "loading"
@@ -111,8 +117,8 @@ export function SourceHealthSummary({ health, refreshing }: SourceHealthProps) {
     </span>
   ) : (
     <span className="health-summary health-summary--ok">
-      <span className="status-mark status-mark--ok" aria-hidden="true" />2
-      sources available
+      <span className="status-mark status-mark--ok" aria-hidden="true" />
+      {health.length} source{health.length === 1 ? "" : "s"} available
     </span>
   );
 }

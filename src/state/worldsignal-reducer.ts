@@ -1,4 +1,5 @@
 import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
+import type { HazardSnapshot } from "@/features/hazards/client/hazard-snapshot-store";
 import {
   classifyEventChanges,
   type EventChange,
@@ -17,6 +18,7 @@ const HAZARD_CATEGORIES: EventCategory[] = [
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
 ];
@@ -37,6 +39,9 @@ export interface WorldSignalState {
   changesByEventId: Map<string, EventChange>;
   announcement: string;
   selectionNotice?: string;
+  cacheState: "checking" | "empty" | "saving" | "stored" | "error";
+  batchOrigin: "none" | "retrieved" | "stored";
+  cacheError?: string;
 }
 
 export type WorldSignalAction =
@@ -46,6 +51,25 @@ export type WorldSignalAction =
       type: "refresh/failed";
       message: string;
       sources?: SourceHealth[];
+    }
+  | { type: "cache/restore-started" }
+  | { type: "cache/restored"; snapshot: HazardSnapshot }
+  | { type: "cache/missed"; window: EventFilters["window"] }
+  | {
+      type: "cache/restore-failed";
+      window: EventFilters["window"];
+      message: string;
+    }
+  | {
+      type: "cache/saved";
+      generatedAt: string;
+      window: EventFilters["window"];
+    }
+  | {
+      type: "cache/save-failed";
+      generatedAt: string;
+      window: EventFilters["window"];
+      message: string;
     }
   | { type: "selection/set"; eventId: string }
   | { type: "selection/clear" }
@@ -94,7 +118,7 @@ export function createInitialWorldSignalState(): WorldSignalState {
       module: "natural-hazards",
       categories: HAZARD_CATEGORIES,
       priorities: ["low", "medium", "high", "critical"],
-      sources: ["usgs", "gdacs"],
+      sources: ["usgs", "gdacs", "spc"],
       lifecycle: ["ongoing", "occurred", "ended", "unknown"],
       query: "",
       window: "7d",
@@ -102,6 +126,8 @@ export function createInitialWorldSignalState(): WorldSignalState {
     },
     changesByEventId: new Map(),
     announcement: "No event data loaded.",
+    cacheState: "checking",
+    batchOrigin: "none",
   };
 }
 
@@ -119,7 +145,7 @@ export function worldSignalReducer(
         batchFreshness: state.batch ? "previous" : "none",
         refreshState: "loading",
         refreshError: undefined,
-        announcement: "Refreshing USGS and GDACS hazard sources.",
+        announcement: "Refreshing hazard sources.",
       };
 
     case "refresh/succeeded": {
@@ -164,6 +190,9 @@ export function worldSignalReducer(
         refreshState: "idle",
         refreshError: undefined,
         latestSourceHealth: action.batch.sources,
+        cacheState: "saving",
+        batchOrigin: "retrieved",
+        cacheError: undefined,
         filters: {
           ...state.filters,
           timeCursor: action.batch.requestedRange.to,
@@ -173,6 +202,87 @@ export function worldSignalReducer(
         selectionNotice,
       };
     }
+
+    case "cache/restore-started":
+      return {
+        ...state,
+        batchFreshness: state.batch ? "previous" : "none",
+        cacheState: "checking",
+        cacheError: undefined,
+      };
+
+    case "cache/restored":
+      return {
+        ...state,
+        batch: action.snapshot.batch,
+        batchFreshness: "current",
+        previousEventsById: new Map(
+          action.snapshot.baselineEvents.map((event) => [event.id, event]),
+        ),
+        selectedEventId: undefined,
+        selectedGeometry: undefined,
+        geometryState: "idle",
+        geometryError: undefined,
+        refreshState: "idle",
+        refreshError: undefined,
+        latestSourceHealth: action.snapshot.batch.sources,
+        filters: {
+          ...state.filters,
+          window: action.snapshot.window,
+          timeCursor: action.snapshot.batch.requestedRange.to,
+        },
+        changesByEventId: new Map(action.snapshot.changes),
+        announcement: `${action.snapshot.batch.events.length} events restored from browser-local storage. No hazard source was contacted.`,
+        selectionNotice: undefined,
+        cacheState: "stored",
+        batchOrigin: "stored",
+        cacheError: undefined,
+      };
+
+    case "cache/missed":
+      return {
+        ...state,
+        filters: { ...state.filters, window: action.window },
+        cacheState: "empty",
+        cacheError: undefined,
+      };
+
+    case "cache/restore-failed":
+      return {
+        ...state,
+        filters: { ...state.filters, window: action.window },
+        cacheState: "error",
+        cacheError: action.message,
+        announcement: action.message,
+      };
+
+    case "cache/saved":
+      if (
+        state.batch?.generatedAt !== action.generatedAt ||
+        state.filters.window !== action.window
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        cacheState: "stored",
+        cacheError: undefined,
+        announcement: `${state.batch.events.length} events loaded and stored in this browser.`,
+      };
+
+    case "cache/save-failed":
+      if (
+        state.batch?.generatedAt !== action.generatedAt ||
+        state.filters.window !== action.window
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        cacheState: "error",
+        cacheError: action.message,
+        announcement: action.message,
+      };
 
     case "refresh/failed":
       return {
@@ -332,7 +442,7 @@ export function worldSignalReducer(
           ...state.filters,
           categories: [...HAZARD_CATEGORIES],
           priorities: ["low", "medium", "high", "critical"],
-          sources: ["usgs", "gdacs"],
+          sources: ["usgs", "gdacs", "spc"],
           lifecycle: ["ongoing", "occurred", "ended", "unknown"],
           query: "",
           timeCursor: action.timeCursor,

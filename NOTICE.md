@@ -41,8 +41,10 @@ bathymetry image. The bundled boundary GeoJSON is from the Natural Earth Vector 
 
 - Earthquake data: [U.S. Geological Survey GeoJSON feeds](https://earthquake.usgs.gov/earthquakes/feed/)
 - Disaster data: [Global Disaster Alert and Coordination System (GDACS) API](https://www.gdacs.org/gdacsapi/swagger/index.html) and [feed reference](https://data.gdacs.org/feed_reference.aspx)
+- Preliminary U.S. tornado reports: [NOAA/NWS Storm Prediction Center storm reports](https://www.spc.noaa.gov/climo/reports/)
 
 Source data remains subject to each provider's terms, limitations, and disclaimers. WorldSignal
 preserves direct report links and source-native values and does not imply that derived display
-priority is a provider-issued universal severity scale. CredSignal ships only synthetic demonstration
-records and does not redistribute a third-party breach dataset.
+priority is a provider-issued universal severity scale. SPC storm reports are preliminary and may be
+revised during quality control. CredSignal ships only synthetic demonstration records and does not
+redistribute a third-party breach dataset.

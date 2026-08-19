@@ -62,6 +62,7 @@ export const eventCategorySchema = z.enum([
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
   "mass-attack",
@@ -93,7 +94,7 @@ export const verificationStatusSchema = z.enum([
   "machine-detected",
 ]);
 
-export const sourceIdSchema = z.enum(["usgs", "gdacs", "gdelt"]);
+export const sourceIdSchema = z.enum(["usgs", "gdacs", "spc", "gdelt"]);
 
 export const sourceReferenceSchema = z.object({
   source: sourceIdSchema,

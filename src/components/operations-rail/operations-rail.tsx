@@ -35,6 +35,7 @@ const CATEGORIES: EventCategory[] = [
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
 ];
@@ -47,6 +48,7 @@ const SOURCES: Array<{
 }> = [
   { value: "usgs", label: "USGS" },
   { value: "gdacs", label: "GDACS" },
+  { value: "spc", label: "NOAA SPC" },
 ];
 
 const LIFECYCLES: Array<{ value: EventLifecycle; label: string }> = [
@@ -119,7 +121,7 @@ export function OperationsRail({
           <div className="category-filter-grid">
             {CATEGORIES.map((category) => (
               <button
-                aria-label={`${eventCategoryLabel(category)}, ${categoryCounts.get(category) ?? 0} loaded`}
+                aria-label={`${eventCategoryLabel(category)}, ${categoryCounts.get(category) ?? 0} at current time`}
                 aria-pressed={filters.categories.includes(category)}
                 key={category}
                 onClick={() => onCategoryToggle(category)}

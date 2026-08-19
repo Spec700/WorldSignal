@@ -12,6 +12,13 @@ import {
   loadHazardBatch,
 } from "@/features/hazards/client/load-hazard-batch";
 import {
+  createHazardSnapshot,
+  readHazardSnapshot,
+  readMostRecentHazardSnapshot,
+  setActiveHazardWindow,
+  writeHazardSnapshot,
+} from "@/features/hazards/client/hazard-snapshot-store";
+import {
   getGdacsGeometryRequest,
   loadGdacsGeometry,
 } from "@/features/hazards/client/load-gdacs-geometry";
@@ -32,11 +39,13 @@ import {
 } from "@/state/worldsignal-context";
 
 const EMPTY_EVENTS: WorldEvent[] = [];
+const DEFAULT_HAZARD_WINDOW: HazardWindow = "7d";
 const HAZARD_CATEGORIES: EventCategory[] = [
   "earthquake",
   "tropical-cyclone",
   "flood",
   "drought",
+  "tornado",
   "volcano",
   "wildfire",
 ];
@@ -59,10 +68,42 @@ function WorldSignalWorkspace() {
   const dispatch = useWorldSignalDispatch();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const requestInFlightRef = useRef(false);
+  const rangeChangeInFlightRef = useRef(false);
+  const restoring = state.cacheState === "checking";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void readMostRecentHazardSnapshot(DEFAULT_HAZARD_WINDOW)
+      .then(({ window, snapshot }) => {
+        if (cancelled) {
+          return;
+        }
+        dispatch(
+          snapshot
+            ? { type: "cache/restored", snapshot }
+            : { type: "cache/missed", window },
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          dispatch({
+            type: "cache/restore-failed",
+            window: DEFAULT_HAZARD_WINDOW,
+            message:
+              "WorldSignal could not read browser-local snapshot storage. Manual retrieval remains available.",
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
 
   const refresh = useCallback(
     async (windowOverride?: HazardWindow) => {
-      if (requestInFlightRef.current) {
+      if (requestInFlightRef.current || state.cacheState === "checking") {
         return;
       }
 
@@ -90,8 +131,58 @@ function WorldSignalWorkspace() {
         requestInFlightRef.current = false;
       }
     },
-    [dispatch, state.filters.window],
+    [dispatch, state.cacheState, state.filters.window],
   );
+
+  useEffect(() => {
+    if (state.cacheState !== "saving" || !state.batch) {
+      return;
+    }
+
+    const batch = state.batch;
+    const window = state.filters.window;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const snapshot = createHazardSnapshot({
+          window,
+          batch,
+          previousEventsById: state.previousEventsById,
+          changesByEventId: state.changesByEventId,
+        });
+        await writeHazardSnapshot(snapshot);
+        if (!cancelled) {
+          dispatch({
+            type: "cache/saved",
+            generatedAt: batch.generatedAt,
+            window,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          dispatch({
+            type: "cache/save-failed",
+            generatedAt: batch.generatedAt,
+            window,
+            message:
+              "WorldSignal loaded current events but could not store the snapshot in this browser.",
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dispatch,
+    state.batch,
+    state.cacheState,
+    state.changesByEventId,
+    state.filters.window,
+    state.previousEventsById,
+  ]);
 
   useEffect(() => {
     function handleKeyboardShortcut(event: KeyboardEvent) {
@@ -135,17 +226,25 @@ function WorldSignalWorkspace() {
       sortEventsByPriority(selectVisibleEvents(loadedEvents, state.filters)),
     [loadedEvents, state.filters],
   );
+  const categoryCountEvents = useMemo(
+    () =>
+      selectVisibleEvents(loadedEvents, {
+        ...state.filters,
+        categories: HAZARD_CATEGORIES,
+      }),
+    [loadedEvents, state.filters],
+  );
   const categoryCounts = useMemo(() => {
     const counts = new Map<EventCategory, number>(
       HAZARD_CATEGORIES.map((category) => [category, 0]),
     );
-    for (const event of loadedEvents) {
+    for (const event of categoryCountEvents) {
       if (counts.has(event.category)) {
         counts.set(event.category, (counts.get(event.category) ?? 0) + 1);
       }
     }
     return counts;
-  }, [loadedEvents]);
+  }, [categoryCountEvents]);
   const selectedEvent = state.selectedEventId
     ? visibleEvents.find((event) => event.id === state.selectedEventId)
     : undefined;
@@ -201,17 +300,62 @@ function WorldSignalWorkspace() {
   }, [dispatch, selectedEvent, state.geometryRequestVersion]);
 
   const handleWindowChange = useCallback(
-    (window: HazardWindow) => {
-      if (window === state.filters.window || refreshing) {
+    async (window: HazardWindow) => {
+      if (
+        window === state.filters.window ||
+        refreshing ||
+        restoring ||
+        rangeChangeInFlightRef.current
+      ) {
         return;
       }
       dispatch({ type: "filters/window-set", window });
 
-      if (state.batch) {
-        void refresh(window);
+      if (!state.batch) {
+        return;
+      }
+
+      rangeChangeInFlightRef.current = true;
+      dispatch({ type: "cache/restore-started" });
+      try {
+        const snapshot = await readHazardSnapshot(window);
+        if (snapshot) {
+          dispatch({ type: "cache/restored", snapshot });
+          try {
+            await setActiveHazardWindow(window);
+          } catch {
+            dispatch({
+              type: "cache/restore-failed",
+              window,
+              message:
+                "WorldSignal restored the snapshot but could not remember the selected range in this browser.",
+            });
+          }
+          return;
+        }
+
+        dispatch({ type: "cache/missed", window });
+        await refresh(window);
+      } catch {
+        dispatch({
+          type: "cache/restore-failed",
+          window,
+          message:
+            "WorldSignal could not read this range from browser-local storage.",
+        });
+        await refresh(window);
+      } finally {
+        rangeChangeInFlightRef.current = false;
       }
     },
-    [dispatch, refresh, refreshing, state.batch, state.filters.window],
+    [
+      dispatch,
+      refresh,
+      refreshing,
+      restoring,
+      state.batch,
+      state.filters.window,
+    ],
   );
 
   const clearVisibilityFilters = useCallback(() => {
@@ -227,7 +371,9 @@ function WorldSignalWorkspace() {
         Skip to operational view
       </a>
       <CommandBar
+        batchOrigin={state.batchOrigin}
         batchIsPrevious={state.batchFreshness === "previous"}
+        cacheState={state.cacheState}
         generatedAt={state.batch?.generatedAt}
         hasLoadedBatch={Boolean(state.batch)}
         loadedCount={loadedEvents.length}
@@ -235,6 +381,7 @@ function WorldSignalWorkspace() {
         refreshing={refreshing}
         sourceHealth={state.latestSourceHealth}
         visibleCount={visibleEvents.length}
+        window={state.filters.window}
       />
       <div className={`workspace-grid${selectedEvent ? " has-dossier" : ""}`}>
         <OperationsRail
@@ -268,12 +415,14 @@ function WorldSignalWorkspace() {
           events={visibleEvents}
           hasLoadedBatch={Boolean(state.batch)}
           loadedCount={loadedEvents.length}
+          matchingBeforeTimeCount={preTimeEvents.length}
           onClearFilters={clearVisibilityFilters}
           onClearSelection={() => dispatch({ type: "selection/clear" })}
           onRefresh={() => void refresh()}
           onSelect={(eventId) => dispatch({ type: "selection/set", eventId })}
           refreshError={state.refreshError}
           refreshing={refreshing}
+          restoring={restoring}
           selectedGeometry={state.selectedGeometry}
           selectedEvent={selectedEvent}
           selectionNotice={state.selectionNotice}
@@ -302,6 +451,7 @@ function WorldSignalWorkspace() {
         }
         onWindowChange={handleWindowChange}
         refreshing={refreshing}
+        restoring={restoring}
         visibleEvents={visibleEvents}
         window={state.filters.window}
       />

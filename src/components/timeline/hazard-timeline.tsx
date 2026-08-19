@@ -11,6 +11,7 @@ interface HazardTimelineProps {
   cursor: string;
   events: WorldEvent[];
   refreshing: boolean;
+  restoring: boolean;
   visibleEvents: WorldEvent[];
   window: HazardWindow;
   onCursorChange: (cursor: string) => void;
@@ -33,6 +34,7 @@ export function HazardTimeline({
   cursor,
   events,
   refreshing,
+  restoring,
   visibleEvents,
   window,
   onCursorChange,
@@ -74,7 +76,7 @@ export function HazardTimeline({
             <button
               aria-pressed={window === option.value}
               className={window === option.value ? "is-active" : undefined}
-              disabled={refreshing}
+              disabled={refreshing || restoring}
               key={option.value}
               onClick={() => onWindowChange(option.value)}
               type="button"
