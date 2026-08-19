@@ -223,12 +223,12 @@ the retrieval sweep, selection pulse, and animated camera travel.
 Priority Signals
 ├── WorldSignal
 │   browser action
-│       └── validated Next.js source routes
-│           ├── USGS adapter
-│           ├── GDACS adapter + selected-event geometry
-│           └── NOAA SPC preliminary tornado-report adapter
-│               └── client reducer ── globe / stream / filters / dossier
-│                       └── validated browser-local range snapshots (IndexedDB)
+│       ├── validated Next.js source routes
+│       │   ├── USGS adapter
+│       │   ├── GDACS adapter + selected-event geometry
+│       │   └── NOAA SPC preliminary tornado-report adapter
+│       └── client reducer ── globe / stream / filters / dossier
+│               └── validated browser-local range snapshots (IndexedDB)
 └── CredSignal
     server-rendered dashboard + audited Server Actions
         └── domain validation and transactional workflows
