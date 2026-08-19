@@ -1,5 +1,11 @@
 name: priority-signals
 
+x-runtime-environment: &runtime-environment
+  DATABASE_URL: postgresql://priority_signals:priority_signals_dev@postgres:5432/priority_signals
+  CREDSIGNAL_DATA_KEY_FILE: /run/priority-signals-secrets/credsignal-data-key
+  CREDSIGNAL_KEY_VERSION: ${CREDSIGNAL_KEY_VERSION:-docker-local-v1}
+  CREDSIGNAL_WORKSPACE_SLUG: ${CREDSIGNAL_WORKSPACE_SLUG:-local}
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -7,8 +13,6 @@ services:
       POSTGRES_DB: priority_signals
       POSTGRES_PASSWORD: priority_signals_dev
       POSTGRES_USER: priority_signals
-    ports:
-      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U priority_signals -d priority_signals"]
       interval: 3s
@@ -18,5 +22,53 @@ services:
     volumes:
       - priority-signals-postgres:/var/lib/postgresql
 
+  bootstrap:
+    build:
+      context: .
+      target: tooling
+    environment:
+      <<: *runtime-environment
+      CREDSIGNAL_BOOTSTRAP_DATA_KEY: ${CREDSIGNAL_DATA_KEY:-}
+      CREDSIGNAL_KEY_OWNER_GID: "1000"
+      CREDSIGNAL_KEY_OWNER_UID: "1000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    init: true
+    restart: "no"
+    volumes:
+      - priority-signals-secrets:/run/priority-signals-secrets
+
+  app:
+    build:
+      context: .
+      target: runner
+    environment:
+      <<: *runtime-environment
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/credsignal').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    init: true
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+    volumes:
+      - priority-signals-secrets:/run/priority-signals-secrets:ro
+
 volumes:
   priority-signals-postgres:
+  priority-signals-secrets:

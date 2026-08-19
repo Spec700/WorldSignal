@@ -44,7 +44,9 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
 
   beforeAll(async () => {
     process.env.CREDSIGNAL_WORKSPACE_SLUG = workspaceSlug;
-    process.env.CREDSIGNAL_DATA_KEY = dataKey;
+    if (!process.env.CREDSIGNAL_DATA_KEY_FILE) {
+      process.env.CREDSIGNAL_DATA_KEY = dataKey;
+    }
     process.env.CREDSIGNAL_KEY_VERSION = "integration-v1";
 
     const database = getDatabase();
