@@ -10,11 +10,7 @@ import {
   CredSignalDossier,
   type CredSignalDossierTab,
 } from "@/components/credsignal/credsignal-dossier";
-import {
-  CredSignalIntake,
-  type CredSignalIntakeMode,
-} from "@/components/credsignal/credsignal-intake";
-import { CredSignalManageProtectee } from "@/components/credsignal/credsignal-manage-protectee";
+import { CredSignalIntake } from "@/components/credsignal/credsignal-intake";
 import {
   CredSignalRail,
   type CredSignalQueueView,
@@ -53,8 +49,7 @@ export function CredSignalWorkspace({
   const [selectedExposureId, setSelectedExposureId] = useState<string>();
   const [dossierTab, setDossierTab] =
     useState<CredSignalDossierTab>("overview");
-  const [intakeMode, setIntakeMode] = useState<CredSignalIntakeMode>();
-  const [managingProtectee, setManagingProtectee] = useState(false);
+  const [intakeOpen, setIntakeOpen] = useState(false);
   const [activeOperatorId, setActiveOperatorId] = useState(
     dashboard.operators[0]?.id ?? "",
   );
@@ -91,10 +86,8 @@ export function CredSignalWorkspace({
         searchRef.current?.focus();
       }
       if (event.key === "Escape" && !editable) {
-        if (intakeMode) {
-          setIntakeMode(undefined);
-        } else if (managingProtectee) {
-          setManagingProtectee(false);
+        if (intakeOpen) {
+          setIntakeOpen(false);
         } else if (selectedUnmatchedExposure) {
           setSelectedExposureId(undefined);
         } else {
@@ -104,12 +97,11 @@ export function CredSignalWorkspace({
     }
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [intakeMode, managingProtectee, selectedUnmatchedExposure]);
+  }, [intakeOpen, selectedUnmatchedExposure]);
 
   const selectProtectee = useCallback(
     (protecteeId: string, tab: CredSignalDossierTab = "overview") => {
-      setIntakeMode(undefined);
-      setManagingProtectee(false);
+      setIntakeOpen(false);
       setSelectedExposureId(undefined);
       setSelectedProtecteeId(protecteeId);
       setDossierTab(tab);
@@ -118,24 +110,21 @@ export function CredSignalWorkspace({
   );
 
   const selectUnmatchedExposure = useCallback((exposureId: string) => {
-    setIntakeMode(undefined);
-    setManagingProtectee(false);
+    setIntakeOpen(false);
     setSelectedProtecteeId(undefined);
     setSelectedExposureId(exposureId);
   }, []);
 
-  const openIntake = useCallback((mode: CredSignalIntakeMode) => {
-    setManagingProtectee(false);
+  const openIntake = useCallback(() => {
     setSelectedProtecteeId(undefined);
     setSelectedExposureId(undefined);
-    setIntakeMode(mode);
+    setIntakeOpen(true);
   }, []);
 
   const handleSaved = useCallback(
     (createdId?: string) => {
-      setIntakeMode(undefined);
+      setIntakeOpen(false);
       setSelectedExposureId(undefined);
-      setManagingProtectee(false);
       if (
         createdId &&
         dashboard.protectees.some((protectee) => protectee.id === createdId)
@@ -150,7 +139,6 @@ export function CredSignalWorkspace({
   const handleMatched = useCallback(
     (protecteeId: string) => {
       setSelectedExposureId(undefined);
-      setManagingProtectee(false);
       setSelectedProtecteeId(protecteeId);
       setDossierTab("cases");
       router.refresh();
@@ -190,14 +178,13 @@ export function CredSignalWorkspace({
       <CredSignalCommandBar
         activeOperatorId={activeOperatorId}
         metrics={dashboard.metrics}
-        onAddExposure={() => openIntake("exposure")}
+        onAddExposure={openIntake}
         onOperatorChange={setActiveOperatorId}
         operators={dashboard.operators}
       />
       <div className={styles.workspace} id="credsignal-main">
         <CredSignalRail
           dashboard={dashboard}
-          onAddProtectee={() => openIntake("protectee")}
           onQueryChange={setQuery}
           onSelectProtectee={selectProtectee}
           onSelectUnmatchedExposure={selectUnmatchedExposure}
@@ -228,7 +215,6 @@ export function CredSignalWorkspace({
           <div className={styles.globeArea}>
             <CredSignalGlobe
               onClearSelection={() => {
-                setManagingProtectee(false);
                 setSelectedProtecteeId(undefined);
                 setSelectedExposureId(undefined);
               }}
@@ -268,11 +254,10 @@ export function CredSignalWorkspace({
           </footer>
         </main>
 
-        {intakeMode ? (
+        {intakeOpen ? (
           <CredSignalIntake
             activeOperatorId={activeOperatorId}
-            mode={intakeMode}
-            onClose={() => setIntakeMode(undefined)}
+            onClose={() => setIntakeOpen(false)}
             onSaved={handleSaved}
             operators={dashboard.operators}
             protectees={activeProtectees}
@@ -283,23 +268,16 @@ export function CredSignalWorkspace({
             exposure={selectedUnmatchedExposure}
             key={selectedUnmatchedExposure.id}
             onClose={() => setSelectedExposureId(undefined)}
-            onCreateProtectee={() => openIntake("protectee")}
+            onCreateProtectee={() => router.push("/home?create=1")}
             onMatched={handleMatched}
             protectees={activeProtectees}
-          />
-        ) : selectedProtectee && managingProtectee ? (
-          <CredSignalManageProtectee
-            activeOperatorId={activeOperatorId}
-            key={selectedProtectee.id}
-            onClose={() => setManagingProtectee(false)}
-            protectee={selectedProtectee}
           />
         ) : selectedProtectee ? (
           <CredSignalDossier
             activeOperatorId={activeOperatorId}
             key={selectedProtectee.id}
             onClose={() => setSelectedProtecteeId(undefined)}
-            onManage={() => setManagingProtectee(true)}
+            onManage={() => router.push(`/home?person=${selectedProtectee.id}`)}
             onTabChange={setDossierTab}
             operators={dashboard.operators}
             protectee={selectedProtectee}

@@ -21,6 +21,7 @@ const PRIORITY_RADIUS: Record<DisplayPriority, number> = {
 };
 
 export interface GlobeEventPoint {
+  kind: "event";
   id: string;
   latitude: number;
   longitude: number;
@@ -36,6 +37,7 @@ export interface GlobeEventPoint {
 
 export function toGlobeEventPoints(events: WorldEvent[]): GlobeEventPoint[] {
   return events.map((event) => ({
+    kind: "event",
     id: event.id,
     latitude: event.centroid.latitude,
     longitude: event.centroid.longitude,

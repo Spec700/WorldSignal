@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useMemo, type RefObject } from "react";
 
 import type {
@@ -24,7 +25,6 @@ interface CredSignalRailProps {
     tab?: "overview" | "cases" | "exposures",
   ) => void;
   onSelectUnmatchedExposure: (exposureId: string) => void;
-  onAddProtectee: () => void;
 }
 
 function matchesQuery(protectee: CredSignalProtecteeDto, query: string) {
@@ -64,7 +64,6 @@ export function CredSignalRail({
   onQueryChange,
   onSelectProtectee,
   onSelectUnmatchedExposure,
-  onAddProtectee,
 }: CredSignalRailProps) {
   const protectees = useMemo(
     () =>
@@ -98,13 +97,9 @@ export function CredSignalRail({
     <aside className={styles.rail} aria-label="CredSignal work queue">
       <div className={styles.railHeading}>
         <span className={styles.eyebrow}>Credential operations</span>
-        <button
-          className={styles.secondaryAction}
-          onClick={onAddProtectee}
-          type="button"
-        >
-          Add protectee
-        </button>
+        <Link className={styles.secondaryAction} href="/home">
+          Manage people
+        </Link>
       </div>
 
       <label className={styles.searchControl}>

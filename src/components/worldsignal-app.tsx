@@ -6,6 +6,10 @@ import { CommandBar } from "@/components/command-bar/command-bar";
 import { EventDossier } from "@/components/dossier/event-dossier";
 import { OperationalStage } from "@/components/globe/operational-stage";
 import { OperationsRail } from "@/components/operations-rail/operations-rail";
+import {
+  toPersonGlobePoints,
+  type PersonLocationSubject,
+} from "@/components/people/person-globe-model";
 import { HazardTimeline } from "@/components/timeline/hazard-timeline";
 import {
   HazardBatchRequestError,
@@ -39,6 +43,7 @@ import {
 } from "@/state/worldsignal-context";
 
 const EMPTY_EVENTS: WorldEvent[] = [];
+const EMPTY_PEOPLE: PersonLocationSubject[] = [];
 const DEFAULT_HAZARD_WINDOW: HazardWindow = "7d";
 const HAZARD_CATEGORIES: EventCategory[] = [
   "earthquake",
@@ -63,7 +68,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
-function WorldSignalWorkspace() {
+function WorldSignalWorkspace({ people }: { people: PersonLocationSubject[] }) {
   const state = useWorldSignalState();
   const dispatch = useWorldSignalDispatch();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -188,7 +193,10 @@ function WorldSignalWorkspace() {
     function handleKeyboardShortcut(event: KeyboardEvent) {
       const editable = isEditableTarget(event.target);
 
-      if (event.key === "Escape" && state.selectedEventId) {
+      if (
+        event.key === "Escape" &&
+        (state.selectedEventId || state.selectedPersonId)
+      ) {
         dispatch({ type: "selection/clear" });
         return;
       }
@@ -211,7 +219,7 @@ function WorldSignalWorkspace() {
 
     window.addEventListener("keydown", handleKeyboardShortcut);
     return () => window.removeEventListener("keydown", handleKeyboardShortcut);
-  }, [dispatch, refresh, state.selectedEventId]);
+  }, [dispatch, refresh, state.selectedEventId, state.selectedPersonId]);
 
   const loadedEvents = state.batch ? state.batch.events : EMPTY_EVENTS;
   const preTimeEvents = useMemo(
@@ -248,6 +256,13 @@ function WorldSignalWorkspace() {
   const selectedEvent = state.selectedEventId
     ? visibleEvents.find((event) => event.id === state.selectedEventId)
     : undefined;
+  const personPoints = useMemo(
+    () => toPersonGlobePoints(people, state.filters.timeCursor || undefined),
+    [people, state.filters.timeCursor],
+  );
+  const selectedPerson = state.selectedPersonId
+    ? personPoints.find((person) => person.id === state.selectedPersonId)
+    : undefined;
   const refreshing = state.refreshState === "loading";
 
   useEffect(() => {
@@ -255,6 +270,15 @@ function WorldSignalWorkspace() {
       dispatch({ type: "selection/hidden", eventId: state.selectedEventId });
     }
   }, [dispatch, selectedEvent, state.selectedEventId]);
+
+  useEffect(() => {
+    if (state.selectedPersonId && !selectedPerson) {
+      dispatch({
+        type: "person-selection/hidden",
+        personId: state.selectedPersonId,
+      });
+    }
+  }, [dispatch, selectedPerson, state.selectedPersonId]);
 
   useEffect(() => {
     if (!selectedEvent?.geometryDetailAvailable) {
@@ -365,6 +389,15 @@ function WorldSignalWorkspace() {
     });
   }, [dispatch, state.batch?.requestedRange.to]);
 
+  const selectEvent = useCallback(
+    (eventId: string) => dispatch({ type: "selection/set", eventId }),
+    [dispatch],
+  );
+  const selectPerson = useCallback(
+    (personId: string) => dispatch({ type: "person-selection/set", personId }),
+    [dispatch],
+  );
+
   return (
     <div className="worldsignal-shell">
       <a className="skip-link" href="#main-content">
@@ -401,7 +434,7 @@ function WorldSignalWorkspace() {
           onQueryChange={(query) =>
             dispatch({ type: "filters/query-set", query })
           }
-          onSelect={(eventId) => dispatch({ type: "selection/set", eventId })}
+          onSelect={selectEvent}
           onSourceToggle={(source) =>
             dispatch({ type: "filters/source-toggle", source })
           }
@@ -419,13 +452,17 @@ function WorldSignalWorkspace() {
           onClearFilters={clearVisibilityFilters}
           onClearSelection={() => dispatch({ type: "selection/clear" })}
           onRefresh={() => void refresh()}
-          onSelect={(eventId) => dispatch({ type: "selection/set", eventId })}
+          onSelect={selectEvent}
+          onSelectPerson={selectPerson}
+          people={personPoints}
           refreshError={state.refreshError}
           refreshing={refreshing}
           restoring={restoring}
           selectedGeometry={state.selectedGeometry}
           selectedEvent={selectedEvent}
+          selectedPerson={selectedPerson}
           selectionNotice={state.selectionNotice}
+          timeCursor={state.filters.timeCursor}
           visibleCount={visibleEvents.length}
         />
         {selectedEvent ? (
@@ -462,10 +499,14 @@ function WorldSignalWorkspace() {
   );
 }
 
-export function WorldSignalApp() {
+export function WorldSignalApp({
+  people = EMPTY_PEOPLE,
+}: {
+  people?: PersonLocationSubject[];
+}) {
   return (
     <WorldSignalProvider>
-      <WorldSignalWorkspace />
+      <WorldSignalWorkspace people={people} />
     </WorldSignalProvider>
   );
 }

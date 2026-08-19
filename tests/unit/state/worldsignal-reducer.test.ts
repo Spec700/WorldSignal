@@ -152,6 +152,41 @@ describe("WorldSignal reducer refresh flow", () => {
 });
 
 describe("WorldSignal reducer geometry flow", () => {
+  it("keeps event and person selections mutually exclusive", () => {
+    const personSelected = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "person-selection/set",
+      personId: "person-1",
+    });
+    const eventSelected = worldSignalReducer(personSelected, {
+      type: "selection/set",
+      eventId: earthquakeFixture.id,
+    });
+    const personReselected = worldSignalReducer(eventSelected, {
+      type: "person-selection/set",
+      personId: "person-1",
+    });
+
+    expect(personSelected.selectedPersonId).toBe("person-1");
+    expect(eventSelected.selectedPersonId).toBeUndefined();
+    expect(eventSelected.selectedEventId).toBe(earthquakeFixture.id);
+    expect(personReselected.selectedEventId).toBeUndefined();
+    expect(personReselected.selectedPersonId).toBe("person-1");
+  });
+
+  it("clears a person selection when the timeline has no approved location", () => {
+    const selected = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "person-selection/set",
+      personId: "person-1",
+    });
+    const hidden = worldSignalReducer(selected, {
+      type: "person-selection/hidden",
+      personId: "person-1",
+    });
+
+    expect(hidden.selectedPersonId).toBeUndefined();
+    expect(hidden.selectionNotice).toMatch(/timeline cursor/i);
+  });
+
   it("accepts geometry only for the currently selected event", () => {
     const selected = worldSignalReducer(createInitialWorldSignalState(), {
       type: "selection/set",

@@ -9,14 +9,66 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorldSignalApp } from "@/components/worldsignal-app";
+import type { PersonDto } from "@/features/people/types";
 import { eventBatchFixture } from "../../fixtures/events";
 import { gdacsGeometryFixture } from "../../fixtures/gdacs-geometry";
 
 vi.mock("@/components/globe/world-globe", () => ({
-  WorldGlobe: ({ events }: { events: unknown[] }) => (
-    <div data-testid="mock-world-globe" data-event-count={events.length} />
+  WorldGlobe: ({
+    events,
+    people,
+  }: {
+    events: unknown[];
+    people: unknown[];
+  }) => (
+    <div
+      data-testid="mock-world-globe"
+      data-event-count={events.length}
+      data-person-count={people.length}
+    />
   ),
 }));
+
+const personFixture: PersonDto = {
+  id: "person-1",
+  displayName: "Avery Chen",
+  organization: "Northstar Labs",
+  tier: "critical",
+  status: "active",
+  identities: [],
+  location: {
+    id: "location-current",
+    label: "London, United Kingdom",
+    latitude: 51.5072,
+    longitude: -0.1276,
+    precision: "city",
+    isActive: true,
+    effectiveFrom: "2026-08-18T12:00:00.000Z",
+  },
+  locationHistory: [
+    {
+      id: "location-current",
+      label: "London, United Kingdom",
+      latitude: 51.5072,
+      longitude: -0.1276,
+      precision: "city",
+      isActive: true,
+      effectiveFrom: "2026-08-18T12:00:00.000Z",
+    },
+    {
+      id: "location-previous",
+      label: "New York, NY",
+      latitude: 40.7128,
+      longitude: -74.006,
+      precision: "city",
+      isActive: false,
+      effectiveFrom: "2026-08-01T00:00:00.000Z",
+      effectiveTo: "2026-08-18T12:00:00.000Z",
+    },
+  ],
+  createdAt: "2026-08-01T00:00:00.000Z",
+  updatedAt: "2026-08-18T12:00:00.000Z",
+};
 
 afterEach(() => {
   cleanup();
@@ -45,6 +97,46 @@ describe("WorldSignal application shell", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("Not requested")).toHaveLength(3);
     expect(screen.getByText(/no polling will follow/i)).toBeInTheDocument();
+  });
+
+  it("shows people independently of hazard retrieval and resolves their location at the timeline cursor", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(eventBatchFixture),
+    );
+
+    render(<WorldSignalApp people={[personFixture]} />);
+
+    expect(
+      await screen.findByRole("button", {
+        name: /avery chen.*london, united kingdom/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("mock-world-globe")).toHaveAttribute(
+      "data-person-count",
+      "1",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /avery chen.*london, united kingdom/i,
+      }),
+    );
+    expect(screen.getByLabelText("Selected person preview")).toHaveTextContent(
+      "London, United Kingdom",
+    );
+
+    await user.click(await loadButton());
+    await screen.findByRole("button", {
+      name: /earthquake: m6\.4 earthquake/i,
+    });
+
+    expect(
+      screen.getByRole("button", { name: /avery chen.*new york, ny/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected person preview")).toHaveTextContent(
+      "New York, NY",
+    );
   });
 
   it("uses a pre-load window choice on the first request without fetching early", async () => {

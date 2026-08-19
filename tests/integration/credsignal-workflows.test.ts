@@ -4,25 +4,28 @@ import { eq, inArray } from "drizzle-orm";
 
 import { getCredSignalDashboard } from "@/features/credsignal/server/dashboard";
 import {
-  addProtecteeIdentity,
   createCaseCommunication,
   createCaseTask,
   createExposure,
-  createProtectee,
   CredSignalConflictError,
   CredSignalWorkflowError,
-  deactivateProtecteeIdentity,
   manuallyMatchExposure,
-  replaceProtecteeLocation,
   revealCredential,
-  setPrimaryProtecteeIdentity,
   transitionCase,
   transitionCaseCommunication,
   transitionTask,
   updateCaseCoordination,
   updateCaseTask,
-  updateProtectee,
 } from "@/features/credsignal/server/workflows";
+import {
+  addPersonIdentity,
+  createPerson,
+  deactivatePersonIdentity,
+  PeopleWorkflowError,
+  replacePersonLocation,
+  setPrimaryPersonIdentity,
+  updatePerson,
+} from "@/features/people/server/workflows";
 import { closeDatabase, getDatabase } from "@/lib/db/client";
 import {
   caseExposures,
@@ -99,7 +102,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
   });
 
   it("persists the full protectee, exposure, case, task, reveal, and closure chain", async () => {
-    const protecteeResult = await createProtectee(
+    const protecteeResult = await createPerson(
       {
         displayName: "Integration Protectee",
         title: "Chief Test Officer",
@@ -115,7 +118,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     );
 
     const exposureInput = {
-      protecteeId: protecteeResult.protecteeId,
+      protecteeId: protecteeResult.personId,
       identityType: "work_email" as const,
       identityValue: "protectee@integration.example",
       credentialKind: "session_token" as const,
@@ -132,14 +135,14 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     const exposureResult = await createExposure(exposureInput, operatorId);
 
     expect(exposureResult.caseId).toBeDefined();
-    expect(exposureResult.matchedProtecteeId).toBe(protecteeResult.protecteeId);
+    expect(exposureResult.matchedProtecteeId).toBe(protecteeResult.personId);
     await expect(
       createExposure(exposureInput, operatorId),
     ).rejects.toBeInstanceOf(CredSignalConflictError);
 
     const dashboard = await getCredSignalDashboard();
     const protectee = dashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
     const responseCase = protectee?.cases[0];
     const task = responseCase?.tasks[0];
@@ -251,7 +254,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
 
     const closedDashboard = await getCredSignalDashboard();
     const closedProtectee = closedDashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
 
     expect(closedProtectee?.cases[0]?.status).toBe("closed");
@@ -327,7 +330,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
   });
 
   it("moves an unmatched exposure into a manually confirmed protectee case", async () => {
-    const protecteeResult = await createProtectee(
+    const protecteeResult = await createPerson(
       {
         displayName: "Manual Match Protectee",
         title: "Chief Alias Officer",
@@ -361,7 +364,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
 
     const unmatchedDashboard = await getCredSignalDashboard();
     const protectee = unmatchedDashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
     expect(
       unmatchedDashboard.unmatchedExposures.some(
@@ -372,7 +375,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     const result = await manuallyMatchExposure(
       {
         exposureId: exposureResult.exposureId,
-        protecteeId: protecteeResult.protecteeId,
+        protecteeId: protecteeResult.personId,
         identityId: protectee!.identities[0].id,
         reason:
           "The source record links this alias to the protectee's approved work identity.",
@@ -380,13 +383,13 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       operatorId,
     );
 
-    expect(result.protecteeId).toBe(protecteeResult.protecteeId);
+    expect(result.protecteeId).toBe(protecteeResult.personId);
     expect(result.caseId).toBeDefined();
     await expect(
       manuallyMatchExposure(
         {
           exposureId: exposureResult.exposureId,
-          protecteeId: protecteeResult.protecteeId,
+          protecteeId: protecteeResult.personId,
           identityId: protectee!.identities[0].id,
           reason: "A duplicate manual decision must not be accepted.",
         },
@@ -396,7 +399,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
 
     const matchedDashboard = await getCredSignalDashboard();
     const matchedProtectee = matchedDashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
     expect(
       matchedDashboard.unmatchedExposures.some(
@@ -423,7 +426,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     );
     const dismissedDashboard = await getCredSignalDashboard();
     const dismissedProtectee = dismissedDashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
     expect(dismissedProtectee?.cases[0]?.status).toBe("dismissed");
     expect(
@@ -435,7 +438,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
   });
 
   it("maintains protectee profiles, identities, and location history", async () => {
-    const protecteeResult = await createProtectee(
+    const protecteeResult = await createPerson(
       {
         displayName: "Roster Maintenance Protectee",
         title: "Original Title",
@@ -451,13 +454,13 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     );
     const initialDashboard = await getCredSignalDashboard();
     const initialProtectee = initialDashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
     const originalIdentity = initialProtectee!.identities[0];
 
-    await updateProtectee(
+    await updatePerson(
       {
-        protecteeId: protecteeResult.protecteeId,
+        personId: protecteeResult.personId,
         displayName: "Updated Roster Protectee",
         title: "Updated Title",
         organization: "Updated Integration Labs",
@@ -466,23 +469,23 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       },
       operatorId,
     );
-    const addedIdentity = await addProtecteeIdentity(
+    const addedIdentity = await addPersonIdentity(
       {
-        protecteeId: protecteeResult.protecteeId,
+        personId: protecteeResult.personId,
         type: "username",
         value: "roster-maintenance-alias",
         makePrimary: false,
       },
       operatorId,
     );
-    await setPrimaryProtecteeIdentity(addedIdentity.identityId, operatorId);
-    await deactivateProtecteeIdentity(originalIdentity.id, operatorId);
+    await setPrimaryPersonIdentity(addedIdentity.identityId, operatorId);
+    await deactivatePersonIdentity(originalIdentity.id, operatorId);
     await expect(
-      deactivateProtecteeIdentity(addedIdentity.identityId, operatorId),
-    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
-    await replaceProtecteeLocation(
+      deactivatePersonIdentity(addedIdentity.identityId, operatorId),
+    ).rejects.toBeInstanceOf(PeopleWorkflowError);
+    await replacePersonLocation(
       {
-        protecteeId: protecteeResult.protecteeId,
+        personId: protecteeResult.personId,
         label: "Updated Region",
         latitude: 47.6062,
         longitude: -122.3321,
@@ -490,9 +493,9 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       },
       operatorId,
     );
-    await updateProtectee(
+    await updatePerson(
       {
-        protecteeId: protecteeResult.protecteeId,
+        personId: protecteeResult.personId,
         displayName: "Updated Roster Protectee",
         title: "Updated Title",
         organization: "Updated Integration Labs",
@@ -523,7 +526,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
 
     const updatedDashboard = await getCredSignalDashboard();
     const updatedProtectee = updatedDashboard.protectees.find(
-      (entry) => entry.id === protecteeResult.protecteeId,
+      (entry) => entry.id === protecteeResult.personId,
     );
     expect(updatedProtectee).toMatchObject({
       displayName: "Updated Roster Protectee",
@@ -553,7 +556,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     ).toBe(true);
     expect(
       updatedDashboard.recentActivity.some(
-        (activity) => activity.action === "protectee.location_changed",
+        (activity) => activity.action === "person.location_changed",
       ),
     ).toBe(true);
   });

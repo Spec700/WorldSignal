@@ -28,6 +28,7 @@ export interface WorldSignalState {
   batchFreshness: "none" | "current" | "previous";
   previousEventsById: Map<string, WorldEvent>;
   selectedEventId?: string;
+  selectedPersonId?: string;
   selectedGeometry?: GdacsGeometryCollection;
   geometryState: "idle" | "loading" | "ready" | "error";
   geometryError?: string;
@@ -72,6 +73,8 @@ export type WorldSignalAction =
       message: string;
     }
   | { type: "selection/set"; eventId: string }
+  | { type: "person-selection/set"; personId: string }
+  | { type: "person-selection/hidden"; personId: string }
   | { type: "selection/clear" }
   | { type: "selection/hidden"; eventId: string }
   | { type: "geometry/requested"; eventId: string }
@@ -184,6 +187,7 @@ export function worldSignalReducer(
         selectedEventId: selectionStillExists
           ? state.selectedEventId
           : undefined,
+        selectedPersonId: state.selectedPersonId,
         selectedGeometry: undefined,
         geometryState: "idle",
         geometryError: undefined,
@@ -220,6 +224,7 @@ export function worldSignalReducer(
           action.snapshot.baselineEvents.map((event) => [event.id, event]),
         ),
         selectedEventId: undefined,
+        selectedPersonId: undefined,
         selectedGeometry: undefined,
         geometryState: "idle",
         geometryError: undefined,
@@ -304,6 +309,7 @@ export function worldSignalReducer(
       return {
         ...state,
         selectedEventId: action.eventId,
+        selectedPersonId: undefined,
         selectedGeometry: undefined,
         geometryState: "idle",
         geometryError: undefined,
@@ -314,10 +320,42 @@ export function worldSignalReducer(
       return {
         ...state,
         selectedEventId: undefined,
+        selectedPersonId: undefined,
         selectedGeometry: undefined,
         geometryState: "idle",
         geometryError: undefined,
         selectionNotice: undefined,
+      };
+
+    case "person-selection/set":
+      if (
+        state.selectedPersonId === action.personId &&
+        !state.selectedEventId
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedEventId: undefined,
+        selectedPersonId: action.personId,
+        selectedGeometry: undefined,
+        geometryState: "idle",
+        geometryError: undefined,
+        selectionNotice: undefined,
+        announcement: "Person location selected.",
+      };
+
+    case "person-selection/hidden":
+      if (state.selectedPersonId !== action.personId) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedPersonId: undefined,
+        selectionNotice:
+          "The selected person has no approved location at this timeline cursor.",
+        announcement:
+          "Person selection cleared because no approved location applies at this timeline cursor.",
       };
 
     case "selection/hidden":

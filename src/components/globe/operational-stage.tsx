@@ -1,7 +1,10 @@
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
+import { LocalTimestamp } from "@/components/local-timestamp";
+import type { PersonGlobePoint } from "@/components/people/person-globe-model";
 import type { WorldEvent } from "@/lib/events/types";
 import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 import { formatCoordinate } from "@/lib/time/format";
@@ -23,6 +26,7 @@ const WorldGlobe = dynamic(
 
 interface OperationalStageProps {
   events: WorldEvent[];
+  people: PersonGlobePoint[];
   hasLoadedBatch: boolean;
   loadedCount: number;
   matchingBeforeTimeCount: number;
@@ -32,16 +36,77 @@ interface OperationalStageProps {
   restoring: boolean;
   batchIsPrevious: boolean;
   selectedEvent?: WorldEvent;
+  selectedPerson?: PersonGlobePoint;
   selectedGeometry?: GdacsGeometryCollection;
   selectionNotice?: string;
   onRefresh: () => void;
   onClearFilters: () => void;
   onSelect: (eventId: string) => void;
+  onSelectPerson: (personId: string) => void;
   onClearSelection: () => void;
+  timeCursor: string;
+}
+
+function PeoplePresencePanel({
+  people,
+  selectedPersonId,
+  timeCursor,
+  onSelect,
+}: {
+  people: PersonGlobePoint[];
+  selectedPersonId?: string;
+  timeCursor: string;
+  onSelect: (personId: string) => void;
+}) {
+  return (
+    <aside className="world-people-presence" aria-label="People presence layer">
+      <header>
+        <span>
+          <strong>People presence</strong>
+          <small>
+            {timeCursor ? (
+              <>
+                At <LocalTimestamp timestamp={timeCursor} />
+              </>
+            ) : (
+              "Current approved locations"
+            )}
+          </small>
+        </span>
+        <em>{people.length}</em>
+      </header>
+      {people.length > 0 ? (
+        <ul>
+          {people.map((person) => (
+            <li data-selected={person.id === selectedPersonId} key={person.id}>
+              <button
+                aria-pressed={person.id === selectedPersonId}
+                onClick={() => onSelect(person.id)}
+                type="button"
+              >
+                <i data-tier={person.tier} aria-hidden="true" />
+                <span>
+                  <strong>{person.displayName}</strong>
+                  <small>{person.locationLabel}</small>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No approved person locations apply at this cursor.</p>
+      )}
+      <footer>
+        <span>Protection tier markers</span>
+        <Link href="/home/globe">Open People globe →</Link>
+      </footer>
+    </aside>
+  );
 }
 
 export function OperationalStage({
   events,
+  people,
   hasLoadedBatch,
   loadedCount,
   matchingBeforeTimeCount,
@@ -51,12 +116,15 @@ export function OperationalStage({
   restoring,
   batchIsPrevious,
   selectedEvent,
+  selectedPerson,
   selectedGeometry,
   selectionNotice,
   onRefresh,
   onClearFilters,
   onSelect,
+  onSelectPerson,
   onClearSelection,
+  timeCursor,
 }: OperationalStageProps) {
   let overlay: ReactNode = null;
 
@@ -157,8 +225,8 @@ export function OperationalStage({
           {batchIsPrevious
             ? "Previous retrieval displayed"
             : hasLoadedBatch
-              ? `${visibleCount} visible events`
-              : "Manual mode"}
+              ? `${visibleCount} visible events · ${people.length} people`
+              : `Manual mode · ${people.length} people`}
         </span>
       </div>
 
@@ -167,10 +235,20 @@ export function OperationalStage({
           events={events}
           onClearSelection={onClearSelection}
           onSelect={onSelect}
+          onSelectPerson={onSelectPerson}
+          people={people}
           selectedGeometry={selectedGeometry}
           selectedEvent={selectedEvent}
+          selectedPerson={selectedPerson}
         />
         {overlay}
+
+        <PeoplePresencePanel
+          onSelect={onSelectPerson}
+          people={people}
+          selectedPersonId={selectedPerson?.id}
+          timeCursor={timeCursor}
+        />
 
         {selectionNotice ? (
           <div className="stage-selection-notice" role="status">
@@ -194,6 +272,29 @@ export function OperationalStage({
                 {formatCoordinate(selectedEvent.centroid.latitude, "lat")} ·{" "}
                 {formatCoordinate(selectedEvent.centroid.longitude, "lon")}
               </span>
+            </span>
+          </div>
+        ) : null}
+
+        {selectedPerson ? (
+          <div
+            className="globe-selection-chip globe-selection-chip--person"
+            aria-label="Selected person preview"
+            role="status"
+          >
+            <span data-tier={selectedPerson.tier} aria-hidden="true">
+              P
+            </span>
+            <span>
+              <small>Focused · {selectedPerson.tier} protection tier</small>
+              <strong>{selectedPerson.displayName}</strong>
+              <span>
+                {selectedPerson.locationLabel} ·{" "}
+                {selectedPerson.organization ?? "Independent"}
+              </span>
+              <Link href={`/home?person=${selectedPerson.id}`}>
+                Open person dossier →
+              </Link>
             </span>
           </div>
         ) : null}
