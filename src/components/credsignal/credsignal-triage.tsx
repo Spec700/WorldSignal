@@ -109,7 +109,7 @@ export function CredSignalTriage({
         </button>
         <h2>Resolve unmatched exposure</h2>
         <p>
-          Confirm the victim using an active identity already approved for
+          Confirm the person using an active identity already approved for
           monitoring.
         </p>
       </div>
@@ -224,9 +224,9 @@ export function CredSignalTriage({
         ) : (
           <div className={styles.triageEmpty}>
             <strong>No active protectees are available</strong>
-            <p>Create the victim record and its approved identity first.</p>
+            <p>Create the person and its approved identity first.</p>
             <button onClick={onCreateProtectee} type="button">
-              Create protectee
+              Create person
             </button>
           </div>
         )}

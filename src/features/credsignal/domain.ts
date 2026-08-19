@@ -2,15 +2,9 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 
-export const identityTypes = [
-  "work_email",
-  "personal_email",
-  "username",
-  "phone",
-  "domain",
-  "other",
-] as const;
-export const protecteeTiers = ["standard", "high", "critical"] as const;
+import { identityTypes, type IdentityType } from "@/features/people/domain";
+
+export { identityTypes, normalizeIdentity } from "@/features/people/domain";
 export const credentialKinds = [
   "password",
   "password_hash",
@@ -61,7 +55,6 @@ export const taskStatuses = [
   "cancelled",
 ] as const;
 
-export type IdentityType = (typeof identityTypes)[number];
 export type CredentialKind = (typeof credentialKinds)[number];
 export type ExposurePriority = (typeof priorities)[number];
 
@@ -71,26 +64,6 @@ const trimmedText = (label: string, maximum: number) =>
     .trim()
     .min(1, `${label} is required.`)
     .max(maximum, `${label} must be ${maximum} characters or fewer.`);
-
-export const createProtecteeInputSchema = z.object({
-  displayName: trimmedText("Protectee name", 160),
-  title: z.string().trim().max(160).optional().default(""),
-  organization: z.string().trim().max(200).optional().default(""),
-  tier: z.enum(protecteeTiers).default("standard"),
-  identityType: z.enum(identityTypes),
-  identityValue: trimmedText("Identity", 320),
-  locationLabel: trimmedText("Location label", 160),
-  latitude: z.coerce
-    .number()
-    .finite()
-    .min(-90, "Latitude must be between -90 and 90.")
-    .max(90, "Latitude must be between -90 and 90."),
-  longitude: z.coerce
-    .number()
-    .finite()
-    .min(-180, "Longitude must be between -180 and 180.")
-    .max(180, "Longitude must be between -180 and 180."),
-});
 
 export const createExposureInputSchema = z
   .object({
@@ -127,38 +100,6 @@ export const matchExposureInputSchema = z.object({
   protecteeId: z.string().uuid(),
   identityId: z.string().uuid(),
   reason: trimmedText("Match rationale", 1_000),
-});
-
-export const updateProtecteeInputSchema = z.object({
-  protecteeId: z.string().uuid(),
-  displayName: trimmedText("Protectee name", 160),
-  title: z.string().trim().max(160).optional().default(""),
-  organization: z.string().trim().max(200).optional().default(""),
-  tier: z.enum(protecteeTiers),
-  status: z.enum(["active", "paused", "archived"]),
-});
-
-export const addProtecteeIdentityInputSchema = z.object({
-  protecteeId: z.string().uuid(),
-  type: z.enum(identityTypes),
-  value: trimmedText("Identity", 320),
-  makePrimary: z.boolean().default(false),
-});
-
-export const replaceProtecteeLocationInputSchema = z.object({
-  protecteeId: z.string().uuid(),
-  label: trimmedText("Location label", 160),
-  latitude: z.coerce
-    .number()
-    .finite()
-    .min(-90, "Latitude must be between -90 and 90.")
-    .max(90, "Latitude must be between -90 and 90."),
-  longitude: z.coerce
-    .number()
-    .finite()
-    .min(-180, "Longitude must be between -180 and 180.")
-    .max(180, "Longitude must be between -180 and 180."),
-  precision: z.enum(["exact", "city", "region", "country"]),
 });
 
 export const createCaseCommunicationInputSchema = z.object({
@@ -207,16 +148,8 @@ export const updateCaseTaskInputSchema = z.object({
   notes: z.string().trim().max(4_000).optional().default(""),
 });
 
-export type CreateProtecteeInput = z.infer<typeof createProtecteeInputSchema>;
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;
 export type MatchExposureInput = z.infer<typeof matchExposureInputSchema>;
-export type UpdateProtecteeInput = z.infer<typeof updateProtecteeInputSchema>;
-export type AddProtecteeIdentityInput = z.infer<
-  typeof addProtecteeIdentityInputSchema
->;
-export type ReplaceProtecteeLocationInput = z.infer<
-  typeof replaceProtecteeLocationInputSchema
->;
 export type CreateCaseCommunicationInput = z.infer<
   typeof createCaseCommunicationInputSchema
 >;
@@ -225,25 +158,6 @@ export type UpdateCaseCoordinationInput = z.infer<
 >;
 export type CreateCaseTaskInput = z.infer<typeof createCaseTaskInputSchema>;
 export type UpdateCaseTaskInput = z.infer<typeof updateCaseTaskInputSchema>;
-
-export function normalizeIdentity(type: IdentityType, value: string): string {
-  const trimmed = value.trim();
-
-  switch (type) {
-    case "work_email":
-    case "personal_email":
-    case "domain":
-    case "username":
-      return trimmed.toLocaleLowerCase("en-US");
-    case "phone": {
-      const hasInternationalPrefix = trimmed.startsWith("+");
-      const digits = trimmed.replace(/\D/g, "");
-      return hasInternationalPrefix ? `+${digits}` : digits;
-    }
-    case "other":
-      return trimmed.replace(/\s+/g, " ").toLocaleLowerCase("en-US");
-  }
-}
 
 export function classifyCredentialSeverity(
   credentialKind: CredentialKind,

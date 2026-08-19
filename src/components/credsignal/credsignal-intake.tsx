@@ -3,10 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import {
-  createExposureAction,
-  createProtecteeAction,
-} from "@/app/credsignal/actions";
+import { createExposureAction } from "@/app/credsignal/actions";
 import {
   initialCredSignalActionState,
   type CredSignalActionState,
@@ -18,10 +15,7 @@ import type {
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
-export type CredSignalIntakeMode = "protectee" | "exposure";
-
 interface CredSignalIntakeProps {
-  mode: CredSignalIntakeMode;
   operators: CredSignalOperatorDto[];
   protectees: CredSignalProtecteeDto[];
   activeOperatorId: string;
@@ -63,122 +57,6 @@ function ActionNotice({ state }: { state: CredSignalActionState }) {
     >
       {state.message}
     </div>
-  );
-}
-
-function ProtecteeForm({
-  activeOperatorId,
-  onSaved,
-}: Pick<CredSignalIntakeProps, "activeOperatorId" | "onSaved">) {
-  const [state, action] = useActionState(
-    createProtecteeAction,
-    initialCredSignalActionState,
-  );
-
-  useEffect(() => {
-    if (state.status === "success") {
-      onSaved(state.createdId);
-    }
-  }, [onSaved, state.createdId, state.status]);
-
-  return (
-    <form action={action} className={styles.intakeForm}>
-      <input name="actorOperatorId" type="hidden" value={activeOperatorId} />
-      <div className={styles.formSection}>
-        <span className={styles.formSectionLabel}>Person</span>
-        <label className={styles.fullField}>
-          <span>Full name</span>
-          <input autoComplete="off" name="displayName" required />
-          <FieldError field="displayName" state={state} />
-        </label>
-        <div className={styles.fieldPair}>
-          <label>
-            <span>Title</span>
-            <input autoComplete="off" name="title" />
-            <FieldError field="title" state={state} />
-          </label>
-          <label>
-            <span>Organization</span>
-            <input autoComplete="off" name="organization" />
-            <FieldError field="organization" state={state} />
-          </label>
-        </div>
-        <label>
-          <span>Monitoring tier</span>
-          <select defaultValue="standard" name="tier">
-            <option value="standard">Standard</option>
-            <option value="high">High attention</option>
-            <option value="critical">Critical protectee</option>
-          </select>
-        </label>
-      </div>
-
-      <div className={styles.formSection}>
-        <span className={styles.formSectionLabel}>Primary identity</span>
-        <div className={styles.fieldPair}>
-          <label>
-            <span>Identity type</span>
-            <select defaultValue="work_email" name="identityType">
-              <option value="work_email">Work email</option>
-              <option value="personal_email">Personal email</option>
-              <option value="username">Username</option>
-              <option value="phone">Phone</option>
-              <option value="domain">Domain</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label>
-            <span>Identity value</span>
-            <input autoComplete="off" name="identityValue" required />
-            <FieldError field="identityValue" state={state} />
-          </label>
-        </div>
-      </div>
-
-      <div className={styles.formSection}>
-        <span className={styles.formSectionLabel}>Approved map location</span>
-        <label className={styles.fullField}>
-          <span>City or office label</span>
-          <input autoComplete="off" name="locationLabel" required />
-          <FieldError field="locationLabel" state={state} />
-        </label>
-        <div className={styles.fieldPair}>
-          <label>
-            <span>Latitude</span>
-            <input
-              inputMode="decimal"
-              max="90"
-              min="-90"
-              name="latitude"
-              required
-              step="any"
-              type="number"
-            />
-            <FieldError field="latitude" state={state} />
-          </label>
-          <label>
-            <span>Longitude</span>
-            <input
-              inputMode="decimal"
-              max="180"
-              min="-180"
-              name="longitude"
-              required
-              step="any"
-              type="number"
-            />
-            <FieldError field="longitude" state={state} />
-          </label>
-        </div>
-        <p className={styles.formHint}>
-          This is the protectee’s approved operational location, never a
-          breach-source location.
-        </p>
-      </div>
-
-      <ActionNotice state={state} />
-      <SubmitButton>Create protectee</SubmitButton>
-    </form>
   );
 }
 
@@ -388,7 +266,6 @@ function ExposureForm({
 }
 
 export function CredSignalIntake({
-  mode,
   operators,
   protectees,
   activeOperatorId,
@@ -400,32 +277,24 @@ export function CredSignalIntake({
   );
 
   return (
-    <aside className={styles.intakePanel} aria-label={`${mode} intake`}>
+    <aside className={styles.intakePanel} aria-label="Exposure intake">
       <div className={styles.intakeHeader}>
-        <span className={styles.eyebrow}>
-          {mode === "protectee"
-            ? "Monitoring roster"
-            : "Manual intelligence intake"}
-        </span>
+        <span className={styles.eyebrow}>Manual intelligence intake</span>
         <button aria-label="Close intake panel" onClick={onClose} type="button">
           ×
         </button>
-        <h2>{mode === "protectee" ? "Add protectee" : "Record exposure"}</h2>
+        <h2>Record exposure</h2>
         <p>
           Attributed to{" "}
           {activeOperator?.displayName ?? "an unattributed local operator"}.
-          Authentication is not enforced in this MVP.
+          Authentication is not enforced in this demo.
         </p>
       </div>
-      {mode === "protectee" ? (
-        <ProtecteeForm activeOperatorId={activeOperatorId} onSaved={onSaved} />
-      ) : (
-        <ExposureForm
-          activeOperatorId={activeOperatorId}
-          onSaved={onSaved}
-          protectees={protectees}
-        />
-      )}
+      <ExposureForm
+        activeOperatorId={activeOperatorId}
+        onSaved={onSaved}
+        protectees={protectees}
+      />
     </aside>
   );
 }
