@@ -66,17 +66,17 @@ ingestion, automated notification, or production key management.
 
 ## Prerequisites
 
-- Node.js 24.x
-- npm 11 or later
-- Docker with Docker Compose support, for local PostgreSQL
+- Git
+- Docker Desktop, or Docker Engine with Docker Compose support
 - A modern WebGL-capable desktop browser
-- Google Chrome installed locally only when running the Playwright suite
 
-Confirm the local runtime before installing:
+Node.js, npm, and PostgreSQL do not need to be installed on the host computer. The container image
+provides Node.js 24 and installs the exact dependency tree from `package-lock.json`.
+
+Confirm the required tools:
 
 ```bash
-node --version
-npm --version
+git --version
 docker --version
 docker compose version
 ```
@@ -85,96 +85,91 @@ docker compose version
 
 Complete these steps once after cloning the repository.
 
-### 1. Install the application dependencies
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Spec700/WorldSignal.git
 cd WorldSignal
-npm install
 ```
 
-### 2. Create the local environment file
+### 2. Build and start Priority Signals
 
 ```bash
-cp .env.example .env
-openssl rand -base64 32
+docker compose up --build
 ```
 
-Open `.env` and replace `replace-with-a-base64-encoded-32-byte-key` with the value printed by
-`openssl`. Keep `.env` private and keep its key unchanged between sessions: changing or losing the
-key makes previously stored credential values unreadable.
+That single command builds the Node.js 24 application image and starts the complete stack. Docker
+Compose automatically:
 
-### 3. Initialize PostgreSQL and the demonstration data
+- starts PostgreSQL and waits for it to become healthy;
+- creates a persistent CredSignal encryption key on a fresh installation;
+- applies every committed database migration;
+- creates or updates the synthetic demonstration workspace; and
+- starts the production Next.js server only after bootstrap succeeds.
 
-```bash
-npm run db:start
-npm run db:migrate
-npm run db:seed
-```
-
-`db:start` starts the PostgreSQL container. `db:migrate` creates or updates its tables, and `db:seed`
-loads the synthetic CredSignal workspace. These commands do not start the web application.
-
-### 4. Start the development application
-
-```bash
-npm run dev
-```
+No `.env`, `npm install`, `npm run build`, migration command, or seed command is required for a fresh
+Docker installation.
 
 Open [http://localhost:3000](http://localhost:3000). The root route opens WorldSignal;
 [http://localhost:3000/credsignal](http://localhost:3000/credsignal) opens CredSignal directly.
 
+### Existing CredSignal installations
+
+If this computer already has CredSignal data created by the earlier host-native setup, leave its
+existing `.env` in the repository for the first Docker startup. Bootstrap imports the existing
+`CREDSIGNAL_DATA_KEY` into the persistent Docker key volume so those credential values remain
+readable. After that startup succeeds, Compose reads the key from its volume and no longer requires
+`.env`; retain a secure backup of the original key.
+
+Bootstrap deliberately stops if it finds encrypted database records without either the persisted
+Docker key or the original key in `.env`. It will not silently replace a missing key.
+
 ## Stop Priority Signals
 
-In the terminal running `npm run dev` or `npm start`, press `Ctrl+C` to stop the Next.js application.
-Then stop PostgreSQL from another terminal in the repository:
+If Compose is attached to the current terminal, press `Ctrl+C`. Then remove the stopped application,
+bootstrap, PostgreSQL containers, and private network:
 
 ```bash
-npm run db:stop
+docker compose down
 ```
 
-This shutdown preserves `.env` and the PostgreSQL data volume. Do not add `--volumes` unless you
-intentionally want to permanently delete all local CredSignal data.
+This preserves both named volumes: the PostgreSQL data and its matching CredSignal encryption key.
+Do not add `--volumes` unless you intentionally want to permanently delete all local CredSignal data
+and the key required to decrypt it.
 
 ## Start again after initial setup
 
-For normal development startup on later sessions, run:
+When the application images already exist and the source has not changed, run:
 
 ```bash
-npm run db:start
-npm run dev
+docker compose up
 ```
 
-You do not need to reinstall dependencies, recreate `.env`, migrate, or seed on every startup. Run
-`npm install` after dependency changes, `npm run db:migrate` after new database migrations, and
-`npm run db:seed` only when you need to create or refresh the synthetic workspace.
-
-For a production-mode local start, PostgreSQL must still be started separately:
+After pulling code changes or editing application files, rebuild while starting:
 
 ```bash
-npm run db:start
-npm run build
-npm start
+docker compose up --build
 ```
 
-`npm run build` only compiles the Next.js application. `npm start` only starts that compiled
-application. Neither command starts PostgreSQL. If a current production build already exists and
-the code has not changed, you can omit `npm run build`.
+Migrations and the idempotent seed run safely whenever the stack is recreated. Check status or
+follow logs from another terminal with:
 
-The Docker Compose service binds PostgreSQL only to `127.0.0.1:5432` and persists its data in the
-Compose-managed `priority-signals-postgres` volume. The Next.js application runs through the local
-Node.js process.
+```bash
+docker compose ps
+docker compose logs --follow
+```
 
 ## Synthetic data and secrets
 
-`npm run db:seed` creates synthetic operators, protectees, identities, locations, credential
+The automatic bootstrap creates synthetic operators, protectees, identities, locations, credential
 exposures, cases, tasks, communications, and activity. The `.example` and `.test` identities are not
-real people or accounts. The seed is idempotent for the configured workspace and is safe to rerun.
+real people or accounts. The seed is idempotent for the configured workspace.
 
 Full credential values are encrypted before PostgreSQL storage and are never written to application
-logs, URLs, or browser storage. Encryption does not compensate for the current lack of access
-control. Use synthetic values only until authentication, authorization, deployment hardening, and
-managed key storage are implemented.
+logs, URLs, or browser storage. Docker stores the generated encryption key separately from the
+database and mounts it read-only into the application container. Encryption does not compensate for
+the current lack of access control. Use synthetic values only until authentication, authorization,
+deployment hardening, and managed key storage are implemented.
 
 ## Operator behavior
 
@@ -251,83 +246,85 @@ Signals independently verified every upstream fact.
 
 ## Verification
 
-Run the deterministic checks:
+Run the deterministic formatting, lint, unit/integration, production-build, and type checks inside
+the pinned Node.js 24 image:
 
 ```bash
-npm run format:check
-npm run typecheck
-npm run lint
-npm test
-npm run test:e2e
-npm run build
+docker build --target verification .
 ```
 
 Unit and HTTP integration tests use committed sanitized fixtures. Playwright intercepts WorldSignal's
 local API while exercising the real browser, WebGL renderer, local assets, and application state.
-The browser suite uses the locally installed stable Chrome channel and does not download another
-browser into the repository.
+The optional Playwright browser suite still requires Node.js 24, npm, and stable Chrome on the host;
+those tools are not required to build or run Priority Signals through Compose.
 
 CredSignal's PostgreSQL integration suite is opt-in because it changes a disposable test workspace
-in the local database. With PostgreSQL running and `.env` configured:
+in the local database. With the Compose stack running:
 
 ```bash
-RUN_CREDSIGNAL_DB_TESTS=1 npm test -- tests/integration/credsignal-workflows.test.ts
+docker compose run --rm -e RUN_CREDSIGNAL_DB_TESTS=1 bootstrap npm test -- tests/integration/credsignal-workflows.test.ts
 ```
 
 The suite creates a process-scoped workspace, verifies the complete persistence and workflow chain,
 and removes that workspace afterward.
 
-## Database commands
+## Docker operations
 
 ```bash
-npm run db:start      # start local PostgreSQL
-npm run db:migrate    # apply committed migrations
-npm run db:seed       # create/update the synthetic local workspace
-npm run db:studio     # inspect the database with Drizzle Studio
-npm run db:stop       # stop containers without deleting persisted data
+docker compose up --build     # build and start the complete stack
+docker compose up             # start existing images
+docker compose ps             # show service and health status
+docker compose logs --follow  # follow logs from every service
+docker compose down           # stop while preserving data and key volumes
 ```
 
-To delete all local CredSignal database data and recreate it from the seed:
+PostgreSQL is reachable only inside the private Compose network. Open its command-line client with:
+
+```bash
+docker compose exec postgres psql -U priority_signals -d priority_signals
+```
+
+To permanently delete all local CredSignal data and its encryption key, then create a clean stack:
 
 ```bash
 docker compose down --volumes
-npm run db:start
-npm run db:migrate
-npm run db:seed
+docker compose up --build
 ```
 
-`docker compose down --volumes` permanently removes the local PostgreSQL volume. Do not run it if
-the database contains anything you need to retain.
+`docker compose down --volumes` removes both named volumes. Do not run it if the database contains
+anything you need to retain.
 
 ## Troubleshooting
 
-### npm reports an unsupported Node version
+### Docker cannot build or start the stack
 
-Install or activate Node 24.x, then verify `node --version`. The project intentionally does not work
-around its Node engine requirement.
+Confirm Docker Desktop or Docker Engine is running, then inspect `docker compose ps --all` and
+`docker compose logs`. The first build needs internet access to retrieve the pinned Node.js and
+PostgreSQL base images and install the locked npm dependency tree.
 
 ### What is `node_modules`?
 
-`npm install` creates `node_modules`, the local unpacked dependency tree used to run, build, lint,
-and test Priority Signals. It is not project source, Git ignores it, and production browsers do not
-receive the whole directory. It can be deleted and reconstructed from `package-lock.json` with
-`npm install` or `npm ci`; project dependencies should not be replaced with global installations.
+Docker-only startup does not create `node_modules` on the host. Dependencies are installed into an
+image layer and remain inside Docker. A host `node_modules` directory appears only if someone
+explicitly runs `npm install` for optional host-native contributor tooling; Git ignores it, and it
+is not sent to production browsers.
 
 ### CredSignal says the local workspace is required
 
-Confirm Docker is healthy, then run `npm run db:migrate` and `npm run db:seed`. Verify that `.env`
-contains the same database URL used by the Compose service and a valid base64-encoded 32-byte
-`CREDSIGNAL_DATA_KEY`.
+Run `docker compose ps --all` and `docker compose logs bootstrap`. The app does not start until
+PostgreSQL is healthy and bootstrap has successfully migrated, keyed, and seeded the workspace.
 
 ### Existing credentials can no longer be revealed
 
-Restore the exact `CREDSIGNAL_DATA_KEY` that encrypted them. `CREDSIGNAL_KEY_VERSION` records key
-metadata but the MVP does not yet provide a multi-key rotation system.
+Do not delete the `priority-signals-secrets` volume independently of the database. When migrating
+data created before the Docker-only stack, restore the exact original `CREDSIGNAL_DATA_KEY` in
+`.env` before the first startup. `CREDSIGNAL_KEY_VERSION` records key metadata but the MVP does not
+yet provide a multi-key rotation system.
 
-### Port 3000 or 5432 is already in use
+### Port 3000 is already in use
 
-Stop the conflicting local process. For the application only, you can use
-`npm run dev -- --port 3001`. PostgreSQL is deliberately bound to local port 5432 by Compose.
+Stop the conflicting local process or change the app's host-side port in `compose.yaml`. PostgreSQL
+is not published to the host and therefore does not occupy host port 5432.
 
 ### A WorldSignal source is unavailable
 

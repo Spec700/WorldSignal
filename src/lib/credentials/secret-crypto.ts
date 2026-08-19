@@ -7,8 +7,9 @@ import {
 
 import { z } from "zod";
 
+import { decodeCredentialDataKey } from "@/lib/credentials/data-key";
+
 const IV_BYTES = 12;
-const KEY_BYTES = 32;
 const algorithm = "aes-256-gcm";
 
 export const encryptedSecretSchema = z.object({
@@ -19,18 +20,6 @@ export const encryptedSecretSchema = z.object({
 });
 
 export type EncryptedSecret = z.infer<typeof encryptedSecretSchema>;
-
-function decodeMasterKey(encodedKey: string): Buffer {
-  const key = Buffer.from(encodedKey, "base64");
-
-  if (key.length !== KEY_BYTES) {
-    throw new Error(
-      "CREDSIGNAL_DATA_KEY must be a base64-encoded 32-byte key.",
-    );
-  }
-
-  return key;
-}
 
 function deriveKey(masterKey: Buffer, purpose: "encryption" | "fingerprint") {
   return createHmac("sha256", masterKey)
@@ -47,7 +36,7 @@ export function encryptSecret(
     throw new Error("Credential values cannot be empty.");
   }
 
-  const masterKey = decodeMasterKey(encodedMasterKey);
+  const masterKey = decodeCredentialDataKey(encodedMasterKey);
   const encryptionKey = deriveKey(masterKey, "encryption");
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(algorithm, encryptionKey, iv);
@@ -69,7 +58,7 @@ export function decryptSecret(
   encodedMasterKey: string,
 ): string {
   const parsed = encryptedSecretSchema.parse(encrypted);
-  const masterKey = decodeMasterKey(encodedMasterKey);
+  const masterKey = decodeCredentialDataKey(encodedMasterKey);
   const encryptionKey = deriveKey(masterKey, "encryption");
   const decipher = createDecipheriv(
     algorithm,
@@ -92,7 +81,7 @@ export function fingerprintSecret(
     throw new Error("Credential values cannot be empty.");
   }
 
-  const masterKey = decodeMasterKey(encodedMasterKey);
+  const masterKey = decodeCredentialDataKey(encodedMasterKey);
   const fingerprintKey = deriveKey(masterKey, "fingerprint");
 
   return createHmac("sha256", fingerprintKey)
