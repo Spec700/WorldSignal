@@ -23,7 +23,7 @@ import {
 } from "./schema";
 import { getGdacsSearchUrl } from "./urls";
 
-const GDACS_TIMEOUT_MS = 12_000;
+const GDACS_TIMEOUT_MS = 20_000;
 const GDACS_MAX_PAGE_BYTES = 2 * 1_024 * 1_024;
 const DEFAULT_PAGE_SIZE = 100;
 const DEFAULT_MAX_PAGES = 50;
