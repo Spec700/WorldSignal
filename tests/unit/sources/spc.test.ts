@@ -118,4 +118,56 @@ describe("NOAA SPC tornado normalization", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0].occurredAt).toBe("2026-08-19T00:30:00.000Z");
   });
+
+  it("retries a transient daily-report failure", async () => {
+    const fetchImplementation = vi
+      .fn<() => Promise<Response>>()
+      .mockRejectedValueOnce(
+        new TypeError("Transient fixture connection failure"),
+      )
+      .mockResolvedValue(
+        new Response(spcTornadoCsvFixture, {
+          headers: { "content-type": "text/csv" },
+        }),
+      );
+    const adapter = new SpcTornadoAdapter({
+      fetchImplementation,
+      retrySleep: async () => undefined,
+      now: () => new Date("2026-08-19T10:00:00.000Z"),
+    });
+
+    const result = await adapter.fetchAndNormalize({
+      from: new Date("2026-08-18T23:30:00.000Z"),
+      to: new Date("2026-08-19T01:00:00.000Z"),
+      signal: new AbortController().signal,
+    });
+
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("reuses a successfully parsed daily report from the bounded cache", async () => {
+    const fetchImplementation = vi.fn(async () =>
+      Promise.resolve(
+        new Response(spcTornadoCsvFixture, {
+          headers: { "content-type": "text/csv" },
+        }),
+      ),
+    );
+    const adapter = new SpcTornadoAdapter({
+      fetchImplementation,
+      now: () => new Date("2026-08-19T10:00:00.000Z"),
+    });
+    const input = {
+      from: new Date("2026-08-18T23:30:00.000Z"),
+      to: new Date("2026-08-19T01:00:00.000Z"),
+      signal: new AbortController().signal,
+    };
+
+    const first = await adapter.fetchAndNormalize(input);
+    const second = await adapter.fetchAndNormalize(input);
+
+    expect(first.events).toEqual(second.events);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
 });

@@ -1,27 +1,43 @@
 import { worldEventSchema } from "@/lib/events/schema";
 import type { EventFact, WorldEvent } from "@/lib/events/types";
 import type { EventSourceAdapter } from "@/lib/sources/adapter";
-import { SourceFetchError } from "@/lib/sources/errors";
+import { asSourceFetchError, SourceFetchError } from "@/lib/sources/errors";
 import { fetchText, type FetchImplementation } from "@/lib/sources/fetch-json";
 import { createRevisionFingerprint } from "@/lib/sources/fingerprint";
+import {
+  retryTransientSourceRequest,
+  type RetrySleep,
+} from "@/lib/sources/retry";
 
 import { parseSpcTornadoCsv } from "./csv";
 import { spcTornadoReportSchema, type SpcTornadoReport } from "./schema";
 import {
   getSpcDailyReportUrl,
   getSpcReportDates,
+  getSpcReportDate,
   getSpcReportKey,
   getSpcTornadoCsvUrl,
 } from "./urls";
 
 const SPC_TIMEOUT_MS = 10_000;
 const SPC_MAX_DAILY_BYTES = 512 * 1_024;
-const SPC_FETCH_CONCURRENCY = 6;
+const SPC_FETCH_CONCURRENCY = 3;
+const SPC_MAX_ATTEMPTS_PER_REPORT = 2;
+const SPC_ACTIVE_REPORT_CACHE_MS = 5 * 60 * 1_000;
+const SPC_HISTORICAL_REPORT_CACHE_MS = 24 * 60 * 60 * 1_000;
+const SPC_CACHE_MAX_ENTRIES = 64;
 
 interface DatedSpcTornadoReport {
   reportDate: Date;
   report: SpcTornadoReport;
 }
+
+interface CachedSpcDailyReport {
+  reports: SpcTornadoReport[];
+  expiresAt: number;
+}
+
+const sharedDailyReportCache = new Map<string, CachedSpcDailyReport>();
 
 function normalizeSpcOccurrence(reportDate: Date, time: string): string {
   const hour = Number(time.slice(0, 2));
@@ -162,16 +178,127 @@ async function mapWithConcurrency<T, R>(
 interface SpcAdapterOptions {
   fetchImplementation?: FetchImplementation;
   now?: () => Date;
+  retrySleep?: RetrySleep;
+  clock?: () => number;
+  cache?: Map<string, CachedSpcDailyReport>;
 }
 
 export class SpcTornadoAdapter implements EventSourceAdapter {
   readonly source = "spc" as const;
   private readonly fetchImplementation?: FetchImplementation;
   private readonly now: () => Date;
+  private readonly retrySleep?: RetrySleep;
+  private readonly clock: () => number;
+  private readonly cache: Map<string, CachedSpcDailyReport>;
 
   constructor(options: SpcAdapterOptions = {}) {
     this.fetchImplementation = options.fetchImplementation;
     this.now = options.now ?? (() => new Date());
+    this.retrySleep = options.retrySleep;
+    this.clock = options.clock ?? Date.now;
+    this.cache =
+      options.cache ??
+      (options.fetchImplementation ? new Map() : sharedDailyReportCache);
+  }
+
+  private readCachedReport(reportKey: string): SpcTornadoReport[] | undefined {
+    const cached = this.cache.get(reportKey);
+    if (!cached) {
+      return undefined;
+    }
+    if (cached.expiresAt <= this.clock()) {
+      this.cache.delete(reportKey);
+      return undefined;
+    }
+
+    return cached.reports;
+  }
+
+  private cacheReport(reportDate: Date, reports: SpcTornadoReport[]): void {
+    const reportKey = getSpcReportKey(reportDate);
+    const activeReportKey = getSpcReportKey(getSpcReportDate(this.now()));
+    const ttl =
+      reportKey === activeReportKey
+        ? SPC_ACTIVE_REPORT_CACHE_MS
+        : SPC_HISTORICAL_REPORT_CACHE_MS;
+
+    if (
+      !this.cache.has(reportKey) &&
+      this.cache.size >= SPC_CACHE_MAX_ENTRIES
+    ) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+
+    this.cache.set(reportKey, {
+      reports,
+      expiresAt: this.clock() + ttl,
+    });
+  }
+
+  private async fetchDailyReport(
+    reportDate: Date,
+    signal: AbortSignal,
+  ): Promise<DatedSpcTornadoReport[]> {
+    const reportKey = getSpcReportKey(reportDate);
+    const cached = this.readCachedReport(reportKey);
+    if (cached) {
+      return cached.map((report) => ({ reportDate, report }));
+    }
+
+    let csv: string;
+    try {
+      csv = await retryTransientSourceRequest(
+        () =>
+          fetchText(getSpcTornadoCsvUrl(reportDate), {
+            signal,
+            timeoutMs: SPC_TIMEOUT_MS,
+            maxBytes: SPC_MAX_DAILY_BYTES,
+            sourceLabel: "NOAA SPC",
+            fetchImplementation: this.fetchImplementation,
+          }),
+        {
+          signal,
+          maxAttempts: SPC_MAX_ATTEMPTS_PER_REPORT,
+          ...(this.retrySleep ? { sleep: this.retrySleep } : {}),
+        },
+      );
+    } catch (error) {
+      const sourceError = asSourceFetchError(error);
+      throw new SourceFetchError(
+        sourceError.code,
+        `NOAA SPC report ${reportKey} could not be retrieved. ${sourceError.safeMessage}`,
+        { cause: sourceError },
+      );
+    }
+
+    const reports = parseSpcTornadoCsv(csv).map((row) => {
+      const parsed = spcTornadoReportSchema.safeParse({
+        time: row[0],
+        fScale: row[1],
+        location: row[2],
+        county: row[3],
+        state: row[4],
+        latitude: row[5],
+        longitude: row[6],
+        comments: row[7],
+      });
+
+      if (!parsed.success) {
+        throw new SourceFetchError(
+          "schema",
+          "NOAA SPC returned tornado data that does not match the expected schema.",
+          { cause: parsed.error },
+        );
+      }
+
+      return parsed.data;
+    });
+
+    this.cacheReport(reportDate, reports);
+    return reports.map((report) => ({ reportDate, report }));
   }
 
   async fetchAndNormalize({
@@ -183,38 +310,7 @@ export class SpcTornadoAdapter implements EventSourceAdapter {
     const dailyReports = await mapWithConcurrency(
       reportDates,
       SPC_FETCH_CONCURRENCY,
-      async (reportDate): Promise<DatedSpcTornadoReport[]> => {
-        const csv = await fetchText(getSpcTornadoCsvUrl(reportDate), {
-          signal,
-          timeoutMs: SPC_TIMEOUT_MS,
-          maxBytes: SPC_MAX_DAILY_BYTES,
-          sourceLabel: "NOAA SPC",
-          fetchImplementation: this.fetchImplementation,
-        });
-
-        return parseSpcTornadoCsv(csv).map((row) => {
-          const parsed = spcTornadoReportSchema.safeParse({
-            time: row[0],
-            fScale: row[1],
-            location: row[2],
-            county: row[3],
-            state: row[4],
-            latitude: row[5],
-            longitude: row[6],
-            comments: row[7],
-          });
-
-          if (!parsed.success) {
-            throw new SourceFetchError(
-              "schema",
-              "NOAA SPC returned tornado data that does not match the expected schema.",
-              { cause: parsed.error },
-            );
-          }
-
-          return { reportDate, report: parsed.data };
-        });
-      },
+      (reportDate) => this.fetchDailyReport(reportDate, signal),
     );
     const retrievedAt = this.now().toISOString();
     const fromTime = from.getTime();

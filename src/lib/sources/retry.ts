@@ -1,6 +1,9 @@
 import { asSourceFetchError } from "./errors";
 
-type RetrySleep = (delayMs: number, signal: AbortSignal) => Promise<void>;
+export type RetrySleep = (
+  delayMs: number,
+  signal: AbortSignal,
+) => Promise<void>;
 
 interface TransientRetryOptions {
   signal: AbortSignal;
