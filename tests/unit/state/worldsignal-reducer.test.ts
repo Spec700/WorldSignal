@@ -34,7 +34,7 @@ describe("WorldSignal reducer refresh flow", () => {
     expect(refreshing.refreshState).toBe("loading");
   });
 
-  it("replaces the display batch, classifies changes, and resets the time cursor", () => {
+  it("replaces successful sources while retaining failed-source last-known-good data", () => {
     const initial = worldSignalReducer(createInitialWorldSignalState(), {
       type: "refresh/succeeded",
       batch: eventBatchFixture,
@@ -68,8 +68,18 @@ describe("WorldSignal reducer refresh flow", () => {
       batch: nextBatch,
     });
 
-    expect(refreshed.batch?.events).toEqual([nextEarthquake]);
+    expect(refreshed.batch?.events).toEqual([nextEarthquake, cycloneFixture]);
+    expect(refreshed.latestSourceHealth).toContainEqual(
+      expect.objectContaining({
+        source: "gdacs",
+        state: "degraded",
+        eventCount: 1,
+        lastSuccessfulAt: "2026-08-18T10:00:00.000Z",
+        errorCode: "network",
+      }),
+    );
     expect(refreshed.changesByEventId.get(nextEarthquake.id)).toBe("updated");
+    expect(refreshed.changesByEventId.get(cycloneFixture.id)).toBe("unchanged");
     expect(refreshed.previousEventsById.get(cycloneFixture.id)).toBe(
       cycloneFixture,
     );
@@ -98,7 +108,51 @@ describe("WorldSignal reducer refresh flow", () => {
     expect(failed.batch).toBe(eventBatchFixture);
     expect(failed.batchFreshness).toBe("previous");
     expect(failed.refreshState).toBe("error");
-    expect(failed.latestSourceHealth).toEqual(failedSources);
+    expect(failed.latestSourceHealth).toEqual(
+      failedSources.map((source, index) =>
+        expect.objectContaining({
+          source: source.source,
+          state: "degraded",
+          eventCount: index < 2 ? 1 : 0,
+          lastSuccessfulAt: eventBatchFixture.sources[index].completedAt,
+          errorCode: "network",
+        }),
+      ),
+    );
+  });
+
+  it("does not retain events across different source-range windows", () => {
+    const loaded = worldSignalReducer(createInitialWorldSignalState(), {
+      type: "refresh/succeeded",
+      batch: eventBatchFixture,
+    });
+    const refreshed = worldSignalReducer(loaded, {
+      type: "refresh/succeeded",
+      batch: {
+        ...eventBatchFixture,
+        generatedAt: "2026-08-18T11:00:00.000Z",
+        requestedRange: {
+          from: "2026-08-17T11:00:00.000Z",
+          to: "2026-08-18T11:00:00.000Z",
+        },
+        events: [earthquakeFixture],
+        sources: [
+          eventBatchFixture.sources[0],
+          {
+            source: "gdacs" as const,
+            state: "error" as const,
+            attemptedAt: "2026-08-18T10:59:58.000Z",
+            completedAt: "2026-08-18T11:00:00.000Z",
+            errorCode: "network" as const,
+          },
+        ],
+      },
+    });
+
+    expect(refreshed.batch?.events).toEqual([earthquakeFixture]);
+    expect(refreshed.latestSourceHealth).toContainEqual(
+      expect.objectContaining({ source: "gdacs", state: "error" }),
+    );
   });
 
   it("clears selection when the event is absent from the next retrieval", () => {

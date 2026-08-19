@@ -787,6 +787,12 @@ button:disabled {
   background: var(--color-danger);
 }
 
+.status-mark--degraded {
+  border-color: var(--color-warning);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-warning);
+}
+
 .status-mark--loading {
   border: 2px solid var(--color-line-strong);
   border-top-color: var(--color-accent-strong);
@@ -839,6 +845,11 @@ button:disabled {
 
 .source-state-label--error {
   color: var(--color-danger);
+}
+
+.source-state-label--degraded,
+.health-summary--degraded {
+  color: var(--color-warning);
 }
 
 .source-state-label--loading {

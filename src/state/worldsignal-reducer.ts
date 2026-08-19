@@ -9,6 +9,8 @@ import type {
   EventBatch,
   EventCategory,
   EventFilters,
+  HazardWindow,
+  SourceId,
   SourceHealth,
   WorldEvent,
 } from "@/lib/events/types";
@@ -22,6 +24,125 @@ const HAZARD_CATEGORIES: EventCategory[] = [
   "volcano",
   "wildfire",
 ];
+
+const WINDOW_MILLISECONDS: Record<HazardWindow, number> = {
+  "24h": 24 * 60 * 60 * 1_000,
+  "7d": 7 * 24 * 60 * 60 * 1_000,
+  "30d": 30 * 24 * 60 * 60 * 1_000,
+};
+
+function eventSource(event: WorldEvent): SourceId {
+  return event.sources[0].source;
+}
+
+function batchDuration(batch: EventBatch): number {
+  return (
+    Date.parse(batch.requestedRange.to) - Date.parse(batch.requestedRange.from)
+  );
+}
+
+function batchesUseSameWindow(
+  previous: EventBatch | undefined,
+  next: EventBatch,
+): previous is EventBatch {
+  return Boolean(previous && batchDuration(previous) === batchDuration(next));
+}
+
+function batchMatchesWindow(
+  batch: EventBatch | undefined,
+  window: HazardWindow,
+): batch is EventBatch {
+  return Boolean(batch && batchDuration(batch) === WINDOW_MILLISECONDS[window]);
+}
+
+function retainedEventCounts(events: WorldEvent[]): Map<SourceId, number> {
+  const counts = new Map<SourceId, number>();
+  for (const event of events) {
+    const source = eventSource(event);
+    counts.set(source, (counts.get(source) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function degradeFailedSources(
+  currentHealth: SourceHealth[],
+  previousHealth: SourceHealth[],
+  eventCounts: ReadonlyMap<SourceId, number>,
+  allowRetention: boolean,
+): SourceHealth[] {
+  if (!allowRetention) {
+    return currentHealth;
+  }
+
+  const previousBySource = new Map(
+    previousHealth.map((health) => [health.source, health]),
+  );
+
+  return currentHealth.map((health): SourceHealth => {
+    if (health.state !== "error") {
+      return health;
+    }
+
+    const previous = previousBySource.get(health.source);
+    if (!previous || previous.state === "error") {
+      return health;
+    }
+
+    const lastSuccessfulAt =
+      previous.state === "ok"
+        ? previous.completedAt
+        : previous.lastSuccessfulAt;
+    if (!lastSuccessfulAt) {
+      return health;
+    }
+
+    return {
+      ...health,
+      state: "degraded",
+      eventCount: eventCounts.get(health.source) ?? 0,
+      lastSuccessfulAt,
+      ...(previous.upstreamUpdatedAt
+        ? { upstreamUpdatedAt: previous.upstreamUpdatedAt }
+        : {}),
+    };
+  });
+}
+
+function mergeRetainedSourceData(
+  previousBatch: EventBatch | undefined,
+  previousHealth: SourceHealth[],
+  nextBatch: EventBatch,
+): EventBatch {
+  if (!batchesUseSameWindow(previousBatch, nextBatch)) {
+    return nextBatch;
+  }
+
+  const failedSources = new Set(
+    nextBatch.sources
+      .filter((source) => source.state === "error")
+      .map((source) => source.source),
+  );
+  if (failedSources.size === 0) {
+    return nextBatch;
+  }
+
+  const nextIds = new Set(nextBatch.events.map((event) => event.id));
+  const retainedEvents = previousBatch.events.filter(
+    (event) => failedSources.has(eventSource(event)) && !nextIds.has(event.id),
+  );
+  const events = [...nextBatch.events, ...retainedEvents];
+
+  return {
+    ...nextBatch,
+    events,
+    sources: degradeFailedSources(
+      nextBatch.sources,
+      previousHealth,
+      retainedEventCounts(retainedEvents),
+      true,
+    ),
+  };
+}
 
 export interface WorldSignalState {
   batch?: EventBatch;
@@ -152,27 +273,33 @@ export function worldSignalReducer(
       };
 
     case "refresh/succeeded": {
+      const batch = mergeRetainedSourceData(
+        state.batch,
+        state.latestSourceHealth,
+        action.batch,
+      );
       const successfulSources = new Set(
-        action.batch.sources
+        batch.sources
           .filter((source) => source.state === "ok")
           .map((source) => source.source),
       );
       const changesByEventId = classifyEventChanges(
         state.previousEventsById,
-        action.batch.events,
+        batch.events,
       );
       const previousEventsById = updateSuccessfulSourceBaseline(
         state.previousEventsById,
-        action.batch.events,
+        batch.events,
         successfulSources,
       );
       const selectionStillExists = state.selectedEventId
-        ? action.batch.events.some(
-            (event) => event.id === state.selectedEventId,
-          )
+        ? batch.events.some((event) => event.id === state.selectedEventId)
         : false;
-      const unavailableCount = action.batch.sources.filter(
+      const unavailableCount = batch.sources.filter(
         (source) => source.state === "error",
+      ).length;
+      const degradedCount = batch.sources.filter(
+        (source) => source.state === "degraded",
       ).length;
       const selectionNotice =
         state.selectedEventId && !selectionStillExists
@@ -181,7 +308,7 @@ export function worldSignalReducer(
 
       return {
         ...state,
-        batch: action.batch,
+        batch,
         batchFreshness: "current",
         previousEventsById,
         selectedEventId: selectionStillExists
@@ -193,16 +320,16 @@ export function worldSignalReducer(
         geometryError: undefined,
         refreshState: "idle",
         refreshError: undefined,
-        latestSourceHealth: action.batch.sources,
+        latestSourceHealth: batch.sources,
         cacheState: "saving",
         batchOrigin: "retrieved",
         cacheError: undefined,
         filters: {
           ...state.filters,
-          timeCursor: action.batch.requestedRange.to,
+          timeCursor: batch.requestedRange.to,
         },
         changesByEventId,
-        announcement: `${action.batch.events.length} events loaded. ${unavailableCount} source${unavailableCount === 1 ? "" : "s"} unavailable.`,
+        announcement: `${batch.events.length} events loaded. ${degradedCount} source${degradedCount === 1 ? "" : "s"} degraded; ${unavailableCount} source${unavailableCount === 1 ? "" : "s"} unavailable.`,
         selectionNotice,
       };
     }
@@ -289,18 +416,27 @@ export function worldSignalReducer(
         announcement: action.message,
       };
 
-    case "refresh/failed":
+    case "refresh/failed": {
+      const eventCounts = retainedEventCounts(state.batch?.events ?? []);
+      const latestSourceHealth =
+        action.sources && action.sources.length > 0
+          ? degradeFailedSources(
+              action.sources,
+              state.latestSourceHealth,
+              eventCounts,
+              batchMatchesWindow(state.batch, state.filters.window),
+            )
+          : state.latestSourceHealth;
+
       return {
         ...state,
         batchFreshness: state.batch ? "previous" : "none",
         refreshState: "error",
         refreshError: action.message,
-        latestSourceHealth:
-          action.sources && action.sources.length > 0
-            ? action.sources
-            : state.latestSourceHealth,
+        latestSourceHealth,
         announcement: action.message,
       };
+    }
 
     case "selection/set":
       if (state.selectedEventId === action.eventId) {

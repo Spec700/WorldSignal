@@ -34,16 +34,20 @@ export function SourceHealth({ health, refreshing }: SourceHealthProps) {
           ? "loading"
           : record?.state === "ok"
             ? "ok"
-            : record?.state === "error"
-              ? "error"
-              : "idle";
+            : record?.state === "degraded"
+              ? "degraded"
+              : record?.state === "error"
+                ? "error"
+                : "idle";
         const detail = refreshing
           ? "Contacting source"
           : record?.state === "ok"
             ? `${record.eventCount} event${record.eventCount === 1 ? "" : "s"} · completed ${formatLocalTimestamp(record.completedAt)}`
-            : record?.state === "error"
-              ? `${record.errorCode} · failed ${formatLocalTimestamp(record.completedAt)}`
-              : "Not requested";
+            : record?.state === "degraded"
+              ? `${record.eventCount} retained event${record.eventCount === 1 ? "" : "s"} · last good ${formatLocalTimestamp(record.lastSuccessfulAt!)}`
+              : record?.state === "error"
+                ? `${record.errorCode} · failed ${formatLocalTimestamp(record.completedAt)}`
+                : "Not requested";
 
         return (
           <div className="source-health-row" key={source}>
@@ -66,7 +70,8 @@ export function SourceHealth({ health, refreshing }: SourceHealthProps) {
                   ) : null}
                 </span>
               ) : null}
-              {record?.state === "error" && record.safeMessage ? (
+              {(record?.state === "error" || record?.state === "degraded") &&
+              record.safeMessage ? (
                 <span className="source-health-error">
                   {record.safeMessage}
                 </span>
@@ -75,11 +80,13 @@ export function SourceHealth({ health, refreshing }: SourceHealthProps) {
             <span className={`source-state-label source-state-label--${state}`}>
               {state === "ok"
                 ? "Available"
-                : state === "error"
-                  ? "Unavailable"
-                  : state === "loading"
-                    ? "Contacting"
-                    : "Idle"}
+                : state === "degraded"
+                  ? "Degraded"
+                  : state === "error"
+                    ? "Unavailable"
+                    : state === "loading"
+                      ? "Contacting"
+                      : "Idle"}
             </span>
           </div>
         );
@@ -110,12 +117,30 @@ export function SourceHealthSummary({ health, refreshing }: SourceHealthProps) {
   const failedCount = health.filter(
     (source) => source.state === "error",
   ).length;
-  return failedCount > 0 ? (
-    <span className="health-summary health-summary--error">
-      <span className="status-mark status-mark--error" aria-hidden="true" />
-      {failedCount} source{failedCount === 1 ? "" : "s"} unavailable
-    </span>
-  ) : (
+  const degradedCount = health.filter(
+    (source) => source.state === "degraded",
+  ).length;
+  if (failedCount > 0) {
+    return (
+      <span className="health-summary health-summary--error">
+        <span className="status-mark status-mark--error" aria-hidden="true" />
+        {failedCount} source{failedCount === 1 ? "" : "s"} unavailable
+        {degradedCount > 0 ? ` · ${degradedCount} degraded` : ""}
+      </span>
+    );
+  }
+  if (degradedCount > 0) {
+    return (
+      <span className="health-summary health-summary--degraded">
+        <span
+          className="status-mark status-mark--degraded"
+          aria-hidden="true"
+        />
+        {degradedCount} source{degradedCount === 1 ? "" : "s"} degraded
+      </span>
+    );
+  }
+  return (
     <span className="health-summary health-summary--ok">
       <span className="status-mark status-mark--ok" aria-hidden="true" />
       {health.length} source{health.length === 1 ? "" : "s"} available
