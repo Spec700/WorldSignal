@@ -129,6 +129,8 @@ export function normalizeUsgsFeature(
   retrievedAt: string,
 ): WorldEvent {
   const [longitude, latitude] = feature.geometry.coordinates;
+  const locationLabel =
+    feature.properties.place ?? "Location not supplied by USGS";
   const occurredAt = new Date(feature.properties.time).toISOString();
   const updatedAt = new Date(feature.properties.updated).toISOString();
   const magnitudeLabel = formatMagnitude(feature.properties.mag);
@@ -143,8 +145,8 @@ export function normalizeUsgsFeature(
     module: "natural-hazards",
     category: "earthquake",
     subtype: feature.properties.type,
-    title: `M${magnitudeLabel} earthquake — ${feature.properties.place}`,
-    locationLabel: feature.properties.place,
+    title: `M${magnitudeLabel} earthquake — ${locationLabel}`,
+    locationLabel,
     countryCodes: [],
     lifecycle: "occurred",
     occurredAt,
@@ -176,6 +178,7 @@ export function normalizeUsgsFeature(
     revisionFingerprint: createRevisionFingerprint({
       id: feature.id,
       updated: feature.properties.updated,
+      place: feature.properties.place,
       magnitude: feature.properties.mag,
       alert: feature.properties.alert,
       status: feature.properties.status,

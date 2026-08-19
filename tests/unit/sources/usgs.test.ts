@@ -54,6 +54,20 @@ describe("USGS schema and normalization", () => {
     expect(usgsFeedSchema.safeParse(usgsFeedFixture).success).toBe(true);
   });
 
+  it("accepts a missing upstream place without discarding the feed", () => {
+    const fixture = structuredClone(usgsFeedFixture);
+    fixture.features[0].properties.place = null;
+
+    const parsed = usgsFeedSchema.parse(fixture);
+    const event = normalizeUsgsFeature(
+      parsed.features[0],
+      "2026-08-18T18:02:00.000Z",
+    );
+
+    expect(event.title).toBe("M4.9 earthquake — Location not supplied by USGS");
+    expect(event.locationLabel).toBe("Location not supplied by USGS");
+  });
+
   it("rejects invalid coordinate order at the raw boundary", () => {
     const fixture = structuredClone(usgsFeedFixture);
     fixture.features[0].geometry.coordinates = [-7.9051, 120.5751, 36.253];

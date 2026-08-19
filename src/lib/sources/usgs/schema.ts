@@ -13,7 +13,7 @@ export const usgsFeatureSchema = z.object({
   id: z.string().trim().min(1),
   properties: z.object({
     mag: z.number().finite(),
-    place: z.string().trim().min(1),
+    place: z.string().trim().min(1).nullable(),
     time: epochMillisecondsSchema,
     updated: epochMillisecondsSchema,
     url: z.url().refine((url) => url.startsWith("https://")),
