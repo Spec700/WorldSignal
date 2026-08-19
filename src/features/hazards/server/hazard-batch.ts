@@ -27,16 +27,87 @@ interface SourceAttempt {
   attemptedAt: string;
 }
 
-function logDevelopmentSourceError(
+function getCauseSummary(error: unknown) {
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+    ...("code" in error && typeof error.code === "string"
+      ? { code: error.code }
+      : {}),
+  };
+}
+
+function logSourceError(
   source: SourceHealth["source"],
   error: ReturnType<typeof asSourceFetchError>,
+  attemptedAt: string,
+  completedAt: string,
 ) {
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV !== "test") {
     console.warn("[WorldSignal] Hazard source retrieval failed", {
       source,
       code: error.code,
       message: error.safeMessage,
+      durationMs: Math.max(
+        0,
+        Date.parse(completedAt) - Date.parse(attemptedAt),
+      ),
+      cause: getCauseSummary(error.cause),
     });
+  }
+}
+
+async function settleSourceAttempt(
+  attempt: SourceAttempt,
+  requestedRange: ReturnType<typeof deriveHazardRange>,
+  signal: AbortSignal,
+  now: () => Date,
+): Promise<{ events: WorldEvent[]; health: SourceHealth }> {
+  try {
+    const result = await attempt.adapter.fetchAndNormalize({
+      ...requestedRange,
+      signal,
+    });
+    const completedAt = now().toISOString();
+
+    return {
+      events: result.events,
+      health: {
+        source: attempt.adapter.source,
+        state: "ok",
+        attemptedAt: attempt.attemptedAt,
+        completedAt,
+        ...(result.upstreamUpdatedAt
+          ? { upstreamUpdatedAt: result.upstreamUpdatedAt }
+          : {}),
+        eventCount: result.events.length,
+      },
+    };
+  } catch (error) {
+    const completedAt = now().toISOString();
+    const sourceError = asSourceFetchError(error);
+    logSourceError(
+      attempt.adapter.source,
+      sourceError,
+      attempt.attemptedAt,
+      completedAt,
+    );
+
+    return {
+      events: [],
+      health: {
+        source: attempt.adapter.source,
+        state: "error",
+        attemptedAt: attempt.attemptedAt,
+        completedAt,
+        errorCode: sourceError.code,
+        safeMessage: sourceError.safeMessage,
+      },
+    };
   }
 }
 
@@ -88,47 +159,13 @@ export async function handleHazardBatchRequest(
     adapter,
     attemptedAt: now().toISOString(),
   }));
-  const settled = await Promise.allSettled(
-    attempts.map(({ adapter }) =>
-      adapter.fetchAndNormalize({
-        ...requestedRange,
-        signal: request.signal,
-      }),
+  const settled = await Promise.all(
+    attempts.map((attempt) =>
+      settleSourceAttempt(attempt, requestedRange, request.signal, now),
     ),
   );
-  const events: WorldEvent[] = [];
-  const sources: SourceHealth[] = [];
-
-  for (const [index, result] of settled.entries()) {
-    const attempt = attempts[index];
-    const completedAt = now().toISOString();
-
-    if (result.status === "fulfilled") {
-      events.push(...result.value.events);
-      sources.push({
-        source: attempt.adapter.source,
-        state: "ok",
-        attemptedAt: attempt.attemptedAt,
-        completedAt,
-        ...(result.value.upstreamUpdatedAt
-          ? { upstreamUpdatedAt: result.value.upstreamUpdatedAt }
-          : {}),
-        eventCount: result.value.events.length,
-      });
-      continue;
-    }
-
-    const sourceError = asSourceFetchError(result.reason);
-    logDevelopmentSourceError(attempt.adapter.source, sourceError);
-    sources.push({
-      source: attempt.adapter.source,
-      state: "error",
-      attemptedAt: attempt.attemptedAt,
-      completedAt,
-      errorCode: sourceError.code,
-      safeMessage: sourceError.safeMessage,
-    });
-  }
+  const events = settled.flatMap((result) => result.events);
+  const sources = settled.map((result) => result.health);
 
   if (sources.every((source) => source.state === "error")) {
     return jsonResponse(
