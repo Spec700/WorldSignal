@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorldGlobe } from "@/components/globe/world-globe";
+import type { PersonGlobePoint } from "@/components/people/person-globe-model";
 import { cycloneFixture, earthquakeFixture } from "../../fixtures/events";
 import { gdacsGeometryFixture } from "../../fixtures/gdacs-geometry";
 
@@ -22,6 +23,21 @@ const globeHarness = vi.hoisted(() => ({
     removeEventListener: vi.fn(),
   },
 }));
+
+const personPoint: PersonGlobePoint = {
+  kind: "person",
+  id: "person-1",
+  latitude: 40.7128,
+  longitude: -74.006,
+  color: "#f2f7f8",
+  radius: 0.32,
+  altitude: 0.014,
+  displayName: "Avery Chen",
+  organization: "Northstar Labs",
+  locationLabel: "New York, NY",
+  locationPrecision: "city",
+  tier: "critical",
+};
 
 vi.mock("react-globe.gl", async () => {
   const React = await import("react");
@@ -128,27 +144,37 @@ describe("WorldGlobe", () => {
   it("passes the canonical visible set to Globe.gl and synchronizes click, focus, and reset", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
+    const onSelectPerson = vi.fn();
     const onClearSelection = vi.fn();
     const { rerender } = render(
       <WorldGlobe
         events={[earthquakeFixture, cycloneFixture]}
         onClearSelection={onClearSelection}
         onSelect={onSelect}
+        onSelectPerson={onSelectPerson}
+        people={[personPoint]}
       />,
     );
 
     await screen.findByRole("button", { name: "Mock canvas marker" });
-    await waitFor(() => expect(globeHarness.props.pointsData).toHaveLength(2));
+    await waitFor(() => expect(globeHarness.props.pointsData).toHaveLength(3));
     await user.click(
       screen.getByRole("button", { name: "Mock canvas marker" }),
     );
     expect(onSelect).toHaveBeenCalledWith(earthquakeFixture.id);
+    const points = globeHarness.props.pointsData as PersonGlobePoint[];
+    (globeHarness.props.onPointClick as (point: PersonGlobePoint) => void)(
+      points[2]!,
+    );
+    expect(onSelectPerson).toHaveBeenCalledWith(personPoint.id);
 
     rerender(
       <WorldGlobe
         events={[earthquakeFixture, cycloneFixture]}
         onClearSelection={onClearSelection}
         onSelect={onSelect}
+        onSelectPerson={onSelectPerson}
+        people={[personPoint]}
         selectedGeometry={gdacsGeometryFixture}
         selectedEvent={earthquakeFixture}
       />,
@@ -182,6 +208,8 @@ describe("WorldGlobe", () => {
         events={[earthquakeFixture]}
         onClearSelection={vi.fn()}
         onSelect={vi.fn()}
+        onSelectPerson={vi.fn()}
+        people={[]}
         selectedEvent={earthquakeFixture}
       />,
     );

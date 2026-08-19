@@ -556,7 +556,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     ).toBe(true);
     expect(
       updatedDashboard.recentActivity.some(
-        (activity) => activity.action === "protectee.location_changed",
+        (activity) => activity.action === "person.location_changed",
       ),
     ).toBe(true);
   });

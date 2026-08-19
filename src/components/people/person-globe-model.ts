@@ -1,5 +1,19 @@
 import { personLocationAt } from "@/features/people/location-model";
-import type { PersonDto, PersonTier } from "@/features/people/types";
+import type {
+  PersonLocationDto,
+  PersonStatus,
+  PersonTier,
+} from "@/features/people/types";
+
+export interface PersonLocationSubject {
+  id: string;
+  displayName: string;
+  organization?: string;
+  tier: PersonTier;
+  status: PersonStatus;
+  location?: PersonLocationDto;
+  locationHistory: PersonLocationDto[];
+}
 
 const tierColor: Record<PersonTier, string> = {
   standard: "#69d2df",
@@ -29,7 +43,7 @@ export interface PersonGlobePoint {
 }
 
 export function toPersonGlobePoints(
-  people: PersonDto[],
+  people: PersonLocationSubject[],
   atTimestamp?: string,
 ): PersonGlobePoint[] {
   return people.flatMap((person) => {

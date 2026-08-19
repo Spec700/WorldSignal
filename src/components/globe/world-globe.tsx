@@ -26,6 +26,10 @@ import {
   toGlobeGeometryLayers,
   type GlobeGeometryPolygon,
 } from "@/components/globe/geometry-model";
+import {
+  personPointTooltip,
+  type PersonGlobePoint,
+} from "@/components/people/person-globe-model";
 import type { WorldEvent } from "@/lib/events/types";
 import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 
@@ -39,6 +43,7 @@ interface CountryPolygonDatum {
 }
 
 type GlobePolygonDatum = CountryPolygonDatum | GlobeGeometryPolygon;
+type WorldGlobePoint = GlobeEventPoint | PersonGlobePoint;
 
 const GLOBAL_VIEW = { lat: 14, lng: 8, altitude: 2.25 } as const;
 
@@ -97,17 +102,33 @@ function useElementSize(elementRef: React.RefObject<HTMLElement | null>) {
 
 interface WorldGlobeProps {
   events: WorldEvent[];
+  people: PersonGlobePoint[];
   selectedEvent?: WorldEvent;
+  selectedPerson?: PersonGlobePoint;
   selectedGeometry?: GdacsGeometryCollection;
   onSelect: (eventId: string) => void;
+  onSelectPerson: (personId: string) => void;
   onClearSelection: () => void;
+}
+
+function pointTitle(point: WorldGlobePoint): string {
+  return point.kind === "event" ? point.title : point.displayName;
+}
+
+function pointTooltip(point: WorldGlobePoint): string {
+  return point.kind === "event"
+    ? globePointTooltip(point)
+    : personPointTooltip(point);
 }
 
 export function WorldGlobe({
   events,
+  people,
   selectedEvent,
+  selectedPerson,
   selectedGeometry,
   onSelect,
+  onSelectPerson,
   onClearSelection,
 }: WorldGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -117,7 +138,11 @@ export function WorldGlobe({
   const [globeReady, setGlobeReady] = useState(false);
   const reducedMotion = useReducedMotion();
   const size = useElementSize(containerRef);
-  const points = useMemo(() => toGlobeEventPoints(events), [events]);
+  const eventPoints = useMemo(() => toGlobeEventPoints(events), [events]);
+  const points = useMemo<WorldGlobePoint[]>(
+    () => [...eventPoints, ...people],
+    [eventPoints, people],
+  );
   const detailLayers = useMemo(
     () => toGlobeGeometryLayers(selectedGeometry),
     [selectedGeometry],
@@ -135,8 +160,11 @@ export function WorldGlobe({
     [countries, detailLayers.polygons],
   );
   const selectedPoint = useMemo(
-    () => points.find((point) => point.id === selectedEvent?.id),
-    [points, selectedEvent?.id],
+    () =>
+      points.find(
+        (point) => point.id === (selectedEvent?.id ?? selectedPerson?.id),
+      ),
+    [points, selectedEvent?.id, selectedPerson?.id],
   );
 
   useEffect(() => {
@@ -190,7 +218,7 @@ export function WorldGlobe({
       .renderer()
       .domElement.setAttribute(
         "aria-label",
-        "Interactive 3D Earth showing the same hazard events available in the event stream.",
+        "Interactive 3D Earth showing hazard events and priority people at their approved locations.",
       );
     setGlobeReady(true);
   }, [reducedMotion]);
@@ -207,18 +235,18 @@ export function WorldGlobe({
   }, [globeReady, reducedMotion]);
 
   useEffect(() => {
-    if (!globeReady || !selectedEvent) {
+    if (!globeReady || !selectedPoint) {
       return;
     }
     globeRef.current?.pointOfView(
       {
-        lat: selectedEvent.centroid.latitude,
-        lng: selectedEvent.centroid.longitude,
+        lat: selectedPoint.latitude,
+        lng: selectedPoint.longitude,
         altitude: 1.35,
       },
       reducedMotion ? 0 : 850,
     );
-  }, [globeReady, reducedMotion, selectedEvent]);
+  }, [globeReady, reducedMotion, selectedPoint]);
 
   useEffect(() => {
     if (!globeReady || !selectedEvent || !selectedGeometry) {
@@ -274,14 +302,28 @@ export function WorldGlobe({
     focusGlobal();
   }, [focusGlobal, onClearSelection]);
 
+  const handlePointSelection = useCallback(
+    (value: object) => {
+      const point = value as WorldGlobePoint;
+      if (point.kind === "person") {
+        onSelectPerson(point.id);
+      } else {
+        onSelect(point.id);
+      }
+    },
+    [onSelect, onSelectPerson],
+  );
+
   return (
     <div
-      aria-label="Interactive global hazard map"
+      aria-label="Interactive global hazard and people map"
       className="globe-shell"
       data-detail-path-count={detailLayers.paths.length}
       data-detail-polygon-count={detailLayers.polygons.length}
-      data-event-count={points.length}
+      data-event-count={eventPoints.length}
       data-focused-event-id={selectedEvent?.id}
+      data-focused-person-id={selectedPerson?.id}
+      data-person-count={people.length}
       ref={containerRef}
       role="group"
     >
@@ -297,15 +339,15 @@ export function WorldGlobe({
           labelColor={() => "#dff7f8"}
           labelDotRadius={0.22}
           labelIncludeDot={false}
-          labelLat={(value) => (value as GlobeEventPoint).latitude}
-          labelLng={(value) => (value as GlobeEventPoint).longitude}
+          labelLat={(value) => (value as WorldGlobePoint).latitude}
+          labelLng={(value) => (value as WorldGlobePoint).longitude}
           labelSize={0.42}
-          labelText={(value) => (value as GlobeEventPoint).title}
+          labelText={(value) => pointTitle(value as WorldGlobePoint)}
           labelsData={selectedPoint ? [selectedPoint] : []}
           labelsTransitionDuration={reducedMotion ? 0 : 250}
           onGlobeReady={handleGlobeReady}
-          onLabelClick={(value) => onSelect((value as GlobeEventPoint).id)}
-          onPointClick={(value) => onSelect((value as GlobeEventPoint).id)}
+          onLabelClick={handlePointSelection}
+          onPointClick={handlePointSelection}
           pathColor={(value: object) => (value as { color: string }).color}
           pathDashAnimateTime={0}
           pathLabel={(value) => (value as { label: string }).label}
@@ -317,12 +359,12 @@ export function WorldGlobe({
           pathStroke={0.65}
           pathsData={detailLayers.paths}
           pathTransitionDuration={reducedMotion ? 0 : 250}
-          pointAltitude={(value) => (value as GlobeEventPoint).altitude}
-          pointColor={(value) => (value as GlobeEventPoint).color}
-          pointLabel={(value) => globePointTooltip(value as GlobeEventPoint)}
-          pointLat={(value) => (value as GlobeEventPoint).latitude}
-          pointLng={(value) => (value as GlobeEventPoint).longitude}
-          pointRadius={(value) => (value as GlobeEventPoint).radius}
+          pointAltitude={(value) => (value as WorldGlobePoint).altitude}
+          pointColor={(value) => (value as WorldGlobePoint).color}
+          pointLabel={(value) => pointTooltip(value as WorldGlobePoint)}
+          pointLat={(value) => (value as WorldGlobePoint).latitude}
+          pointLng={(value) => (value as WorldGlobePoint).longitude}
+          pointRadius={(value) => (value as WorldGlobePoint).radius}
           pointResolution={8}
           pointsData={points}
           pointsTransitionDuration={reducedMotion ? 0 : 250}
@@ -354,8 +396,8 @@ export function WorldGlobe({
             "rgba(223, 247, 248, 0.95)",
             "rgba(88, 205, 221, 0)",
           ]}
-          ringLat={(value) => (value as GlobeEventPoint).latitude}
-          ringLng={(value) => (value as GlobeEventPoint).longitude}
+          ringLat={(value) => (value as WorldGlobePoint).latitude}
+          ringLng={(value) => (value as WorldGlobePoint).longitude}
           ringMaxRadius={1.35}
           ringPropagationSpeed={0.75}
           ringRepeatPeriod={1_100}
