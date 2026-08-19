@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LocalTimestamp } from "@/components/local-timestamp";
+import { HomeHeader } from "@/components/people/home-header";
 import { PersonEditor } from "@/components/people/person-editor";
 import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import type {
@@ -298,68 +299,17 @@ export function PeopleWorkspace({
       <a className="skip-link" href="#people-main">
         Skip to people roster
       </a>
-      <header className={styles.commandBar}>
-        <ProductSwitcher currentProduct="home" />
-        <div className={styles.commandModule}>
-          <span className={styles.commandLabel}>Module</span>
-          <span>People</span>
-        </div>
-        <dl className={styles.commandMetrics} aria-label="People summary">
-          <div>
-            <dt>Roster</dt>
-            <dd>{dashboard.metrics.total}</dd>
-          </div>
-          <div>
-            <dt>Active</dt>
-            <dd>{dashboard.metrics.active}</dd>
-          </div>
-          <div>
-            <dt>Located</dt>
-            <dd>{dashboard.metrics.located}</dd>
-          </div>
-          <div data-attention={dashboard.metrics.highAttention > 0}>
-            <dt>High attention</dt>
-            <dd>{dashboard.metrics.highAttention}</dd>
-          </div>
-        </dl>
-        <label className={styles.operatorControl}>
-          <span className={styles.commandLabel}>Demo operator · no auth</span>
-          <select
-            aria-label="Active demo operator"
-            onChange={(event) => setActiveOperatorId(event.target.value)}
-            value={activeOperatorId}
-          >
-            <option value="">Unattributed operator</option>
-            {dashboard.operators.map((operator) => (
-              <option key={operator.id} value={operator.id}>
-                {operator.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className={styles.primaryAction}
-          onClick={() => {
-            setSelectedPersonId(undefined);
-            setEditorMode("create");
-          }}
-          type="button"
-        >
-          <span aria-hidden="true">＋</span>
-          Add person
-        </button>
-      </header>
-
-      <div className={styles.moduleBar}>
-        <div>
-          <span className={styles.eyebrow}>Home module</span>
-          <strong>Priority roster</strong>
-        </div>
-        <nav aria-label="Home views">
-          <span aria-current="page">People</span>
-        </nav>
-        <p>People and locations form the shared context for every signal.</p>
-      </div>
+      <HomeHeader
+        activeOperatorId={activeOperatorId}
+        currentView="people"
+        metrics={dashboard.metrics}
+        onAddPerson={() => {
+          setSelectedPersonId(undefined);
+          setEditorMode("create");
+        }}
+        onOperatorChange={setActiveOperatorId}
+        operators={dashboard.operators}
+      />
 
       <div className={styles.workspace} id="people-main">
         <main className={styles.roster}>

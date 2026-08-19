@@ -1,5 +1,5 @@
+import { LocalTimestamp } from "@/components/local-timestamp";
 import type { CredSignalActivityDto } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -23,9 +23,7 @@ export function CredSignalActivity({
           activity.slice(0, 16).map((entry) => (
             <li key={entry.id}>
               <span className={styles.activityMarker} aria-hidden="true" />
-              <time dateTime={entry.occurredAt}>
-                {formatLocalTimestamp(entry.occurredAt)}
-              </time>
+              <LocalTimestamp timestamp={entry.occurredAt} />
               <strong>{entry.summary}</strong>
               <small>{entry.actorName ?? "Unattributed operator"}</small>
             </li>

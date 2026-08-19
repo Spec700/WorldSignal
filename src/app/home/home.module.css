@@ -187,6 +187,307 @@
   grid-template-columns: minmax(0, 1fr) 410px;
 }
 
+.globeWorkspace {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: 300px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.globeRoster {
+  z-index: 3;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  border-right: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.globeRoster > header {
+  padding: 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.globeRoster h1 {
+  margin: 5px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+
+.globeRoster header p {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+  line-height: 1.45;
+}
+
+.globeRosterSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.globeRosterSummary strong {
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.12rem;
+}
+
+.globeRosterSummary span {
+  color: var(--color-text-faint);
+  font-size: 0.61rem;
+}
+
+.globePersonList {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.globePersonList li {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.globePersonList li[data-selected="true"] {
+  background: var(--color-surface-raised);
+  box-shadow: inset 3px 0 0 var(--color-accent-strong);
+}
+
+.globePersonList button {
+  display: grid;
+  width: 100%;
+  min-height: 66px;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.globePersonList button:hover {
+  background: var(--color-surface-raised);
+}
+
+.globePersonList strong,
+.globePersonList small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.globePersonList strong {
+  font-size: 0.72rem;
+}
+
+.globePersonList small {
+  margin-top: 3px;
+  color: var(--color-text-faint);
+  font-size: 0.6rem;
+}
+
+.globePersonList em {
+  color: var(--color-text-faint);
+  font-size: 0.54rem;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.mapMarker,
+.globeLegend i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-strong);
+  box-shadow: 0 0 0 3px oklch(0.75 0.1 205 / 0.12);
+}
+
+.mapMarker[data-tier="high"],
+.globeLegend i[data-tier="high"] {
+  background: var(--color-high);
+  box-shadow: 0 0 0 3px oklch(0.78 0.11 75 / 0.12);
+}
+
+.mapMarker[data-tier="critical"],
+.globeLegend i[data-tier="critical"] {
+  background: var(--color-text);
+  box-shadow: 0 0 0 3px oklch(0.92 0.02 210 / 0.12);
+}
+
+.globeLegend {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-line);
+}
+
+.globeLegend > span {
+  color: var(--color-text-faint);
+  font-size: 0.57rem;
+  text-transform: uppercase;
+}
+
+.globeLegend p {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.55rem;
+}
+
+.globeLegend i {
+  width: 6px;
+  height: 6px;
+}
+
+.globeRoster > footer {
+  padding: 8px 14px;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-text-faint);
+  font-size: 0.55rem;
+}
+
+.peopleGlobeStage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.globeStageLabel {
+  position: absolute;
+  z-index: 4;
+  top: 14px;
+  left: 16px;
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border-left: 2px solid var(--color-accent);
+  background: oklch(0.145 0.014 238 / 0.9);
+  pointer-events: none;
+}
+
+.globeStageLabel strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.personMapCard {
+  position: absolute;
+  z-index: 5;
+  bottom: 48px;
+  left: 18px;
+  width: min(350px, calc(100% - 36px));
+  padding: 14px 15px;
+  border: 1px solid var(--color-line-strong);
+  border-left: 3px solid var(--color-accent-strong);
+  background: oklch(0.145 0.014 238 / 0.96);
+  box-shadow: 0 14px 38px oklch(0.05 0.01 238 / 0.56);
+}
+
+.personMapCard[data-tier="high"] {
+  border-left-color: var(--color-high);
+}
+
+.personMapCard[data-tier="critical"] {
+  border-left-color: var(--color-text);
+}
+
+.personMapCard > button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.personMapCard h2 {
+  margin: 4px 38px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+
+.personMapCard > p {
+  margin: 4px 38px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.63rem;
+}
+
+.personMapCard dl {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.personMapCard dl div {
+  padding-top: 6px;
+  border-top: 1px solid var(--color-line);
+}
+
+.personMapCard dt,
+.personMapCard dd {
+  margin: 0;
+  font-size: 0.58rem;
+  text-transform: capitalize;
+}
+
+.personMapCard dt {
+  color: var(--color-text-faint);
+}
+
+.personMapCard dd {
+  margin-top: 2px;
+}
+
+.personMapCard > a {
+  color: var(--color-accent-strong);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.globeStageFooter {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  border-top: 1px solid var(--color-line);
+  background: oklch(0.145 0.014 238 / 0.92);
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+  pointer-events: none;
+}
+
 .roster {
   display: grid;
   min-width: 0;
@@ -1276,6 +1577,18 @@
   .compactControl:nth-of-type(3) {
     display: none;
   }
+
+  .globeWorkspace {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .globeLegend {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .globeLegend > span {
+    display: none;
+  }
 }
 
 @media (max-width: 620px) {
@@ -1352,6 +1665,55 @@
   }
 
   .rosterFooter span:last-child {
+    display: none;
+  }
+
+  .globeWorkspace {
+    grid-template-rows: 142px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .globeRoster {
+    grid-template-rows: minmax(0, 1fr);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line-strong);
+  }
+
+  .globeRoster > header,
+  .globeRosterSummary,
+  .globeLegend,
+  .globeRoster > footer {
+    display: none;
+  }
+
+  .globePersonList {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .globePersonList li {
+    min-width: 200px;
+    border-right: 1px solid var(--color-line);
+    border-bottom: 0;
+  }
+
+  .globePersonList button {
+    min-height: 100%;
+  }
+
+  .globeStageLabel {
+    top: 10px;
+    left: 10px;
+  }
+
+  .personMapCard {
+    bottom: 40px;
+    left: 10px;
+    width: calc(100% - 20px);
+  }
+
+  .globeStageFooter span:last-child {
     display: none;
   }
 }
