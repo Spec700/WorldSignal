@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { CredSignalActivity } from "@/components/credsignal/credsignal-activity";
 import { CredSignalCommandBar } from "@/components/credsignal/credsignal-command-bar";
@@ -14,18 +21,27 @@ import {
 } from "@/components/credsignal/credsignal-dossier";
 import { CredSignalIntake } from "@/components/credsignal/credsignal-intake";
 import { CredSignalTriage } from "@/components/credsignal/credsignal-triage";
+import { credentialPostureForProtectee } from "@/components/credsignal/credsignal-globe-model";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import type {
-  CredSignalCredentialDto,
   CredSignalDashboardDto,
+  CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
-type InventoryView = "credentials" | "cases" | "unmatched";
-type StatusFilter = "all" | CredSignalCredentialDto["status"];
-type PostureFilter = "all" | CredSignalCredentialDto["exposurePosture"];
+type InventoryView = "people" | "cases" | "unmatched";
+type StatusFilter = "all" | CredSignalProtecteeDto["status"];
+type PostureFilter = "all" | ReturnType<typeof credentialPostureForProtectee>;
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLocaleLowerCase("en-US")
+    .replaceAll(/[_-]+/g, " ")
+    .replaceAll(/\s+/g, " ")
+    .trim();
+}
 
 function titleCase(value: string) {
   return value
@@ -34,27 +50,58 @@ function titleCase(value: string) {
     .join(" ");
 }
 
-function credentialMatchesQuery(
-  credential: CredSignalCredentialDto,
+function protecteeMatchesQuery(
+  protectee: CredSignalProtecteeDto,
   query: string,
 ) {
-  const normalizedQuery = query.trim().toLocaleLowerCase("en-US");
+  const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) {
     return true;
   }
-  return [
-    credential.protecteeName,
-    credential.accountIdentifier,
-    credential.service,
-    credential.serviceDomain,
-    credential.credentialKind,
-    credential.status,
-    credential.exposurePosture,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLocaleLowerCase("en-US")
-    .includes(normalizedQuery);
+  return normalizeSearchText(
+    [
+      protectee.displayName,
+      protectee.title,
+      protectee.organization,
+      protectee.location?.label,
+      protectee.status,
+      credentialPostureForProtectee(protectee),
+      ...protectee.identities.map((identity) => identity.displayValue),
+      ...protectee.credentials.flatMap((credential) => [
+        credential.accountIdentifier,
+        credential.service,
+        credential.serviceDomain,
+        credential.credentialKind,
+        credential.status,
+      ]),
+      ...protectee.exposures.flatMap((exposure) => [
+        exposure.exposedIdentity,
+        exposure.sourceName,
+        exposure.service,
+        exposure.serviceDomain,
+      ]),
+      ...protectee.cases.flatMap((responseCase) => [
+        responseCase.title,
+        responseCase.assigneeName,
+        responseCase.status,
+      ]),
+    ]
+      .filter(Boolean)
+      .join(" "),
+  ).includes(normalizedQuery);
+}
+
+function activeExposureCount(protectee: CredSignalProtecteeDto) {
+  return protectee.exposures.filter(
+    (exposure) =>
+      exposure.status !== "remediated" && exposure.status !== "dismissed",
+  ).length;
+}
+
+function managedCredentialCount(protectee: CredSignalProtecteeDto) {
+  return protectee.credentials.filter(
+    (credential) => credential.status !== "retired",
+  ).length;
 }
 
 export function CredSignalInventoryWorkspace({
@@ -64,7 +111,7 @@ export function CredSignalInventoryWorkspace({
 }) {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
-  const [view, setView] = useState<InventoryView>("credentials");
+  const [view, setView] = useState<InventoryView>("people");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [postureFilter, setPostureFilter] = useState<PostureFilter>("all");
@@ -90,13 +137,8 @@ export function CredSignalInventoryWorkspace({
       ),
     [dashboard.credentials, selectedCredentialId],
   );
-  const selectedProtectee = useMemo(
-    () =>
-      dashboard.protectees.find(
-        (protectee) => protectee.id === selectedProtecteeId,
-      ),
-    [dashboard.protectees, selectedProtecteeId],
-  );
+  const expandedProtecteeId =
+    selectedProtecteeId ?? selectedCredential?.protecteeId;
   const selectedUnmatchedExposure = useMemo(
     () =>
       dashboard.unmatchedExposures.find(
@@ -104,16 +146,16 @@ export function CredSignalInventoryWorkspace({
       ),
     [dashboard.unmatchedExposures, selectedExposureId],
   );
-  const filteredCredentials = useMemo(
+  const filteredProtectees = useMemo(
     () =>
-      dashboard.credentials.filter(
-        (credential) =>
-          credentialMatchesQuery(credential, query) &&
-          (statusFilter === "all" || credential.status === statusFilter) &&
+      dashboard.protectees.filter(
+        (protectee) =>
+          protecteeMatchesQuery(protectee, query) &&
+          (statusFilter === "all" || protectee.status === statusFilter) &&
           (postureFilter === "all" ||
-            credential.exposurePosture === postureFilter),
+            credentialPostureForProtectee(protectee) === postureFilter),
       ),
-    [dashboard.credentials, postureFilter, query, statusFilter],
+    [dashboard.protectees, postureFilter, query, statusFilter],
   );
   const caseRows = useMemo(
     () =>
@@ -129,42 +171,42 @@ export function CredSignalInventoryWorkspace({
     [dashboard.protectees],
   );
   const filteredCases = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("en-US");
+    const normalizedQuery = normalizeSearchText(query);
     if (!normalizedQuery) {
       return caseRows;
     }
     return caseRows.filter(({ protectee, responseCase }) =>
-      [
-        protectee.displayName,
-        protectee.organization,
-        responseCase.title,
-        responseCase.priority,
-        responseCase.status,
-        responseCase.assigneeName,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase("en-US")
-        .includes(normalizedQuery),
+      normalizeSearchText(
+        [
+          protectee.displayName,
+          protectee.organization,
+          responseCase.title,
+          responseCase.priority,
+          responseCase.status,
+          responseCase.assigneeName,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ).includes(normalizedQuery),
     );
   }, [caseRows, query]);
   const filteredUnmatched = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("en-US");
+    const normalizedQuery = normalizeSearchText(query);
     if (!normalizedQuery) {
       return dashboard.unmatchedExposures;
     }
     return dashboard.unmatchedExposures.filter((exposure) =>
-      [
-        exposure.exposedIdentity,
-        exposure.sourceName,
-        exposure.service,
-        exposure.serviceDomain,
-        exposure.credentialKind,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase("en-US")
-        .includes(normalizedQuery),
+      normalizeSearchText(
+        [
+          exposure.exposedIdentity,
+          exposure.sourceName,
+          exposure.service,
+          exposure.serviceDomain,
+          exposure.credentialKind,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ).includes(normalizedQuery),
     );
   }, [dashboard.unmatchedExposures, query]);
 
@@ -197,9 +239,19 @@ export function CredSignalInventoryWorkspace({
   function selectCredential(credentialId: string) {
     setCreateOpen(false);
     setIntakeOpen(false);
-    setSelectedProtecteeId(undefined);
     setSelectedExposureId(undefined);
     setSelectedCredentialId(credentialId);
+  }
+
+  function toggleProtectee(protecteeId: string) {
+    setCreateOpen(false);
+    setIntakeOpen(false);
+    setSelectedExposureId(undefined);
+    setSelectedCredentialId(undefined);
+    setDossierTab("overview");
+    setSelectedProtecteeId((currentId) =>
+      currentId === protecteeId ? undefined : protecteeId,
+    );
   }
 
   function selectCase(protecteeId: string) {
@@ -209,6 +261,7 @@ export function CredSignalInventoryWorkspace({
     setSelectedExposureId(undefined);
     setSelectedProtecteeId(protecteeId);
     setDossierTab("cases");
+    setView("people");
   }
 
   function selectUnmatched(exposureId: string) {
@@ -246,7 +299,7 @@ export function CredSignalInventoryWorkspace({
       setSelectedExposureId(undefined);
       setSelectedProtecteeId(protecteeId);
       setDossierTab("cases");
-      setView("cases");
+      setView("people");
       router.refresh();
     },
     [router],
@@ -278,8 +331,8 @@ export function CredSignalInventoryWorkspace({
 
   return (
     <div className={styles.shell}>
-      <a className="skip-link" href="#credential-inventory">
-        Skip to credential inventory
+      <a className="skip-link" href="#people-credential-operations">
+        Skip to people credential operations
       </a>
       <CredSignalCommandBar
         activeOperatorId={activeOperatorId}
@@ -290,15 +343,18 @@ export function CredSignalInventoryWorkspace({
         view="inventory"
       />
 
-      <div className={styles.inventoryWorkspace} id="credential-inventory">
+      <div
+        className={styles.inventoryWorkspace}
+        id="people-credential-operations"
+      >
         <main className={styles.inventoryStage}>
           <header className={styles.inventoryHeader}>
             <div>
               <span className={styles.eyebrow}>Credential operations</span>
-              <h1>Managed credential inventory</h1>
+              <h1>People credential operations</h1>
               <p>
-                Active credentials, exposure evidence, and response ownership
-                for Priority Signals people.
+                One operational record per person, with credentials, evidence,
+                and response work in context.
               </p>
             </div>
             <nav aria-label="CredSignal views" className={styles.viewSwitcher}>
@@ -319,8 +375,8 @@ export function CredSignalInventoryWorkspace({
               <input
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={
-                  view === "credentials"
-                    ? "Person, account, service, domain…"
+                  view === "people"
+                    ? "Person, identity, credential, case…"
                     : view === "cases"
                       ? "Person, case, assignee…"
                       : "Identity, source, service…"
@@ -332,21 +388,20 @@ export function CredSignalInventoryWorkspace({
               <kbd>/</kbd>
             </label>
 
-            {view === "credentials" ? (
+            {view === "people" ? (
               <div className={styles.inventoryFilters}>
                 <label>
-                  <span className="sr-only">Credential status</span>
+                  <span className="sr-only">Person status</span>
                   <select
                     onChange={(event) =>
                       setStatusFilter(event.target.value as StatusFilter)
                     }
                     value={statusFilter}
                   >
-                    <option value="all">All statuses</option>
+                    <option value="all">All people</option>
                     <option value="active">Active</option>
-                    <option value="rotating">Rotating</option>
-                    <option value="revoked">Revoked</option>
-                    <option value="retired">Retired</option>
+                    <option value="paused">Paused</option>
+                    <option value="archived">Archived</option>
                   </select>
                 </label>
                 <label>
@@ -389,12 +444,12 @@ export function CredSignalInventoryWorkspace({
             aria-label="Credential operations table"
           >
             <button
-              aria-selected={view === "credentials"}
-              onClick={() => setView("credentials")}
+              aria-selected={view === "people"}
+              onClick={() => setView("people")}
               role="tab"
               type="button"
             >
-              Credentials <span>{dashboard.credentials.length}</span>
+              People <span>{dashboard.protectees.length}</span>
             </button>
             <button
               aria-selected={view === "cases"}
@@ -415,98 +470,158 @@ export function CredSignalInventoryWorkspace({
           </div>
 
           <div className={styles.tableViewport} role="tabpanel">
-            {view === "credentials" ? (
-              filteredCredentials.length > 0 ? (
-                <table className={styles.dataTable}>
+            {view === "people" ? (
+              filteredProtectees.length > 0 ? (
+                <table
+                  className={`${styles.dataTable} ${styles.peopleDataTable}`}
+                >
                   <caption className="sr-only">
-                    Managed credential inventory
+                    People credential operations
                   </caption>
                   <thead>
                     <tr>
-                      <th>Person / account</th>
-                      <th>Service</th>
-                      <th>Type</th>
-                      <th>Operational status</th>
-                      <th>Exposure posture</th>
-                      <th>Version / updated</th>
-                      <th>Cases</th>
-                      <th aria-label="Open record" />
+                      <th>Person / primary identity</th>
+                      <th>Organization / location</th>
+                      <th>Managed credentials</th>
+                      <th>Active exposures</th>
+                      <th>Credential posture</th>
+                      <th>Open cases</th>
+                      <th>Open tasks</th>
+                      <th aria-label="Expand person workspace" />
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCredentials.map((credential) => (
-                      <tr
-                        data-selected={credential.id === selectedCredentialId}
-                        key={credential.id}
-                      >
-                        <td>
-                          <button
-                            className={styles.tablePrimaryLink}
-                            onClick={() => selectCredential(credential.id)}
-                            type="button"
-                          >
-                            <strong>{credential.protecteeName}</strong>
-                            <small>{credential.accountIdentifier}</small>
-                          </button>
-                        </td>
-                        <td>
-                          <strong>{credential.service}</strong>
-                          <small>
-                            {credential.serviceDomain ?? "No domain"}
-                          </small>
-                        </td>
-                        <td>{titleCase(credential.credentialKind)}</td>
-                        <td>
-                          <span
-                            className={styles.tableBadge}
-                            data-status={credential.status}
-                          >
-                            {titleCase(credential.status)}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            className={styles.postureBadge}
-                            data-posture={credential.exposurePosture}
-                          >
-                            {titleCase(credential.exposurePosture)}
-                          </span>
-                        </td>
-                        <td>
-                          <strong>
-                            v
-                            {credential.currentVersion?.version ??
-                              credential.versions[0]?.version ??
-                              "—"}
-                          </strong>
-                          <small>
-                            <LocalTimestamp timestamp={credential.updatedAt} />
-                          </small>
-                        </td>
-                        <td className={styles.numericCell}>
-                          {credential.openCaseCount}
-                        </td>
-                        <td>
-                          <button
-                            aria-label={`Open ${credential.service} credential for ${credential.protecteeName}`}
-                            className={styles.rowAction}
-                            onClick={() => selectCredential(credential.id)}
-                            type="button"
-                          >
-                            →
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredProtectees.map((protectee) => {
+                      const primaryIdentity =
+                        protectee.identities.find(
+                          (identity) => identity.isPrimary && identity.isActive,
+                        ) ??
+                        protectee.identities.find(
+                          (identity) => identity.isActive,
+                        );
+                      const expanded = protectee.id === expandedProtecteeId;
+                      const posture = credentialPostureForProtectee(protectee);
+                      const selectedPersonCredential =
+                        selectedCredential?.protecteeId === protectee.id
+                          ? selectedCredential
+                          : undefined;
+                      const detailId = `person-credential-workspace-${protectee.id}`;
+
+                      return (
+                        <Fragment key={protectee.id}>
+                          <tr data-selected={expanded}>
+                            <td>
+                              <button
+                                aria-controls={detailId}
+                                aria-expanded={expanded}
+                                className={styles.tablePrimaryLink}
+                                onClick={() => toggleProtectee(protectee.id)}
+                                type="button"
+                              >
+                                <strong>{protectee.displayName}</strong>
+                                <small>
+                                  {primaryIdentity?.displayValue ??
+                                    "No active identity"}
+                                </small>
+                              </button>
+                            </td>
+                            <td>
+                              <strong>
+                                {protectee.organization ?? "Independent"}
+                              </strong>
+                              <small>
+                                {protectee.location?.label ?? "No location"}
+                              </small>
+                            </td>
+                            <td className={styles.numericCell}>
+                              {managedCredentialCount(protectee)}
+                            </td>
+                            <td className={styles.numericCell}>
+                              {activeExposureCount(protectee)}
+                            </td>
+                            <td>
+                              <span
+                                className={styles.postureBadge}
+                                data-posture={posture}
+                              >
+                                {titleCase(posture)}
+                              </span>
+                            </td>
+                            <td className={styles.numericCell}>
+                              {protectee.openCaseCount}
+                            </td>
+                            <td className={styles.numericCell}>
+                              {protectee.openTaskCount}
+                            </td>
+                            <td>
+                              <button
+                                aria-controls={detailId}
+                                aria-expanded={expanded}
+                                aria-label={`${expanded ? "Collapse" : "Expand"} credential operations for ${protectee.displayName}`}
+                                className={styles.rowAction}
+                                onClick={() => toggleProtectee(protectee.id)}
+                                type="button"
+                              >
+                                {expanded ? "−" : "+"}
+                              </button>
+                            </td>
+                          </tr>
+                          {expanded ? (
+                            <tr className={styles.personDetailRow}>
+                              <td colSpan={8} id={detailId}>
+                                {selectedPersonCredential ? (
+                                  <CredSignalCredentialDossier
+                                    activeOperatorId={activeOperatorId}
+                                    credential={selectedPersonCredential}
+                                    key={selectedPersonCredential.id}
+                                    mode="inline"
+                                    onBackToPerson={() =>
+                                      setSelectedCredentialId(undefined)
+                                    }
+                                    onClose={() => {
+                                      setSelectedCredentialId(undefined);
+                                      setSelectedProtecteeId(undefined);
+                                    }}
+                                    onManagePerson={() =>
+                                      router.push(
+                                        `/home?person=${protectee.id}`,
+                                      )
+                                    }
+                                    onRefresh={() => router.refresh()}
+                                    protectee={protectee}
+                                  />
+                                ) : (
+                                  <CredSignalDossier
+                                    activeOperatorId={activeOperatorId}
+                                    key={protectee.id}
+                                    mode="inline"
+                                    onClose={() =>
+                                      setSelectedProtecteeId(undefined)
+                                    }
+                                    onManage={() =>
+                                      router.push(
+                                        `/home?person=${protectee.id}`,
+                                      )
+                                    }
+                                    onSelectCredential={selectCredential}
+                                    onTabChange={setDossierTab}
+                                    operators={dashboard.operators}
+                                    protectee={protectee}
+                                    tab={dossierTab}
+                                  />
+                                )}
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (
                 <div className={styles.tableEmpty}>
-                  <strong>No credentials match this view</strong>
-                  <p>Clear the filters or add a managed credential.</p>
-                  <button onClick={openCredentialCreate} type="button">
-                    Add credential
-                  </button>
+                  <strong>No people match this view</strong>
+                  <p>Clear the search or person-level filters.</p>
                 </div>
               )
             ) : null}
@@ -656,8 +771,8 @@ export function CredSignalInventoryWorkspace({
 
           <footer className={styles.inventoryFooter}>
             <span>
-              {view === "credentials"
-                ? `${filteredCredentials.length} of ${dashboard.credentials.length} credentials`
+              {view === "people"
+                ? `${filteredProtectees.length} of ${dashboard.protectees.length} people`
                 : view === "cases"
                   ? `${filteredCases.length} open cases`
                   : `${filteredUnmatched.length} unmatched exposures`}
@@ -691,37 +806,6 @@ export function CredSignalInventoryWorkspace({
             onCreateProtectee={() => router.push("/home?create=1")}
             onMatched={handleMatched}
             protectees={activeProtectees}
-          />
-        ) : selectedCredential ? (
-          <CredSignalCredentialDossier
-            activeOperatorId={activeOperatorId}
-            credential={selectedCredential}
-            key={selectedCredential.id}
-            onBackToPerson={
-              selectedProtectee
-                ? () => setSelectedCredentialId(undefined)
-                : undefined
-            }
-            onClose={() => setSelectedCredentialId(undefined)}
-            onManagePerson={() =>
-              router.push(`/home?person=${selectedCredential.protecteeId}`)
-            }
-            onRefresh={() => router.refresh()}
-            protectee={dashboard.protectees.find(
-              (protectee) => protectee.id === selectedCredential.protecteeId,
-            )}
-          />
-        ) : selectedProtectee ? (
-          <CredSignalDossier
-            activeOperatorId={activeOperatorId}
-            key={selectedProtectee.id}
-            onClose={() => setSelectedProtecteeId(undefined)}
-            onManage={() => router.push(`/home?person=${selectedProtectee.id}`)}
-            onSelectCredential={setSelectedCredentialId}
-            onTabChange={setDossierTab}
-            operators={dashboard.operators}
-            protectee={selectedProtectee}
-            tab={dossierTab}
           />
         ) : null}
       </div>

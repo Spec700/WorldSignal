@@ -34,38 +34,30 @@ export function CredSignalCommandBar({
       <div className={styles.commandModule}>
         <span className={styles.commandLabel}>Module</span>
         <span>
-          {inventoryView ? "Credential Inventory" : "Credential Posture"}
+          {inventoryView ? "People Operations" : "Credential Posture"}
         </span>
       </div>
 
       <dl className={styles.commandMetrics} aria-label="CredSignal summary">
         <div>
-          <dt>{inventoryView ? "Credentials" : "People"}</dt>
-          <dd>{inventoryView ? metrics.credentials : metrics.protectees}</dd>
+          <dt>People</dt>
+          <dd>{metrics.protectees}</dd>
         </div>
         <div>
-          <dt>{inventoryView ? "Exposed" : "Credentials"}</dt>
-          <dd>
-            {inventoryView ? metrics.exposedCredentials : metrics.credentials}
-          </dd>
+          <dt>Credentials</dt>
+          <dd>{metrics.credentials}</dd>
         </div>
         <div
           className={
-            !inventoryView && metrics.exposedCredentials > 0
-              ? styles.criticalMetric
-              : undefined
+            metrics.exposedCredentials > 0 ? styles.criticalMetric : undefined
           }
         >
-          <dt>{inventoryView ? "Open cases" : "Exposed"}</dt>
-          <dd>
-            {inventoryView ? metrics.openCases : metrics.exposedCredentials}
-          </dd>
+          <dt>Exposed</dt>
+          <dd>{metrics.exposedCredentials}</dd>
         </div>
         <div>
-          <dt>{inventoryView ? "Unmatched" : "Open cases"}</dt>
-          <dd>
-            {inventoryView ? metrics.unmatchedExposures : metrics.openCases}
-          </dd>
+          <dt>Open cases</dt>
+          <dd>{metrics.openCases}</dd>
         </div>
       </dl>
 
