@@ -7,9 +7,13 @@ import type {
   WorldEvent,
 } from "@/lib/events/types";
 import type { EventSourceAdapter } from "@/lib/sources/adapter";
-import { SourceFetchError } from "@/lib/sources/errors";
+import { asSourceFetchError, SourceFetchError } from "@/lib/sources/errors";
 import { fetchJson, type FetchImplementation } from "@/lib/sources/fetch-json";
 import { createRevisionFingerprint } from "@/lib/sources/fingerprint";
+import {
+  retryTransientSourceRequest,
+  type RetrySleep,
+} from "@/lib/sources/retry";
 
 import {
   gdacsSearchResponseSchema,
@@ -19,10 +23,12 @@ import {
 } from "./schema";
 import { getGdacsSearchUrl } from "./urls";
 
-const GDACS_TIMEOUT_MS = 12_000;
+const GDACS_TIMEOUT_MS = 20_000;
 const GDACS_MAX_PAGE_BYTES = 2 * 1_024 * 1_024;
 const DEFAULT_PAGE_SIZE = 100;
 const DEFAULT_MAX_PAGES = 50;
+const GDACS_MAX_ATTEMPTS_PER_PAGE = 2;
+const GDACS_TOTAL_TIMEOUT_MS = 90_000;
 
 const CATEGORY_BY_EVENT_TYPE: Record<GdacsEventType, EventCategory> = {
   TC: "tropical-cyclone",
@@ -265,6 +271,9 @@ interface GdacsAdapterOptions {
   now?: () => Date;
   pageSize?: number;
   maxPages?: number;
+  retrySleep?: RetrySleep;
+  totalTimeoutMs?: number;
+  clock?: () => number;
 }
 
 export class GdacsAdapter implements EventSourceAdapter {
@@ -273,12 +282,18 @@ export class GdacsAdapter implements EventSourceAdapter {
   private readonly now: () => Date;
   private readonly pageSize: number;
   private readonly maxPages: number;
+  private readonly retrySleep?: RetrySleep;
+  private readonly totalTimeoutMs: number;
+  private readonly clock: () => number;
 
   constructor(options: GdacsAdapterOptions = {}) {
     this.fetchImplementation = options.fetchImplementation;
     this.now = options.now ?? (() => new Date());
     this.pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
     this.maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
+    this.retrySleep = options.retrySleep;
+    this.totalTimeoutMs = options.totalTimeoutMs ?? GDACS_TOTAL_TIMEOUT_MS;
+    this.clock = options.clock ?? Date.now;
 
     if (
       !Number.isInteger(this.pageSize) ||
@@ -289,6 +304,9 @@ export class GdacsAdapter implements EventSourceAdapter {
     }
     if (!Number.isInteger(this.maxPages) || this.maxPages < 1) {
       throw new RangeError("GDACS maximum pages must be a positive integer");
+    }
+    if (!Number.isFinite(this.totalTimeoutMs) || this.totalTimeoutMs < 1) {
+      throw new RangeError("GDACS total timeout must be positive");
     }
   }
 
@@ -316,19 +334,51 @@ export class GdacsAdapter implements EventSourceAdapter {
     signal,
   }: Parameters<EventSourceAdapter["fetchAndNormalize"]>[0]) {
     const allFeatures: GdacsFeature[] = [];
+    const deadline = this.clock() + this.totalTimeoutMs;
 
     for (let pageNumber = 1; pageNumber <= this.maxPages; pageNumber += 1) {
-      const raw = await fetchJson(
-        getGdacsSearchUrl({ from, to, pageNumber, pageSize: this.pageSize }),
-        {
-          signal,
-          timeoutMs: GDACS_TIMEOUT_MS,
-          maxBytes: GDACS_MAX_PAGE_BYTES,
-          sourceLabel: "GDACS",
-          allowNoContent: true,
-          fetchImplementation: this.fetchImplementation,
-        },
-      );
+      const pageUrl = getGdacsSearchUrl({
+        from,
+        to,
+        pageNumber,
+        pageSize: this.pageSize,
+      });
+      let raw: unknown;
+
+      try {
+        raw = await retryTransientSourceRequest(
+          () => {
+            const remainingMs = Math.floor(deadline - this.clock());
+            if (remainingMs < 1) {
+              throw new SourceFetchError(
+                "timeout",
+                "GDACS exceeded the total retrieval time budget.",
+              );
+            }
+
+            return fetchJson(pageUrl, {
+              signal,
+              timeoutMs: Math.min(GDACS_TIMEOUT_MS, remainingMs),
+              maxBytes: GDACS_MAX_PAGE_BYTES,
+              sourceLabel: "GDACS",
+              allowNoContent: true,
+              fetchImplementation: this.fetchImplementation,
+            });
+          },
+          {
+            signal,
+            maxAttempts: GDACS_MAX_ATTEMPTS_PER_PAGE,
+            ...(this.retrySleep ? { sleep: this.retrySleep } : {}),
+          },
+        );
+      } catch (error) {
+        const sourceError = asSourceFetchError(error);
+        throw new SourceFetchError(
+          sourceError.code,
+          `GDACS page ${pageNumber} could not be retrieved. ${sourceError.safeMessage}`,
+          { cause: sourceError },
+        );
+      }
 
       if (raw === undefined) {
         return this.createNormalizedResult(allFeatures);

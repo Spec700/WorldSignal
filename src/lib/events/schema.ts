@@ -195,10 +195,11 @@ export const worldEventSchema = z
 export const sourceHealthSchema = z
   .object({
     source: sourceIdSchema,
-    state: z.enum(["ok", "error"]),
+    state: z.enum(["ok", "degraded", "error"]),
     attemptedAt: utcTimestampSchema,
     completedAt: utcTimestampSchema,
     upstreamUpdatedAt: utcTimestampSchema.optional(),
+    lastSuccessfulAt: utcTimestampSchema.optional(),
     eventCount: z.number().int().nonnegative().optional(),
     errorCode: z
       .enum(["timeout", "network", "http", "schema", "truncated", "unknown"])
@@ -214,11 +215,28 @@ export const sourceHealthSchema = z
       });
     }
 
-    if (health.state === "error" && !health.errorCode) {
+    if (
+      (health.state === "error" || health.state === "degraded") &&
+      !health.errorCode
+    ) {
       context.addIssue({
         code: "custom",
         path: ["errorCode"],
-        message: "Unavailable sources require an error code",
+        message: "Failed source attempts require an error code",
+      });
+    }
+
+    if (
+      health.state === "degraded" &&
+      (health.eventCount === undefined || !health.lastSuccessfulAt)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: [
+          health.eventCount === undefined ? "eventCount" : "lastSuccessfulAt",
+        ],
+        message:
+          "Degraded sources require retained event count and last successful retrieval time",
       });
     }
   });

@@ -85,7 +85,9 @@ export function HazardTimeline({
             </button>
           ))}
         </div>
-        <small>{batch ? "Change reloads sources" : "Used on first load"}</small>
+        <small>
+          {batch ? "Stored ranges restore locally" : "Used on first load"}
+        </small>
       </fieldset>
 
       <div className="timeline-range">

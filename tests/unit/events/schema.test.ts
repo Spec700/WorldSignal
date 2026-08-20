@@ -84,6 +84,30 @@ describe("SourceHealth schema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("requires provenance for retained last-known-good data", () => {
+    const valid = sourceHealthSchema.safeParse({
+      source: "gdacs",
+      state: "degraded",
+      attemptedAt: "2026-08-18T10:59:58.000Z",
+      completedAt: "2026-08-18T11:00:00.000Z",
+      lastSuccessfulAt: "2026-08-18T10:00:00.000Z",
+      eventCount: 1,
+      errorCode: "timeout",
+      safeMessage: "GDACS timed out; retained data is being displayed.",
+    });
+    const missingLastSuccess = sourceHealthSchema.safeParse({
+      source: "gdacs",
+      state: "degraded",
+      attemptedAt: "2026-08-18T10:59:58.000Z",
+      completedAt: "2026-08-18T11:00:00.000Z",
+      eventCount: 1,
+      errorCode: "timeout",
+    });
+
+    expect(valid.success).toBe(true);
+    expect(missingLastSuccess.success).toBe(false);
+  });
 });
 
 describe("EventBatch schema", () => {

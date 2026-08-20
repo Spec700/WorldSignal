@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorldSignalApp } from "@/components/worldsignal-app";
 import type { PersonDto } from "@/features/people/types";
-import { eventBatchFixture } from "../../fixtures/events";
+import { earthquakeFixture, eventBatchFixture } from "../../fixtures/events";
 import { gdacsGeometryFixture } from "../../fixtures/gdacs-geometry";
 
 vi.mock("@/components/globe/world-globe", () => ({
@@ -363,6 +363,49 @@ describe("WorldSignal application shell", () => {
     expect(
       screen.getByText("GDACS did not respond before the source deadline."),
     ).toBeInTheDocument();
+  });
+
+  it("keeps last-known-good events visible and marks their source degraded", async () => {
+    const user = userEvent.setup();
+    const partialBatch = {
+      ...eventBatchFixture,
+      generatedAt: "2026-08-18T11:00:00.000Z",
+      requestedRange: {
+        from: "2026-08-11T11:00:00.000Z",
+        to: "2026-08-18T11:00:00.000Z",
+      },
+      events: [earthquakeFixture],
+      sources: eventBatchFixture.sources.map((source) =>
+        source.source === "gdacs"
+          ? {
+              source: "gdacs" as const,
+              state: "error" as const,
+              attemptedAt: "2026-08-18T10:59:58.000Z",
+              completedAt: "2026-08-18T11:00:00.000Z",
+              errorCode: "timeout" as const,
+              safeMessage: "GDACS page 4 timed out.",
+            }
+          : source,
+      ),
+    };
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(eventBatchFixture))
+      .mockResolvedValueOnce(Response.json(partialBatch));
+
+    render(<WorldSignalApp />);
+    await user.click(await loadButton());
+    await screen.findByRole("button", { name: /tropical cyclone:/i });
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(
+      await screen.findByRole("button", { name: /tropical cyclone:/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 source degraded")).toBeInTheDocument();
+    expect(screen.getByText("Degraded")).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 retained event · last good/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("GDACS page 4 timed out.")).toBeInTheDocument();
   });
 
   it("opens authoritative evidence and fetches detail geometry only for a selected GDACS event", async () => {

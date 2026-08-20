@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { handleHazardBatchRequest } from "@/features/hazards/server/hazard-batch";
 import { eventBatchSchema } from "@/lib/events/schema";
@@ -107,6 +107,50 @@ describe("GET /api/events/hazards", () => {
     expect(body.error.sources).toEqual([
       expect.objectContaining({ source: "usgs", errorCode: "timeout" }),
       expect.objectContaining({ source: "gdacs", errorCode: "schema" }),
+    ]);
+  });
+
+  it("records a source completion before slower sibling sources settle", async () => {
+    let clockCall = 0;
+    let firstSourceCompleted = false;
+    const now = vi.fn(() => {
+      clockCall += 1;
+      if (clockCall === 4) {
+        firstSourceCompleted = true;
+      }
+      return new Date(`2026-08-18T10:00:0${clockCall}.000Z`);
+    });
+    const slowerAdapter = createAdapter("gdacs", async () => {
+      await Promise.resolve();
+      if (!firstSourceCompleted) {
+        throw new SourceFetchError(
+          "unknown",
+          "The faster source completion was recorded too late.",
+        );
+      }
+      return { events: [cycloneFixture] };
+    });
+
+    const response = await handleHazardBatchRequest(
+      new Request("http://localhost/api/events/hazards?window=24h"),
+      {
+        adapters: [successAdapter("usgs"), slowerAdapter],
+        now,
+      },
+    );
+    const body = await response.json();
+
+    expect(body.sources).toEqual([
+      expect.objectContaining({
+        source: "usgs",
+        state: "ok",
+        completedAt: "2026-08-18T10:00:04.000Z",
+      }),
+      expect.objectContaining({
+        source: "gdacs",
+        state: "ok",
+        completedAt: "2026-08-18T10:00:05.000Z",
+      }),
     ]);
   });
 

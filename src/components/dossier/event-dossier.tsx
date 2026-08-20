@@ -233,9 +233,11 @@ export function EventDossier({
                     >
                       {health?.state === "ok"
                         ? "Available"
-                        : health?.state === "error"
-                          ? "Unavailable"
-                          : "Not requested"}
+                        : health?.state === "degraded"
+                          ? "Degraded"
+                          : health?.state === "error"
+                            ? "Unavailable"
+                            : "Not requested"}
                     </span>
                   </div>
                   <dl>

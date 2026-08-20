@@ -53,7 +53,7 @@ async function mockSuccessfulSources(page: Page) {
 }
 
 async function loadFixtureBatch(page: Page) {
-  const shellResponse = await page.goto("/");
+  const shellResponse = await page.goto("/worldsignal");
   expect(shellResponse?.headers()["content-security-policy"]).toContain(
     "default-src 'self'",
   );
@@ -78,7 +78,7 @@ test("manual retrieval, filters, range changes, and time scrubbing stay synchron
     }
   });
 
-  await page.goto("/");
+  await page.goto("/worldsignal");
   await expect(
     page.getByRole("heading", { name: /build the current hazard picture/i }),
   ).toBeVisible();
@@ -297,7 +297,7 @@ test("partial source failure remains explicit while successful data stays usable
     });
   });
 
-  await page.goto("/");
+  await page.goto("/worldsignal");
   await page
     .getByRole("button", { name: /load current events/i })
     .first()
@@ -334,7 +334,7 @@ test("keyboard selection and reduced-motion mode remove nonessential animation",
       status: 200,
     });
   });
-  await page.goto("/");
+  await page.goto("/worldsignal");
 
   await page
     .getByRole("button", { name: /load current events/i })
@@ -380,7 +380,7 @@ test("hundreds of events remain responsive during globe rotation and selection",
     });
   });
 
-  await page.goto("/");
+  await page.goto("/worldsignal");
   const loadStartedAt = Date.now();
   await page
     .getByRole("button", { name: /load current events/i })

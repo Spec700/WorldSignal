@@ -226,6 +226,46 @@ describe("GDACS pagination and deduplication", () => {
     expect(result.events).toHaveLength(1);
   });
 
+  it("retries only the GDACS page that failed transiently", async () => {
+    const feature = createGdacsFeature();
+    const requestedPages: number[] = [];
+    let pageTwoAttempts = 0;
+    const fetchImplementation = vi.fn(async (input: string | URL | Request) => {
+      const pageNumber = Number(
+        new URL(String(input)).searchParams.get("pageNumber"),
+      );
+      requestedPages.push(pageNumber);
+
+      if (pageNumber === 2 && pageTwoAttempts++ === 0) {
+        throw new TypeError("Transient fixture connection failure");
+      }
+
+      return Response.json(
+        {
+          type: "FeatureCollection",
+          features: pageNumber === 1 ? [feature] : [],
+        },
+        { headers: { "content-type": "application/json" } },
+      );
+    });
+    const adapter = new GdacsAdapter({
+      fetchImplementation,
+      pageSize: 1,
+      maxPages: 3,
+      retrySleep: async () => undefined,
+      now: () => new Date("2026-08-18T18:02:35.000Z"),
+    });
+
+    const result = await adapter.fetchAndNormalize({
+      from: new Date("2026-08-17T18:02:35.000Z"),
+      to: new Date("2026-08-18T18:02:35.000Z"),
+      signal: new AbortController().signal,
+    });
+
+    expect(result.events).toHaveLength(1);
+    expect(requestedPages).toEqual([1, 2, 2]);
+  });
+
   it("surfaces truncation instead of returning an incomplete success", async () => {
     const fullPage = [
       createGdacsFeature(),
