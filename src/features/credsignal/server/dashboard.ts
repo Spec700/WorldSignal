@@ -469,9 +469,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
     })),
     metrics: {
       protectees: protecteeDtos.length,
-      credentials: credentialDtos.filter(
-        (credential) => credential.status !== "retired",
-      ).length,
+      credentials: credentialDtos.length,
       exposedCredentials: credentialDtos.filter(
         (credential) =>
           credential.exposurePosture === "confirmed_exposure" ||

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -204,13 +205,18 @@ export function CredSignalWorkspace({
                 Approved locations · aggregate unresolved credential risk
               </small>
             </span>
-            <span className={styles.stageCount}>
-              {
-                activeProtectees.filter((protectee) => protectee.location)
-                  .length
-              }{" "}
-              located protectees
-            </span>
+            <div className={styles.stageHeaderActions}>
+              <span className={styles.stageCount}>
+                {
+                  activeProtectees.filter((protectee) => protectee.location)
+                    .length
+                }{" "}
+                located protectees
+              </span>
+              <Link className={styles.secondaryAction} href="/credsignal">
+                Table view
+              </Link>
+            </div>
           </header>
           <div className={styles.globeArea}>
             <CredSignalGlobe
