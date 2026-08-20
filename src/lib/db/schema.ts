@@ -60,6 +60,17 @@ export const credentialKindEnum = pgEnum("credential_kind", [
   "api_key",
   "other",
 ]);
+export const credentialAssetStatusEnum = pgEnum("credential_asset_status", [
+  "active",
+  "rotating",
+  "revoked",
+  "retired",
+]);
+export const credentialVersionStatusEnum = pgEnum("credential_version_status", [
+  "active",
+  "superseded",
+  "revoked",
+]);
 export const priorityEnum = pgEnum("priority", [
   "low",
   "medium",
@@ -280,6 +291,96 @@ export const protecteeLocations = pgTable(
   ],
 );
 
+export const credentialAssets = pgTable(
+  "credential_assets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    protecteeId: uuid("protectee_id")
+      .notNull()
+      .references(() => protectees.id, { onDelete: "cascade" }),
+    identityId: uuid("identity_id").references(() => protecteeIdentities.id, {
+      onDelete: "set null",
+    }),
+    accountIdentifier: text("account_identifier").notNull(),
+    service: text("service").notNull(),
+    serviceDomain: text("service_domain"),
+    credentialKind: credentialKindEnum("credential_kind").notNull(),
+    status: credentialAssetStatusEnum("status").default("active").notNull(),
+    notes: text("notes"),
+    createdByOperatorId: uuid("created_by_operator_id").references(
+      () => operators.id,
+      { onDelete: "set null" },
+    ),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("credential_assets_workspace_owner_service_unique").on(
+      table.workspaceId,
+      table.protecteeId,
+      table.accountIdentifier,
+      table.service,
+      table.credentialKind,
+    ),
+    index("credential_assets_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+    ),
+    index("credential_assets_protectee_idx").on(table.protecteeId),
+    check(
+      "credential_assets_managed_kind",
+      sql`${table.credentialKind} <> 'password_hash'`,
+    ),
+  ],
+);
+
+export const credentialVersions = pgTable(
+  "credential_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    credentialId: uuid("credential_id")
+      .notNull()
+      .references(() => credentialAssets.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    credentialCiphertext: text("credential_ciphertext").notNull(),
+    credentialIv: text("credential_iv").notNull(),
+    credentialAuthTag: text("credential_auth_tag").notNull(),
+    credentialKeyVersion: text("credential_key_version").notNull(),
+    credentialFingerprint: text("credential_fingerprint").notNull(),
+    credentialLength: integer("credential_length").notNull(),
+    status: credentialVersionStatusEnum("status").default("active").notNull(),
+    activatedAt: timestamp("activated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+    createdByOperatorId: uuid("created_by_operator_id").references(
+      () => operators.id,
+      { onDelete: "set null" },
+    ),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("credential_versions_credential_version_unique").on(
+      table.credentialId,
+      table.version,
+    ),
+    uniqueIndex("credential_versions_one_active_unique")
+      .on(table.credentialId)
+      .where(sql`${table.status} = 'active'`),
+    index("credential_versions_credential_status_idx").on(
+      table.credentialId,
+      table.status,
+    ),
+    check("credential_versions_version_positive", sql`${table.version} > 0`),
+    check(
+      "credential_versions_length_positive",
+      sql`${table.credentialLength} > 0`,
+    ),
+  ],
+);
+
 export const exposureSources = pgTable(
   "exposure_sources",
   {
@@ -382,6 +483,9 @@ export const exposureMatches = pgTable(
       .notNull()
       .references(() => protectees.id, { onDelete: "cascade" }),
     identityId: uuid("identity_id").references(() => protecteeIdentities.id, {
+      onDelete: "set null",
+    }),
+    credentialId: uuid("credential_id").references(() => credentialAssets.id, {
       onDelete: "set null",
     }),
     method: matchMethodEnum("method").notNull(),
@@ -538,5 +642,7 @@ export type Operator = typeof operators.$inferSelect;
 export type Protectee = typeof protectees.$inferSelect;
 export type ProtecteeIdentity = typeof protecteeIdentities.$inferSelect;
 export type ProtecteeLocation = typeof protecteeLocations.$inferSelect;
+export type CredentialAsset = typeof credentialAssets.$inferSelect;
+export type CredentialVersion = typeof credentialVersions.$inferSelect;
 export type CredentialExposure = typeof credentialExposures.$inferSelect;
 export type ResponseCase = typeof responseCases.$inferSelect;

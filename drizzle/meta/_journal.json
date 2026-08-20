@@ -22,6 +22,13 @@
       "when": 1787093026356,
       "tag": "0002_fuzzy_hedge_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787185447948,
+      "tag": "0003_optimal_sandman",
+      "breakpoints": true
     }
   ]
 }

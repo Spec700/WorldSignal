@@ -3,8 +3,10 @@ import {
   classifyCredentialSeverity,
   createCaseCommunicationInputSchema,
   createCaseTaskInputSchema,
+  createCredentialInputSchema,
   createExposureInputSchema,
   matchExposureInputSchema,
+  rotateCredentialInputSchema,
   updateCaseCoordinationInputSchema,
 } from "@/features/credsignal/domain";
 
@@ -58,11 +60,58 @@ describe("CredSignal domain rules", () => {
     expect(result.success).toBe(false);
   });
 
+  it("models managed credentials separately from exposure artifacts", () => {
+    const managedCredential = {
+      protecteeId: "30000000-0000-4000-8000-000000000001",
+      identityId: "40000000-0000-4000-8000-000000000001",
+      accountIdentifier: "avery.chen@northstar.example",
+      service: "Northstar Identity",
+      serviceDomain: "id.northstar.example",
+      credentialKind: "password",
+      credentialValue: "SYNTHETIC-ACTIVE-PASSWORD",
+      notes: "Synthetic test credential.",
+    };
+
+    expect(
+      createCredentialInputSchema.safeParse(managedCredential).success,
+    ).toBe(true);
+    expect(
+      createCredentialInputSchema.safeParse({
+        ...managedCredential,
+        credentialKind: "password_hash",
+      }).success,
+    ).toBe(false);
+    expect(
+      createCredentialInputSchema.safeParse({
+        ...managedCredential,
+        credentialValue: "",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires a replacement secret when rotating a credential", () => {
+    const credentialId = "d0000000-0000-4000-8000-000000000001";
+
+    expect(
+      rotateCredentialInputSchema.safeParse({
+        credentialId,
+        credentialValue: "SYNTHETIC-ROTATED-PASSWORD",
+      }).success,
+    ).toBe(true);
+    expect(
+      rotateCredentialInputSchema.safeParse({
+        credentialId,
+        credentialValue: "",
+      }).success,
+    ).toBe(false);
+  });
+
   it("requires an explicit rationale for manual exposure matching", () => {
     const identifiers = {
       exposureId: "70000000-0000-4000-8000-000000000001",
       protecteeId: "30000000-0000-4000-8000-000000000001",
       identityId: "40000000-0000-4000-8000-000000000001",
+      credentialId: "d0000000-0000-4000-8000-000000000001",
     };
 
     expect(
