@@ -141,16 +141,21 @@ describe("CredSignal inventory workspace", () => {
     expect(screen.getByText("Northstar Labs")).toBeInTheDocument();
 
     await user.clear(screen.getByRole("searchbox"));
+    const tableRowCount = screen.getAllByRole("row").length;
     await user.click(
       screen.getByRole("button", {
-        name: "Expand credential operations for Avery Chen",
+        name: "Open credential operations for Avery Chen",
       }),
     );
 
     expect(
-      screen.getByRole("region", {
+      screen.getByRole("complementary", {
         name: "Avery Chen credential dossier",
       }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(tableRowCount);
+    expect(
+      screen.getByRole("button", { name: /Avery Chen/i, pressed: true }),
     ).toBeInTheDocument();
 
     await user.click(
@@ -160,7 +165,7 @@ describe("CredSignal inventory workspace", () => {
     );
 
     expect(
-      screen.getByRole("region", {
+      screen.getByRole("complementary", {
         name: "Credential record for avery.chen@northstar.example",
       }),
     ).toBeInTheDocument();
@@ -171,13 +176,13 @@ describe("CredSignal inventory workspace", () => {
 
     await user.click(screen.getByRole("button", { name: "Back to person" }));
     expect(
-      screen.getByRole("region", {
+      screen.getByRole("complementary", {
         name: "Avery Chen credential dossier",
       }),
     ).toBeInTheDocument();
   });
 
-  it("opens a case queue item in the expanded person case workspace", async () => {
+  it("opens a case queue item in the person dossier", async () => {
     const user = userEvent.setup();
     render(<CredSignalInventoryWorkspace dashboard={dashboard} />);
 
@@ -194,7 +199,9 @@ describe("CredSignal inventory workspace", () => {
       "true",
     );
     expect(
-      screen.getByRole("region", { name: "Avery Chen credential dossier" }),
+      screen.getByRole("complementary", {
+        name: "Avery Chen credential dossier",
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText("Response checklist")).toBeInTheDocument();
     expect(screen.getByText("Victim coordination")).toBeInTheDocument();
