@@ -15,7 +15,9 @@ import {
   caseExposures,
   caseTasks,
   communications,
+  credentialAssets,
   credentialExposures,
+  credentialVersions,
   exposureMatches,
   exposureSources,
   operatorRoles,
@@ -27,6 +29,14 @@ import {
   roles,
   workspaces,
 } from "../src/lib/db/schema";
+
+function demoCredentialId(index: number) {
+  return `d0000000-0000-4000-8000-${index.toString().padStart(12, "0")}`;
+}
+
+function demoCredentialVersionId(index: number) {
+  return `e0000000-0000-4000-8000-${index.toString().padStart(12, "0")}`;
+}
 
 const ids = {
   workspace: "00000000-0000-4000-8000-000000000001",
@@ -327,6 +337,87 @@ const additionalPeople = [
   },
 ] as const;
 
+const credentialFixtures = [
+  {
+    protecteeId: ids.protectees.avery,
+    identityId: ids.identities.avery,
+    accountIdentifier: "avery.chen@northstar.example",
+    service: "Northstar Identity",
+    serviceDomain: "id.northstar.example",
+    credentialKind: "session_cookie",
+    secret: "DEMO-ACTIVE-AVERY-SESSION-COOKIE",
+    activatedAt: "2026-08-12T13:00:00.000Z",
+  },
+  {
+    protecteeId: ids.protectees.avery,
+    identityId: ids.identities.avery,
+    accountIdentifier: "avery.chen@northstar.example",
+    service: "Executive Mail",
+    serviceDomain: "mail.northstar.example",
+    credentialKind: "password",
+    secret: "DEMO-ACTIVE-AVERY-MAIL-PASSWORD",
+    activatedAt: "2026-07-28T14:00:00.000Z",
+  },
+  {
+    protecteeId: ids.protectees.maya,
+    identityId: ids.identities.maya,
+    accountIdentifier: "maya.rodriguez@meridian.example",
+    service: "Vendor Travel Portal",
+    serviceDomain: "travel.vendor.example",
+    credentialKind: "password",
+    secret: "DEMO-ACTIVE-MAYA-TRAVEL-PASSWORD",
+    activatedAt: "2026-06-19T09:30:00.000Z",
+  },
+  {
+    protecteeId: ids.protectees.maya,
+    identityId: ids.identities.maya,
+    accountIdentifier: "maya.rodriguez@meridian.example",
+    service: "Meridian Research Cloud",
+    serviceDomain: "cloud.meridian.example",
+    credentialKind: "api_key",
+    secret: "DEMO-ACTIVE-MAYA-RESEARCH-API-KEY",
+    activatedAt: "2026-08-03T16:00:00.000Z",
+  },
+  {
+    protecteeId: ids.protectees.elias,
+    identityId: ids.identities.elias,
+    accountIdentifier: "elias.morgan@example.test",
+    service: "Personal Mail",
+    serviceDomain: "mail.example.test",
+    credentialKind: "password",
+    secret: "DEMO-ACTIVE-ELIAS-MAIL-PASSWORD",
+    activatedAt: "2026-05-21T11:00:00.000Z",
+  },
+  ...additionalPeople.flatMap((person, personIndex) => {
+    const kinds = ["password", "api_key", "session_token"] as const;
+    const kind = kinds[personIndex % kinds.length];
+    const organizationSlug =
+      person.organization
+        .toLocaleLowerCase("en-US")
+        .replaceAll(/[^a-z0-9]+/g, "") || "organization";
+    return [
+      {
+        protecteeId: person.id,
+        identityId: person.identityId,
+        accountIdentifier: person.email,
+        service: `${person.organization} SSO`,
+        serviceDomain: `id.${organizationSlug}.example`,
+        credentialKind: kind,
+        secret: `DEMO-ACTIVE-${person.displayName.toLocaleUpperCase("en-US").replaceAll(/[^A-Z0-9]+/g, "-")}-${kind.toLocaleUpperCase("en-US")}`,
+        activatedAt: new Date(
+          Date.parse(person.verifiedAt) + 2 * 24 * 60 * 60 * 1_000,
+        ).toISOString(),
+        status:
+          person.id === ids.protectees.jonah
+            ? ("revoked" as const)
+            : person.id === ids.protectees.henrik
+              ? ("retired" as const)
+              : ("active" as const),
+      },
+    ];
+  }),
+] as const;
+
 async function seed() {
   const database = getDatabase();
   const cryptoConfig = getCredentialCryptoConfig();
@@ -540,6 +631,56 @@ async function seed() {
       ])
       .onConflictDoNothing();
 
+    for (const [index, fixture] of credentialFixtures.entries()) {
+      const credentialId = demoCredentialId(index + 1);
+      const status = "status" in fixture ? fixture.status : "active";
+      const encrypted = encryptSecret(
+        fixture.secret,
+        cryptoConfig.dataKey,
+        cryptoConfig.keyVersion,
+      );
+      const fingerprint = fingerprintSecret(
+        fixture.secret,
+        cryptoConfig.dataKey,
+      );
+
+      await transaction
+        .insert(credentialAssets)
+        .values({
+          id: credentialId,
+          workspaceId: workspace.id,
+          protecteeId: fixture.protecteeId,
+          identityId: fixture.identityId,
+          accountIdentifier: fixture.accountIdentifier,
+          service: fixture.service,
+          serviceDomain: fixture.serviceDomain,
+          credentialKind: fixture.credentialKind,
+          status,
+          notes: "Synthetic managed credential. Never use for real access.",
+          createdByOperatorId: ids.operators.lena,
+        })
+        .onConflictDoNothing();
+      await transaction
+        .insert(credentialVersions)
+        .values({
+          id: demoCredentialVersionId(index + 1),
+          credentialId,
+          version: 1,
+          credentialCiphertext: encrypted.ciphertext,
+          credentialIv: encrypted.iv,
+          credentialAuthTag: encrypted.authTag,
+          credentialKeyVersion: encrypted.keyVersion,
+          credentialFingerprint: fingerprint,
+          credentialLength: fixture.secret.length,
+          status: status === "active" ? "active" : "revoked",
+          activatedAt: new Date(fixture.activatedAt),
+          retiredAt:
+            status === "active" ? null : new Date("2026-08-16T12:00:00.000Z"),
+          createdByOperatorId: ids.operators.lena,
+        })
+        .onConflictDoNothing();
+    }
+
     await transaction
       .insert(exposureSources)
       .values([
@@ -693,41 +834,59 @@ async function seed() {
         .onConflictDoNothing();
     }
 
-    await transaction
-      .insert(exposureMatches)
-      .values([
-        {
-          id: ids.matches.avery,
-          exposureId: ids.exposures.avery,
-          protecteeId: ids.protectees.avery,
-          identityId: ids.identities.avery,
-          method: "exact",
-          confidence: "confirmed",
-          confirmedByOperatorId: ids.operators.omar,
-          confirmedAt: observedAt.stealer,
-        },
-        {
-          id: ids.matches.maya,
-          exposureId: ids.exposures.maya,
-          protecteeId: ids.protectees.maya,
-          identityId: ids.identities.maya,
-          method: "exact",
-          confidence: "high",
-          confirmedByOperatorId: ids.operators.priya,
-          confirmedAt: observedAt.breach,
-        },
-        {
-          id: ids.matches.elias,
-          exposureId: ids.exposures.elias,
-          protecteeId: ids.protectees.elias,
-          identityId: ids.identities.elias,
-          method: "exact",
-          confidence: "medium",
-          confirmedByOperatorId: ids.operators.omar,
-          confirmedAt: observedAt.phishing,
-        },
-      ])
-      .onConflictDoNothing();
+    const exposureMatchFixtures = [
+      {
+        id: ids.matches.avery,
+        exposureId: ids.exposures.avery,
+        protecteeId: ids.protectees.avery,
+        identityId: ids.identities.avery,
+        credentialId: demoCredentialId(1),
+        method: "exact",
+        confidence: "confirmed",
+        confirmedByOperatorId: ids.operators.omar,
+        confirmedAt: observedAt.stealer,
+      },
+      {
+        id: ids.matches.maya,
+        exposureId: ids.exposures.maya,
+        protecteeId: ids.protectees.maya,
+        identityId: ids.identities.maya,
+        credentialId: demoCredentialId(3),
+        method: "exact",
+        confidence: "high",
+        confirmedByOperatorId: ids.operators.priya,
+        confirmedAt: observedAt.breach,
+      },
+      {
+        id: ids.matches.elias,
+        exposureId: ids.exposures.elias,
+        protecteeId: ids.protectees.elias,
+        identityId: ids.identities.elias,
+        credentialId: demoCredentialId(5),
+        method: "exact",
+        confidence: "medium",
+        confirmedByOperatorId: ids.operators.omar,
+        confirmedAt: observedAt.phishing,
+      },
+    ] as const;
+
+    for (const fixture of exposureMatchFixtures) {
+      await transaction
+        .insert(exposureMatches)
+        .values(fixture)
+        .onConflictDoUpdate({
+          target: exposureMatches.exposureId,
+          set: {
+            protecteeId: fixture.protecteeId,
+            identityId: fixture.identityId,
+            credentialId: fixture.credentialId,
+            method: fixture.method,
+            confidence: fixture.confidence,
+            confirmedByOperatorId: fixture.confirmedByOperatorId,
+            confirmedAt: fixture.confirmedAt,
+          },
+        });
+    }
 
     await transaction
       .insert(responseCases)

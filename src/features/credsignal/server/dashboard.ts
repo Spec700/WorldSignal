@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import type {
   CredSignalCaseDto,
+  CredSignalCredentialDto,
   CredSignalDashboardDto,
   CredSignalExposureDto,
   CredSignalPriority,
@@ -15,7 +16,9 @@ import {
   caseExposures,
   caseTasks,
   communications,
+  credentialAssets,
   credentialExposures,
+  credentialVersions,
   exposureMatches,
   exposureSources,
   operators,
@@ -50,11 +53,14 @@ function highestPriority(
 const emptyDashboard: CredSignalDashboardDto = {
   setupRequired: true,
   operators: [],
+  credentials: [],
   protectees: [],
   unmatchedExposures: [],
   recentActivity: [],
   metrics: {
     protectees: 0,
+    credentials: 0,
+    exposedCredentials: 0,
     openCases: 0,
     criticalProtectees: 0,
     overdueTasks: 0,
@@ -79,6 +85,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
     operatorRows,
     protecteeRows,
     identityRows,
+    credentialRows,
     sourceRows,
     exposureRows,
     caseRows,
@@ -106,6 +113,11 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
       .orderBy(desc(protecteeIdentities.isPrimary)),
     database
       .select()
+      .from(credentialAssets)
+      .where(eq(credentialAssets.workspaceId, workspace.id))
+      .orderBy(asc(credentialAssets.service)),
+    database
+      .select()
       .from(exposureSources)
       .where(eq(exposureSources.workspaceId, workspace.id)),
     database
@@ -128,6 +140,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
 
   const protecteeIds = protecteeRows.map((protectee) => protectee.id);
   const exposureIds = exposureRows.map((exposure) => exposure.id);
+  const credentialIds = credentialRows.map((credential) => credential.id);
   const caseIds = caseRows.map((responseCase) => responseCase.id);
   const [
     locationRows,
@@ -135,6 +148,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
     caseExposureRows,
     taskRows,
     communicationRows,
+    versionRows,
   ] = await Promise.all([
     protecteeIds.length > 0
       ? database
@@ -169,6 +183,13 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
           .where(inArray(communications.caseId, caseIds))
           .orderBy(desc(communications.createdAt))
       : [],
+    credentialIds.length > 0
+      ? database
+          .select()
+          .from(credentialVersions)
+          .where(inArray(credentialVersions.credentialId, credentialIds))
+          .orderBy(desc(credentialVersions.version))
+      : [],
   ]);
 
   const operatorNameById = new Map(
@@ -178,12 +199,18 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
   const protecteeIdByExposureId = new Map(
     matchRows.map((match) => [match.exposureId, match.protecteeId]),
   );
+  const matchByExposureId = new Map(
+    matchRows.map((match) => [match.exposureId, match]),
+  );
 
   const exposureDtos = exposureRows.map<CredSignalExposureDto>((exposure) => {
     const source = sourceById.get(exposure.sourceId);
+    const match = matchByExposureId.get(exposure.id);
 
     return {
       id: exposure.id,
+      credentialId: match?.credentialId ?? undefined,
+      matchedProtecteeId: match?.protecteeId,
       exposedIdentity: exposure.exposedIdentityDisplay,
       identityType: exposure.exposedIdentityType,
       credentialKind: exposure.credentialKind,
@@ -250,6 +277,73 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
       })),
   }));
 
+  const credentialDtos = credentialRows.map<CredSignalCredentialDto>(
+    (credential) => {
+      const protectee = protecteeRows.find(
+        (entry) => entry.id === credential.protecteeId,
+      );
+      const versions = versionRows
+        .filter((version) => version.credentialId === credential.id)
+        .map((version) => ({
+          id: version.id,
+          version: version.version,
+          status: version.status,
+          hasCredentialValue: Boolean(version.credentialCiphertext),
+          activatedAt: version.activatedAt.toISOString(),
+          retiredAt: version.retiredAt?.toISOString(),
+        }));
+      const exposures = exposureDtos.filter(
+        (exposure) => exposure.credentialId === credential.id,
+      );
+      const linkedExposureIds = new Set(
+        exposures.map((exposure) => exposure.id),
+      );
+      const openCaseCount = caseDtos.filter(
+        (responseCase) =>
+          !terminalCaseStatuses.has(responseCase.status) &&
+          responseCase.exposureIds.some((exposureId) =>
+            linkedExposureIds.has(exposureId),
+          ),
+      ).length;
+      const activeExposures = exposures.filter(
+        (exposure) =>
+          exposure.status !== "remediated" && exposure.status !== "dismissed",
+      );
+      const exposurePosture: CredSignalCredentialDto["exposurePosture"] =
+        activeExposures.some((exposure) => exposure.status === "in_case")
+          ? "in_response"
+          : activeExposures.some(
+                (exposure) => exposure.verification === "confirmed",
+              )
+            ? "confirmed_exposure"
+            : activeExposures.length > 0
+              ? "potential_exposure"
+              : exposures.length > 0
+                ? "remediated"
+                : "no_known_exposure";
+
+      return {
+        id: credential.id,
+        protecteeId: credential.protecteeId,
+        protecteeName: protectee?.displayName ?? "Unknown person",
+        identityId: credential.identityId ?? undefined,
+        accountIdentifier: credential.accountIdentifier,
+        service: credential.service,
+        serviceDomain: credential.serviceDomain ?? undefined,
+        credentialKind:
+          credential.credentialKind as CredSignalCredentialDto["credentialKind"],
+        status: credential.status,
+        exposurePosture,
+        exposures,
+        versions,
+        currentVersion: versions.find((version) => version.status === "active"),
+        openCaseCount,
+        notes: credential.notes ?? undefined,
+        updatedAt: credential.updatedAt.toISOString(),
+      };
+    },
+  );
+
   const protecteeDtos = protecteeRows.map<CredSignalProtecteeDto>(
     (protectee) => {
       const protecteeExposureIds = matchRows
@@ -264,6 +358,9 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
         (responseCase) =>
           caseRows.find((row) => row.id === responseCase.id)?.protecteeId ===
           protectee.id,
+      );
+      const credentials = credentialDtos.filter(
+        (credential) => credential.protecteeId === protectee.id,
       );
       const openCases = cases.filter(
         (responseCase) => !terminalCaseStatuses.has(responseCase.status),
@@ -318,6 +415,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
         locationHistory,
         createdAt: protectee.createdAt.toISOString(),
         updatedAt: protectee.updatedAt.toISOString(),
+        credentials,
         exposures,
         cases,
         activePriority,
@@ -355,6 +453,7 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
       displayName: operator.displayName,
       email: operator.email,
     })),
+    credentials: credentialDtos,
     protectees: protecteeDtos,
     unmatchedExposures,
     recentActivity: activityRows.map((activity) => ({
@@ -370,6 +469,14 @@ export async function getCredSignalDashboard(): Promise<CredSignalDashboardDto> 
     })),
     metrics: {
       protectees: protecteeDtos.length,
+      credentials: credentialDtos.filter(
+        (credential) => credential.status !== "retired",
+      ).length,
+      exposedCredentials: credentialDtos.filter(
+        (credential) =>
+          credential.exposurePosture === "confirmed_exposure" ||
+          credential.exposurePosture === "in_response",
+      ).length,
       openCases: openCases.length,
       criticalProtectees: protecteeDtos.filter(
         (protectee) => protectee.activePriority === "critical",

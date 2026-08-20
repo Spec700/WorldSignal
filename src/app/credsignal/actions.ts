@@ -5,21 +5,28 @@ import { z } from "zod";
 
 import {
   communicationStatuses,
+  changeCredentialStatusInputSchema,
   createCaseCommunicationInputSchema,
   createCaseTaskInputSchema,
+  createCredentialInputSchema,
   createExposureInputSchema,
   matchExposureInputSchema,
+  rotateCredentialInputSchema,
   updateCaseCoordinationInputSchema,
   updateCaseTaskInputSchema,
 } from "@/features/credsignal/domain";
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import {
+  changeCredentialStatus,
   createCaseCommunication,
   createCaseTask,
+  createCredential,
   createExposure,
   CredSignalWorkflowError,
   manuallyMatchExposure,
+  revealManagedCredential,
   revealCredential,
+  rotateCredential,
   transitionCase,
   transitionCaseCommunication,
   transitionTask,
@@ -52,6 +59,91 @@ function actionError(error: unknown): CredSignalActionState {
     message:
       "CredSignal could not save the change. Check the database connection and try again.",
   };
+}
+
+function revalidateCredSignal() {
+  revalidatePath("/credsignal");
+  revalidatePath("/credsignal/globe");
+}
+
+export async function createManagedCredentialAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = createCredentialInputSchema.parse({
+      protecteeId: textValue(formData, "protecteeId"),
+      identityId: textValue(formData, "identityId"),
+      accountIdentifier: textValue(formData, "accountIdentifier"),
+      service: textValue(formData, "service"),
+      serviceDomain: textValue(formData, "serviceDomain"),
+      credentialKind: textValue(formData, "credentialKind"),
+      credentialValue: textValue(formData, "credentialValue"),
+      notes: textValue(formData, "notes"),
+    });
+    const result = await createCredential(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidateCredSignal();
+    return {
+      status: "success",
+      message: "Managed credential added to the inventory.",
+      createdId: result.credentialId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function rotateManagedCredentialAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = rotateCredentialInputSchema.parse({
+      credentialId: textValue(formData, "credentialId"),
+      credentialValue: textValue(formData, "credentialValue"),
+      notes: textValue(formData, "notes"),
+    });
+    const result = await rotateCredential(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidateCredSignal();
+    return {
+      status: "success",
+      message: "Credential rotated and the previous version retired.",
+      createdId: result.credentialId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function changeManagedCredentialStatusAction(
+  _previousState: CredSignalActionState,
+  formData: FormData,
+): Promise<CredSignalActionState> {
+  try {
+    const input = changeCredentialStatusInputSchema.parse({
+      credentialId: textValue(formData, "credentialId"),
+      status: textValue(formData, "status"),
+      reason: textValue(formData, "reason"),
+    });
+    const result = await changeCredentialStatus(
+      input,
+      textValue(formData, "actorOperatorId") || undefined,
+    );
+    revalidateCredSignal();
+    return {
+      status: "success",
+      message: `Credential marked ${input.status}.`,
+      createdId: result.credentialId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
 }
 
 export async function createExposureAction(
@@ -101,6 +193,7 @@ export async function matchExposureAction(
       exposureId: textValue(formData, "exposureId"),
       protecteeId: textValue(formData, "protecteeId"),
       identityId: textValue(formData, "identityId"),
+      credentialId: textValue(formData, "credentialId"),
       reason: textValue(formData, "reason"),
     });
     const result = await manuallyMatchExposure(
@@ -304,6 +397,23 @@ export async function revealCredentialAction(
     return {
       status: "success",
       message: "Credential revealed. This action was recorded.",
+      value,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function revealManagedCredentialAction(
+  credentialId: string,
+  actorOperatorId?: string,
+): Promise<CredSignalActionState & { value?: string }> {
+  try {
+    const value = await revealManagedCredential(credentialId, actorOperatorId);
+    revalidateCredSignal();
+    return {
+      status: "success",
+      message: "Managed credential revealed. This action was recorded.",
       value,
     };
   } catch (error) {
