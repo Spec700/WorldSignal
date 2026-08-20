@@ -16,7 +16,7 @@ import type {
   CredSignalCredentialDto,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
+import { LocalTimestamp } from "@/components/local-timestamp";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -220,7 +220,9 @@ export function CredSignalCredentialDossier({
             </div>
             <div>
               <dt>Updated</dt>
-              <dd>{formatLocalTimestamp(credential.updatedAt)}</dd>
+              <dd>
+                <LocalTimestamp timestamp={credential.updatedAt} />
+              </dd>
             </div>
             <div>
               <dt>Open cases</dt>
@@ -284,7 +286,9 @@ export function CredSignalCredentialDossier({
                   <dl className={styles.factList}>
                     <div>
                       <dt>Observed</dt>
-                      <dd>{formatLocalTimestamp(exposure.observedAt)}</dd>
+                      <dd>
+                        <LocalTimestamp timestamp={exposure.observedAt} />
+                      </dd>
                     </div>
                     <div>
                       <dt>Identity</dt>
@@ -312,7 +316,9 @@ export function CredSignalCredentialDossier({
               <li key={version.id}>
                 <span>v{version.version}</span>
                 <strong>{titleCase(version.status)}</strong>
-                <small>{formatLocalTimestamp(version.activatedAt)}</small>
+                <small>
+                  <LocalTimestamp timestamp={version.activatedAt} />
+                </small>
               </li>
             ))}
           </ol>

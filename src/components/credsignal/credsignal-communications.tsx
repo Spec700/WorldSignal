@@ -15,7 +15,7 @@ import type {
   CredSignalCaseDto,
   CredSignalCommunicationDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
+import { LocalTimestamp } from "@/components/local-timestamp";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -168,19 +168,25 @@ export function CredSignalCommunications({
               <dl className={styles.communicationTimes}>
                 <div>
                   <dt>Logged</dt>
-                  <dd>{formatLocalTimestamp(communication.createdAt)}</dd>
+                  <dd>
+                    <LocalTimestamp timestamp={communication.createdAt} />
+                  </dd>
                 </div>
                 {communication.sentAt ? (
                   <div>
                     <dt>Sent</dt>
-                    <dd>{formatLocalTimestamp(communication.sentAt)}</dd>
+                    <dd>
+                      <LocalTimestamp timestamp={communication.sentAt} />
+                    </dd>
                   </div>
                 ) : null}
                 {communication.acknowledgedAt ? (
                   <div>
                     <dt>Acknowledged</dt>
                     <dd>
-                      {formatLocalTimestamp(communication.acknowledgedAt)}
+                      <LocalTimestamp
+                        timestamp={communication.acknowledgedAt}
+                      />
                     </dd>
                   </div>
                 ) : null}

@@ -14,12 +14,12 @@ import {
 } from "@/components/credsignal/credsignal-dossier";
 import { CredSignalIntake } from "@/components/credsignal/credsignal-intake";
 import { CredSignalTriage } from "@/components/credsignal/credsignal-triage";
+import { LocalTimestamp } from "@/components/local-timestamp";
 import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import type {
   CredSignalCredentialDto,
   CredSignalDashboardDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -480,7 +480,7 @@ export function CredSignalInventoryWorkspace({
                               "—"}
                           </strong>
                           <small>
-                            {formatLocalTimestamp(credential.updatedAt)}
+                            <LocalTimestamp timestamp={credential.updatedAt} />
                           </small>
                         </td>
                         <td className={styles.numericCell}>
@@ -550,9 +550,11 @@ export function CredSignalInventoryWorkspace({
                         <td>{titleCase(responseCase.status)}</td>
                         <td>{responseCase.assigneeName ?? "Unassigned"}</td>
                         <td>
-                          {responseCase.dueAt
-                            ? formatLocalTimestamp(responseCase.dueAt)
-                            : "No due date"}
+                          {responseCase.dueAt ? (
+                            <LocalTimestamp timestamp={responseCase.dueAt} />
+                          ) : (
+                            "No due date"
+                          )}
                         </td>
                         <td className={styles.numericCell}>
                           {
@@ -625,7 +627,9 @@ export function CredSignalInventoryWorkspace({
                             {titleCase(exposure.severity)}
                           </span>
                         </td>
-                        <td>{formatLocalTimestamp(exposure.observedAt)}</td>
+                        <td>
+                          <LocalTimestamp timestamp={exposure.observedAt} />
+                        </td>
                         <td>{titleCase(exposure.status)}</td>
                         <td>
                           <button

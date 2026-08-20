@@ -12,13 +12,13 @@ import {
   credentialPostureForProtectee,
   credentialPriorityForProtectee,
 } from "@/components/credsignal/credsignal-globe-model";
+import { LocalTimestamp } from "@/components/local-timestamp";
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import type {
   CredSignalCaseDto,
   CredSignalOperatorDto,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -373,7 +373,9 @@ export function CredSignalDossier({
                         </div>
                         <div>
                           <dt>Observed</dt>
-                          <dd>{formatLocalTimestamp(exposure.observedAt)}</dd>
+                          <dd>
+                            <LocalTimestamp timestamp={exposure.observedAt} />
+                          </dd>
                         </div>
                       </dl>
                       {exposure.hasCredentialValue ? (
@@ -439,9 +441,11 @@ export function CredSignalDossier({
                       <div>
                         <dt>Due</dt>
                         <dd>
-                          {responseCase.dueAt
-                            ? formatLocalTimestamp(responseCase.dueAt)
-                            : "No due date"}
+                          {responseCase.dueAt ? (
+                            <LocalTimestamp timestamp={responseCase.dueAt} />
+                          ) : (
+                            "No due date"
+                          )}
                         </dd>
                       </div>
                     </dl>

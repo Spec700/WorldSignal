@@ -4,6 +4,7 @@ import { useActionState, useCallback, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { matchExposureAction } from "@/app/credsignal/actions";
+import { LocalTimestamp } from "@/components/local-timestamp";
 import {
   initialCredSignalActionState,
   type CredSignalActionState,
@@ -12,7 +13,6 @@ import type {
   CredSignalExposureDto,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -183,7 +183,9 @@ export function CredSignalTriage({
             </div>
             <div>
               <dt>Observed</dt>
-              <dd>{formatLocalTimestamp(exposure.observedAt)}</dd>
+              <dd>
+                <LocalTimestamp timestamp={exposure.observedAt} />
+              </dd>
             </div>
             <div>
               <dt>Confidence</dt>

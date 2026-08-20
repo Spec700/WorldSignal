@@ -18,7 +18,7 @@ import type {
   CredSignalOperatorDto,
   CredSignalTaskDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
+import { LocalTimestamp } from "@/components/local-timestamp";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -369,9 +369,13 @@ export function CredSignalCaseOperations({
                 {task.status.replaceAll("_", " ")}
               </small>
               <small>
-                {task.dueAt
-                  ? `Due ${formatLocalTimestamp(task.dueAt)}`
-                  : "No task due date"}
+                {task.dueAt ? (
+                  <>
+                    Due <LocalTimestamp timestamp={task.dueAt} />
+                  </>
+                ) : (
+                  "No task due date"
+                )}
               </small>
             </p>
             {terminalCase ? null : (
