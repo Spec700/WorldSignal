@@ -4,6 +4,7 @@ import { useActionState, useCallback, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { matchExposureAction } from "@/app/credsignal/actions";
+import { LocalTimestamp } from "@/components/local-timestamp";
 import {
   initialCredSignalActionState,
   type CredSignalActionState,
@@ -12,7 +13,6 @@ import type {
   CredSignalExposureDto,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
-import { formatLocalTimestamp } from "@/lib/time/format";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
@@ -30,6 +30,13 @@ function titleCase(value: string) {
     .split("_")
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
     .join(" ");
+}
+
+function credentialKindMatches(managedKind: string, exposureKind: string) {
+  return (
+    managedKind === exposureKind ||
+    (managedKind === "password" && exposureKind === "password_hash")
+  );
 }
 
 function MatchButton() {
@@ -77,9 +84,22 @@ export function CredSignalTriage({
   );
   const [protecteeId, setProtecteeId] = useState("");
   const [identityId, setIdentityId] = useState("");
+  const [credentialId, setCredentialId] = useState("");
   const selectedProtectee = useMemo(
     () => protectees.find((protectee) => protectee.id === protecteeId),
     [protecteeId, protectees],
+  );
+  const eligibleCredentials = useMemo(
+    () =>
+      selectedProtectee?.credentials.filter(
+        (credential) =>
+          credentialKindMatches(
+            credential.credentialKind,
+            exposure.credentialKind,
+          ) &&
+          (!credential.identityId || credential.identityId === identityId),
+      ) ?? [],
+    [exposure.credentialKind, identityId, selectedProtectee],
   );
 
   function chooseProtectee(nextProtecteeId: string) {
@@ -91,6 +111,30 @@ export function CredSignalTriage({
       protectee?.identities.find((candidate) => candidate.isPrimary) ??
       protectee?.identities[0];
     setIdentityId(identity?.id ?? "");
+    const credentials =
+      protectee?.credentials.filter(
+        (credential) =>
+          credentialKindMatches(
+            credential.credentialKind,
+            exposure.credentialKind,
+          ) &&
+          (!credential.identityId || credential.identityId === identity?.id),
+      ) ?? [];
+    setCredentialId(credentials.length === 1 ? credentials[0].id : "");
+  }
+
+  function chooseIdentity(nextIdentityId: string) {
+    setIdentityId(nextIdentityId);
+    const credentials =
+      selectedProtectee?.credentials.filter(
+        (credential) =>
+          credentialKindMatches(
+            credential.credentialKind,
+            exposure.credentialKind,
+          ) &&
+          (!credential.identityId || credential.identityId === nextIdentityId),
+      ) ?? [];
+    setCredentialId(credentials.length === 1 ? credentials[0].id : "");
   }
 
   return (
@@ -139,7 +183,9 @@ export function CredSignalTriage({
             </div>
             <div>
               <dt>Observed</dt>
-              <dd>{formatLocalTimestamp(exposure.observedAt)}</dd>
+              <dd>
+                <LocalTimestamp timestamp={exposure.observedAt} />
+              </dd>
             </div>
             <div>
               <dt>Confidence</dt>
@@ -185,7 +231,7 @@ export function CredSignalTriage({
               <select
                 disabled={!selectedProtectee}
                 name="identityId"
-                onChange={(event) => setIdentityId(event.target.value)}
+                onChange={(event) => chooseIdentity(event.target.value)}
                 required
                 value={identityId}
               >
@@ -205,6 +251,35 @@ export function CredSignalTriage({
               </select>
               <FieldError field="identityId" state={state} />
             </label>
+            <label className={styles.fullField}>
+              <span>Managed credential affected</span>
+              <select
+                disabled={!selectedProtectee || !identityId}
+                name="credentialId"
+                onChange={(event) => setCredentialId(event.target.value)}
+                value={credentialId}
+              >
+                <option value="">
+                  {selectedProtectee
+                    ? "No specific credential confirmed"
+                    : "Select a protectee first"}
+                </option>
+                {eligibleCredentials.map((credential) => (
+                  <option key={credential.id} value={credential.id}>
+                    {credential.service} ·{" "}
+                    {titleCase(credential.credentialKind)}
+                    {credential.status !== "active"
+                      ? ` · ${titleCase(credential.status)}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+              <FieldError field="credentialId" state={state} />
+            </label>
+            <p className={styles.formHint}>
+              Link the evidence only when the specific inventory credential is
+              known. The person match remains valid without this field.
+            </p>
             <label className={styles.fullField}>
               <span>Analyst rationale</span>
               <textarea

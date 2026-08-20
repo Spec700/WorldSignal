@@ -1,23 +1,29 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import {
   buildExposureDedupeKey,
+  changeCredentialStatusInputSchema,
   classifyCredentialSeverity,
   communicationStatuses,
   createCaseCommunicationInputSchema,
   createCaseTaskInputSchema,
+  createCredentialInputSchema,
   createExposureInputSchema,
   matchExposureInputSchema,
   normalizeIdentity,
+  rotateCredentialInputSchema,
   taskStatuses,
   updateCaseCoordinationInputSchema,
   updateCaseTaskInputSchema,
+  type ChangeCredentialStatusInput,
   type CreateCaseCommunicationInput,
   type CreateCaseTaskInput,
+  type CreateCredentialInput,
   type CreateExposureInput,
   type ExposurePriority,
   type MatchExposureInput,
+  type RotateCredentialInput,
   type UpdateCaseCoordinationInput,
   type UpdateCaseTaskInput,
 } from "@/features/credsignal/domain";
@@ -33,7 +39,9 @@ import {
   caseExposures,
   caseTasks,
   communications,
+  credentialAssets,
   credentialExposures,
+  credentialVersions,
   exposureMatches,
   exposureSources,
   operators,
@@ -200,6 +208,345 @@ async function openResponseCase(
   return responseCase;
 }
 
+function credentialKindMatchesExposure(
+  managedKind: string,
+  exposureKind: string,
+) {
+  return (
+    managedKind === exposureKind ||
+    (managedKind === "password" && exposureKind === "password_hash")
+  );
+}
+
+async function findCredentialForExposure(
+  workspaceId: string,
+  protecteeId: string,
+  identityId: string,
+  input: CreateExposureInput,
+) {
+  const database = getDatabase();
+  const candidates = await database
+    .select()
+    .from(credentialAssets)
+    .where(
+      and(
+        eq(credentialAssets.workspaceId, workspaceId),
+        eq(credentialAssets.protecteeId, protecteeId),
+        inArray(credentialAssets.status, ["active", "rotating"]),
+      ),
+    );
+  const serviceDomain = input.serviceDomain.trim().toLocaleLowerCase("en-US");
+  const service = input.service.trim().toLocaleLowerCase("en-US");
+
+  const matches = candidates.filter((candidate) => {
+    if (
+      candidate.identityId !== identityId ||
+      !credentialKindMatchesExposure(
+        candidate.credentialKind,
+        input.credentialKind,
+      )
+    ) {
+      return false;
+    }
+    if (serviceDomain) {
+      return (
+        candidate.serviceDomain?.toLocaleLowerCase("en-US") === serviceDomain
+      );
+    }
+    if (service) {
+      return candidate.service.toLocaleLowerCase("en-US") === service;
+    }
+    return true;
+  });
+
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+export async function createCredential(
+  rawInput: CreateCredentialInput,
+  actorOperatorId?: string,
+) {
+  const input = createCredentialInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const [protectee] = await database
+    .select({ id: protectees.id, displayName: protectees.displayName })
+    .from(protectees)
+    .where(
+      and(
+        eq(protectees.id, input.protecteeId),
+        eq(protectees.workspaceId, workspace.id),
+        eq(protectees.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (!protectee) {
+    throw new CredSignalNotFoundError(
+      "The selected person is not active in this workspace.",
+    );
+  }
+  if (input.identityId) {
+    const [identity] = await database
+      .select({ id: protecteeIdentities.id })
+      .from(protecteeIdentities)
+      .where(
+        and(
+          eq(protecteeIdentities.id, input.identityId),
+          eq(protecteeIdentities.workspaceId, workspace.id),
+          eq(protecteeIdentities.protecteeId, protectee.id),
+          eq(protecteeIdentities.isActive, true),
+        ),
+      )
+      .limit(1);
+    if (!identity) {
+      throw new CredSignalNotFoundError(
+        "The selected account identity is not active for this person.",
+      );
+    }
+  }
+
+  const cryptoConfig = getCredentialCryptoConfig();
+  const encrypted = encryptSecret(
+    input.credentialValue,
+    cryptoConfig.dataKey,
+    cryptoConfig.keyVersion,
+  );
+  const fingerprint = fingerprintSecret(
+    input.credentialValue,
+    cryptoConfig.dataKey,
+  );
+  const now = new Date();
+
+  return database.transaction(async (transaction) => {
+    const [credential] = await transaction
+      .insert(credentialAssets)
+      .values({
+        workspaceId: workspace.id,
+        protecteeId: protectee.id,
+        identityId: input.identityId || null,
+        accountIdentifier: input.accountIdentifier,
+        service: input.service,
+        serviceDomain: input.serviceDomain || null,
+        credentialKind: input.credentialKind,
+        status: "active",
+        notes: input.notes || null,
+        createdByOperatorId: actor?.id,
+      })
+      .onConflictDoNothing({
+        target: [
+          credentialAssets.workspaceId,
+          credentialAssets.protecteeId,
+          credentialAssets.accountIdentifier,
+          credentialAssets.service,
+          credentialAssets.credentialKind,
+        ],
+      })
+      .returning();
+
+    if (!credential) {
+      throw new CredSignalConflictError(
+        "This person already has that credential recorded for the service.",
+      );
+    }
+
+    const [version] = await transaction
+      .insert(credentialVersions)
+      .values({
+        credentialId: credential.id,
+        version: 1,
+        credentialCiphertext: encrypted.ciphertext,
+        credentialIv: encrypted.iv,
+        credentialAuthTag: encrypted.authTag,
+        credentialKeyVersion: encrypted.keyVersion,
+        credentialFingerprint: fingerprint,
+        credentialLength: input.credentialValue.length,
+        status: "active",
+        activatedAt: now,
+        createdByOperatorId: actor?.id,
+      })
+      .returning({ id: credentialVersions.id });
+
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "managed_credential.created",
+      entityType: "credential_asset",
+      entityId: credential.id,
+      summary: `${input.credentialKind.replaceAll("_", " ")} credential added for ${protectee.displayName}.`,
+      metadata: {
+        service: input.service,
+        versionId: version.id,
+      },
+    });
+
+    return { credentialId: credential.id, versionId: version.id };
+  });
+}
+
+export async function rotateCredential(
+  rawInput: RotateCredentialInput,
+  actorOperatorId?: string,
+) {
+  const input = rotateCredentialInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const cryptoConfig = getCredentialCryptoConfig();
+  const encrypted = encryptSecret(
+    input.credentialValue,
+    cryptoConfig.dataKey,
+    cryptoConfig.keyVersion,
+  );
+  const fingerprint = fingerprintSecret(
+    input.credentialValue,
+    cryptoConfig.dataKey,
+  );
+  const now = new Date();
+
+  return database.transaction(async (transaction) => {
+    const [credential] = await transaction
+      .select()
+      .from(credentialAssets)
+      .where(
+        and(
+          eq(credentialAssets.id, input.credentialId),
+          eq(credentialAssets.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1);
+    if (!credential) {
+      throw new CredSignalNotFoundError(
+        "The managed credential no longer exists.",
+      );
+    }
+    if (credential.status === "retired") {
+      throw new CredSignalConflictError(
+        "Retired credentials cannot be rotated.",
+      );
+    }
+
+    const versions = await transaction
+      .select()
+      .from(credentialVersions)
+      .where(eq(credentialVersions.credentialId, credential.id))
+      .orderBy(desc(credentialVersions.version));
+    const activeVersion = versions.find(
+      (version) => version.status === "active",
+    );
+    if (activeVersion?.credentialFingerprint === fingerprint) {
+      throw new CredSignalConflictError(
+        "The replacement value must differ from the active credential.",
+      );
+    }
+
+    await transaction
+      .update(credentialAssets)
+      .set({ status: "rotating", updatedAt: now })
+      .where(eq(credentialAssets.id, credential.id));
+    if (activeVersion) {
+      await transaction
+        .update(credentialVersions)
+        .set({ status: "superseded", retiredAt: now, updatedAt: now })
+        .where(eq(credentialVersions.id, activeVersion.id));
+    }
+    const nextVersion = (versions[0]?.version ?? 0) + 1;
+    const [version] = await transaction
+      .insert(credentialVersions)
+      .values({
+        credentialId: credential.id,
+        version: nextVersion,
+        credentialCiphertext: encrypted.ciphertext,
+        credentialIv: encrypted.iv,
+        credentialAuthTag: encrypted.authTag,
+        credentialKeyVersion: encrypted.keyVersion,
+        credentialFingerprint: fingerprint,
+        credentialLength: input.credentialValue.length,
+        status: "active",
+        activatedAt: now,
+        createdByOperatorId: actor?.id,
+      })
+      .returning({ id: credentialVersions.id });
+    await transaction
+      .update(credentialAssets)
+      .set({ status: "active", updatedAt: now })
+      .where(eq(credentialAssets.id, credential.id));
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: "managed_credential.rotated",
+      entityType: "credential_asset",
+      entityId: credential.id,
+      summary: `${credential.service} credential rotated to version ${nextVersion}.`,
+      metadata: { notes: input.notes || undefined, versionId: version.id },
+    });
+
+    return { credentialId: credential.id, versionId: version.id };
+  });
+}
+
+export async function changeCredentialStatus(
+  rawInput: ChangeCredentialStatusInput,
+  actorOperatorId?: string,
+) {
+  const input = changeCredentialStatusInputSchema.parse(rawInput);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const now = new Date();
+
+  return database.transaction(async (transaction) => {
+    const [credential] = await transaction
+      .select()
+      .from(credentialAssets)
+      .where(
+        and(
+          eq(credentialAssets.id, input.credentialId),
+          eq(credentialAssets.workspaceId, workspace.id),
+        ),
+      )
+      .limit(1);
+    if (!credential) {
+      throw new CredSignalNotFoundError(
+        "The managed credential no longer exists.",
+      );
+    }
+    if (credential.status === input.status) {
+      throw new CredSignalConflictError(
+        `This credential is already ${input.status}.`,
+      );
+    }
+    if (credential.status === "retired") {
+      throw new CredSignalConflictError(
+        "Retired credentials cannot change operational status.",
+      );
+    }
+
+    await transaction
+      .update(credentialVersions)
+      .set({ status: "revoked", retiredAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(credentialVersions.credentialId, credential.id),
+          eq(credentialVersions.status, "active"),
+        ),
+      );
+    await transaction
+      .update(credentialAssets)
+      .set({ status: input.status, updatedAt: now })
+      .where(eq(credentialAssets.id, credential.id));
+    await transaction.insert(activityLog).values({
+      workspaceId: workspace.id,
+      actorOperatorId: actor?.id,
+      action: `managed_credential.${input.status}`,
+      entityType: "credential_asset",
+      entityId: credential.id,
+      summary: `${credential.service} credential marked ${input.status}.`,
+      metadata: { reason: input.reason },
+    });
+
+    return { credentialId: credential.id };
+  });
+}
+
 export async function createExposure(
   rawInput: CreateExposureInput,
   actorOperatorId?: string,
@@ -237,6 +584,14 @@ export async function createExposure(
       "The exposed identity does not belong to the selected protectee.",
     );
   }
+  const matchedCredential = matchedIdentity
+    ? await findCredentialForExposure(
+        workspace.id,
+        matchedIdentity.protecteeId,
+        matchedIdentity.id,
+        input,
+      )
+    : undefined;
 
   const cryptoConfig = getCredentialCryptoConfig();
   const encrypted = input.credentialValue
@@ -345,6 +700,7 @@ export async function createExposure(
       exposureId: exposure.id,
       protecteeId: matchedIdentity.protecteeId,
       identityId: matchedIdentity.id,
+      credentialId: matchedCredential?.id,
       method: "exact",
       confidence: "confirmed",
       confirmedByOperatorId: actor?.id,
@@ -452,12 +808,47 @@ export async function manuallyMatchExposure(
       );
     }
 
+    let matchedCredentialId: string | undefined;
+    if (input.credentialId) {
+      const [managedCredential] = await transaction
+        .select({
+          id: credentialAssets.id,
+          credentialKind: credentialAssets.credentialKind,
+        })
+        .from(credentialAssets)
+        .where(
+          and(
+            eq(credentialAssets.id, input.credentialId),
+            eq(credentialAssets.workspaceId, workspace.id),
+            eq(credentialAssets.protecteeId, approvedIdentity.protecteeId),
+          ),
+        )
+        .limit(1);
+      if (!managedCredential) {
+        throw new CredSignalNotFoundError(
+          "The selected credential does not belong to this person.",
+        );
+      }
+      if (
+        !credentialKindMatchesExposure(
+          managedCredential.credentialKind,
+          exposure.credentialKind,
+        )
+      ) {
+        throw new CredSignalConflictError(
+          "The selected credential type does not match the exposure evidence.",
+        );
+      }
+      matchedCredentialId = managedCredential.id;
+    }
+
     const [match] = await transaction
       .insert(exposureMatches)
       .values({
         exposureId: exposure.id,
         protecteeId: approvedIdentity.protecteeId,
         identityId: approvedIdentity.id,
+        credentialId: matchedCredentialId,
         method: "manual",
         confidence: "confirmed",
         confirmedByOperatorId: actor?.id,
@@ -491,6 +882,7 @@ export async function manuallyMatchExposure(
         identityId: approvedIdentity.id,
         identityValue: approvedIdentity.displayValue,
         protecteeId: approvedIdentity.protecteeId,
+        credentialId: matchedCredentialId,
         reason: input.reason,
       },
     });
@@ -1182,6 +1574,77 @@ export async function revealCredential(
     entityType: "credential_exposure",
     entityId: exposure.id,
     summary: "Stored credential value was revealed.",
+  });
+
+  return value;
+}
+
+export async function revealManagedCredential(
+  credentialId: string,
+  actorOperatorId?: string,
+) {
+  const parsedCredentialId = z.string().uuid().parse(credentialId);
+  const { database, workspace } = await getLocalWorkspace();
+  const actor = await resolveActor(workspace.id, actorOperatorId);
+  const [credential] = await database
+    .select({
+      id: credentialAssets.id,
+      service: credentialAssets.service,
+      status: credentialAssets.status,
+    })
+    .from(credentialAssets)
+    .where(
+      and(
+        eq(credentialAssets.id, parsedCredentialId),
+        eq(credentialAssets.workspaceId, workspace.id),
+      ),
+    )
+    .limit(1);
+  if (!credential) {
+    throw new CredSignalNotFoundError(
+      "The managed credential no longer exists.",
+    );
+  }
+  if (credential.status === "retired") {
+    throw new CredSignalConflictError(
+      "Retired credential values are not available from the active inventory.",
+    );
+  }
+
+  const [version] = await database
+    .select()
+    .from(credentialVersions)
+    .where(
+      and(
+        eq(credentialVersions.credentialId, credential.id),
+        eq(credentialVersions.status, "active"),
+      ),
+    )
+    .limit(1);
+  if (!version) {
+    throw new CredSignalNotFoundError(
+      "This credential does not have an active value. Rotate it to create a new version.",
+    );
+  }
+
+  const cryptoConfig = getCredentialCryptoConfig();
+  const value = decryptSecret(
+    {
+      ciphertext: version.credentialCiphertext,
+      iv: version.credentialIv,
+      authTag: version.credentialAuthTag,
+      keyVersion: version.credentialKeyVersion,
+    },
+    cryptoConfig.dataKey,
+  );
+  await database.insert(activityLog).values({
+    workspaceId: workspace.id,
+    actorOperatorId: actor?.id,
+    action: "managed_credential.revealed",
+    entityType: "credential_asset",
+    entityId: credential.id,
+    summary: `${credential.service} managed credential was revealed.`,
+    metadata: { versionId: version.id, version: version.version },
   });
 
   return value;

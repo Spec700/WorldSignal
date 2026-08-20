@@ -29,9 +29,9 @@ export function CredSignalGlobe({
 
   return (
     <MarkerGlobe
-      ariaLabel="Interactive 3D Earth showing protectee locations and active credential risk."
-      emptyLabel="No protectee locations to map"
-      loadingLabel="Preparing protectee map…"
+      ariaLabel="Interactive 3D Earth showing people and their managed credential posture."
+      emptyLabel="No people locations to map"
+      loadingLabel="Preparing credential posture map…"
       onClearSelection={onClearSelection}
       onSelect={onSelect}
       pointTooltip={credSignalPointTooltip}

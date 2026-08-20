@@ -557,6 +557,20 @@
   font-size: 0.64rem;
 }
 
+.stageHeaderActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.stageHeaderActions .secondaryAction {
+  display: grid;
+  min-height: 28px;
+  place-content: center;
+  text-decoration: none;
+}
+
 .stageCount {
   flex: 0 0 auto;
   padding: 4px 7px;
@@ -843,6 +857,84 @@
 
 .identityList small {
   color: var(--color-accent-strong);
+}
+
+.personCredentialList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-line);
+  list-style: none;
+}
+
+.personCredentialList li {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 3px 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.personCredentialList li > div {
+  min-width: 0;
+}
+
+.personCredentialList strong,
+.personCredentialList li > div small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personCredentialList strong {
+  font-size: 0.66rem;
+}
+
+.personCredentialList li > div small {
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.55rem;
+}
+
+.personCredentialList li > span,
+.personCredentialList li > small {
+  color: var(--color-text-faint);
+  font-size: 0.54rem;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.personCredentialList li[data-posture="potential_exposure"] > small {
+  color: var(--color-medium);
+}
+
+.personCredentialList li[data-posture="confirmed_exposure"] > small,
+.personCredentialList li[data-posture="in_response"] > small {
+  color: var(--color-critical);
+}
+
+.personCredentialList li[data-posture="remediated"] > small {
+  color: var(--color-ok);
+}
+
+.credentialInventoryLink {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 0 9px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-strong);
+  font-size: 0.59rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.credentialInventoryLink:hover {
+  background: var(--color-surface-active);
 }
 
 .caseJump,
@@ -1758,6 +1850,495 @@
   text-transform: uppercase;
 }
 
+.inventoryWorkspace {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.inventoryWorkspace:has(> .dossier, > .intakePanel) {
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+
+.inventoryStage {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: 88px 58px 44px minmax(0, 1fr) 30px;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.inventoryHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.inventoryHeader > div:first-child {
+  min-width: 0;
+}
+
+.inventoryHeader h1 {
+  margin: 3px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.inventoryHeader p {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewSwitcher {
+  display: flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-line-strong);
+}
+
+.viewSwitcher a {
+  display: grid;
+  min-width: 74px;
+  min-height: 34px;
+  place-content: center;
+  border-right: 1px solid var(--color-line);
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.viewSwitcher a:last-child {
+  border-right: 0;
+}
+
+.viewSwitcher a:hover,
+.viewSwitcher a[aria-current="page"] {
+  background: var(--color-surface-active);
+  color: var(--color-accent-strong);
+}
+
+.viewSwitcher a[aria-current="page"] {
+  box-shadow: inset 0 -2px 0 var(--color-accent-strong);
+}
+
+.inventoryControls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(240px, 1fr) minmax(260px, auto) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+
+.inventorySearch {
+  display: grid;
+  min-width: 0;
+  min-height: 40px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+}
+
+.inventorySearch input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.69rem;
+}
+
+.inventorySearch input::placeholder {
+  color: var(--color-text-faint);
+  opacity: 1;
+}
+
+.inventorySearch kbd {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-content: center;
+  border: 1px solid var(--color-line);
+  color: var(--color-text-faint);
+  font: inherit;
+  font-size: 0.59rem;
+}
+
+.inventoryFilters {
+  display: flex;
+  min-width: 0;
+  gap: 7px;
+}
+
+.inventoryFilters select {
+  min-height: 40px;
+  max-width: 180px;
+  padding: 0 28px 0 9px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.64rem;
+}
+
+.recordExposureAction {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 0.64rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.recordExposureAction:hover {
+  background: var(--color-surface-active);
+}
+
+.inventoryTabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.inventoryTabs button {
+  min-width: 150px;
+  border: 0;
+  border-right: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inventoryTabs button[aria-selected="true"] {
+  background: var(--color-surface-active);
+  box-shadow: inset 0 -2px 0 var(--color-accent-strong);
+  color: var(--color-accent-strong);
+}
+
+.inventoryTabs button span {
+  margin-left: 3px;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.tableViewport {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.dataTable {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.65rem;
+}
+
+.dataTable th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  height: 38px;
+  padding: 0 10px;
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-surface-raised);
+  color: var(--color-text-faint);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.dataTable th:first-child {
+  width: 19%;
+}
+
+.dataTable th:nth-child(2) {
+  width: 16%;
+}
+
+.dataTable th:nth-last-child(1) {
+  width: 46px;
+}
+
+.dataTable td {
+  height: 60px;
+  padding: 8px 10px;
+  overflow: hidden;
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  color: var(--color-text-muted);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.dataTable tbody tr:hover,
+.dataTable tbody tr[data-selected="true"] {
+  background: var(--color-surface-raised);
+}
+
+.dataTable tbody tr[data-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--color-accent-strong);
+}
+
+.dataTable td > strong,
+.dataTable td > small,
+.tablePrimaryLink strong,
+.tablePrimaryLink small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataTable td > strong,
+.tablePrimaryLink strong {
+  color: var(--color-text);
+  font-size: 0.68rem;
+}
+
+.dataTable td > small,
+.tablePrimaryLink small {
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.57rem;
+}
+
+.tablePrimaryLink {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.tablePrimaryLink:hover strong {
+  color: var(--color-accent-strong);
+}
+
+.tableBadge,
+.postureBadge,
+.priorityBadge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--color-line-strong);
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.54rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tableBadge[data-status="active"],
+.postureBadge[data-posture="remediated"] {
+  border-color: var(--color-ok);
+  color: var(--color-ok);
+}
+
+.tableBadge[data-status="rotating"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.tableBadge[data-status="revoked"],
+.postureBadge[data-posture="confirmed_exposure"],
+.postureBadge[data-posture="in_response"] {
+  border-color: var(--color-danger);
+  color: oklch(0.84 0.09 30);
+}
+
+.tableBadge[data-status="retired"],
+.postureBadge[data-posture="no_known_exposure"] {
+  color: var(--color-text-faint);
+}
+
+.postureBadge[data-posture="potential_exposure"] {
+  border-color: var(--color-medium);
+  color: var(--color-medium);
+}
+
+.priorityBadge[data-priority="medium"] {
+  border-color: var(--color-medium);
+  color: var(--color-medium);
+}
+
+.priorityBadge[data-priority="high"] {
+  border-color: var(--color-high);
+  color: var(--color-high);
+}
+
+.priorityBadge[data-priority="critical"] {
+  border-color: var(--color-critical);
+  color: var(--color-critical);
+}
+
+.numericCell {
+  color: var(--color-text);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.rowAction {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-content: center;
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.rowAction:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.tableEmpty {
+  display: grid;
+  min-height: 300px;
+  place-content: center;
+  justify-items: center;
+  padding: 28px;
+  text-align: center;
+}
+
+.tableEmpty strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.9rem;
+}
+
+.tableEmpty p {
+  margin: 5px 0 0;
+  color: var(--color-text-faint);
+  font-size: 0.65rem;
+}
+
+.tableEmpty button {
+  min-height: 38px;
+  margin-top: 14px;
+  padding: 0 12px;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.inventoryFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 12px;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+}
+
+.credentialNotes {
+  margin: 12px 0 0;
+  padding: 9px 10px;
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.61rem;
+  line-height: 1.45;
+}
+
+.credentialVersionList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-line);
+  list-style: none;
+}
+
+.credentialVersionList li {
+  display: grid;
+  min-height: 42px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.credentialVersionList span {
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.68rem;
+}
+
+.credentialVersionList strong {
+  font-size: 0.62rem;
+}
+
+.credentialVersionList small {
+  color: var(--color-text-faint);
+  font-size: 0.55rem;
+}
+
+.dossierHeader[data-priority="potential_exposure"]::before {
+  background: var(--color-medium);
+}
+
+.dossierHeader[data-priority="confirmed_exposure"]::before,
+.dossierHeader[data-priority="in_response"]::before {
+  background: var(--color-critical);
+}
+
+.dossierHeader[data-priority="remediated"]::before {
+  background: var(--color-ok);
+}
+
 .activityStrip {
   display: grid;
   min-width: 0;
@@ -1899,6 +2480,10 @@
 }
 
 @media (max-width: 1240px) {
+  .inventoryWorkspace:has(> .dossier, > .intakePanel) {
+    grid-template-columns: minmax(0, 1fr) 390px;
+  }
+
   .workspace,
   .workspace:has(> .dossier, > .intakePanel) {
     grid-template-columns: 292px minmax(0, 1fr) 360px;
@@ -1948,6 +2533,32 @@
     overflow: visible;
   }
 
+  .inventoryWorkspace,
+  .inventoryWorkspace:has(> .dossier, > .intakePanel) {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .inventoryStage {
+    min-height: 690px;
+  }
+
+  .inventoryWorkspace > .dossier,
+  .inventoryWorkspace > .intakePanel {
+    min-height: 640px;
+    grid-column: 1;
+    border-top: 1px solid var(--color-line-strong);
+    border-left: 0;
+  }
+
+  .inventoryControls {
+    grid-template-columns: minmax(220px, 1fr) auto;
+  }
+
+  .inventoryFilters {
+    display: none;
+  }
+
   .dossier,
   .intakePanel {
     min-height: 640px;
@@ -1973,6 +2584,52 @@
   .primaryAction {
     min-width: 130px;
     padding: 0 10px;
+  }
+
+  .inventoryStage {
+    min-height: 720px;
+    grid-template-rows: auto auto 44px minmax(0, 1fr) 30px;
+  }
+
+  .inventoryHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 12px;
+  }
+
+  .inventoryHeader p {
+    white-space: normal;
+  }
+
+  .viewSwitcher {
+    width: 100%;
+  }
+
+  .viewSwitcher a {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .inventoryControls {
+    grid-template-columns: 1fr;
+    padding: 10px 12px;
+  }
+
+  .recordExposureAction {
+    min-height: 44px;
+  }
+
+  .inventoryTabs {
+    overflow-x: auto;
+  }
+
+  .inventoryTabs button {
+    min-width: 132px;
+  }
+
+  .inventoryFooter span:last-child {
+    display: none;
   }
 
   .workspace,
@@ -2014,6 +2671,13 @@
   .managementIdentityList button,
   .primaryIdentityBadge,
   .managementForm .checkField {
+    min-height: 44px;
+  }
+
+  .recordExposureAction,
+  .rowAction,
+  .tableEmpty button,
+  .viewSwitcher a {
     min-height: 44px;
   }
 

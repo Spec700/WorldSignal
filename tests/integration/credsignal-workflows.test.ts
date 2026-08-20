@@ -6,11 +6,15 @@ import { getCredSignalDashboard } from "@/features/credsignal/server/dashboard";
 import {
   createCaseCommunication,
   createCaseTask,
+  createCredential,
   createExposure,
+  changeCredentialStatus,
   CredSignalConflictError,
   CredSignalWorkflowError,
   manuallyMatchExposure,
   revealCredential,
+  revealManagedCredential,
+  rotateCredential,
   transitionCase,
   transitionCaseCommunication,
   transitionTask,
@@ -117,6 +121,36 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       operatorId,
     );
 
+    const credentialResult = await createCredential(
+      {
+        protecteeId: protecteeResult.personId,
+        identityId: (await getCredSignalDashboard()).protectees.find(
+          (entry) => entry.id === protecteeResult.personId,
+        )!.identities[0].id,
+        accountIdentifier: "protectee@integration.example",
+        service: "Integration Identity",
+        serviceDomain: "identity.integration.example",
+        credentialKind: "session_token",
+        credentialValue: "INTEGRATION-ACTIVE-SESSION-TOKEN-V1",
+        notes: "Synthetic managed integration credential.",
+      },
+      operatorId,
+    );
+    expect(
+      await revealManagedCredential(credentialResult.credentialId, operatorId),
+    ).toBe("INTEGRATION-ACTIVE-SESSION-TOKEN-V1");
+    await rotateCredential(
+      {
+        credentialId: credentialResult.credentialId,
+        credentialValue: "INTEGRATION-ACTIVE-SESSION-TOKEN-V2",
+        notes: "Synthetic rotation.",
+      },
+      operatorId,
+    );
+    expect(
+      await revealManagedCredential(credentialResult.credentialId, operatorId),
+    ).toBe("INTEGRATION-ACTIVE-SESSION-TOKEN-V2");
+
     const exposureInput = {
       protecteeId: protecteeResult.personId,
       identityType: "work_email" as const,
@@ -148,6 +182,16 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     const task = responseCase?.tasks[0];
 
     expect(dashboard.setupRequired).toBe(false);
+    expect(dashboard.credentials).toHaveLength(1);
+    expect(dashboard.credentials[0]).toMatchObject({
+      id: credentialResult.credentialId,
+      exposurePosture: "in_response",
+      openCaseCount: 1,
+    });
+    expect(dashboard.credentials[0].versions).toHaveLength(2);
+    expect(dashboard.credentials[0].exposures[0]?.id).toBe(
+      exposureResult.exposureId,
+    );
     expect(protectee?.activePriority).toBe("critical");
     expect(protectee?.exposures[0]?.hasCredentialValue).toBe(true);
     expect(responseCase?.status).toBe("open");
@@ -265,6 +309,7 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
       priority: "high",
     });
     expect(closedProtectee?.exposures[0]?.status).toBe("remediated");
+    expect(closedDashboard.credentials[0]?.exposurePosture).toBe("remediated");
     expect(
       closedProtectee?.cases[0]?.tasks.find((entry) => entry.id === task!.id)
         ?.status,
@@ -326,6 +371,17 @@ describeDatabase("CredSignal PostgreSQL workflows", () => {
     ).rejects.toBeInstanceOf(CredSignalWorkflowError);
     await expect(
       transitionTask(task!.id, "in_progress", operatorId),
+    ).rejects.toBeInstanceOf(CredSignalWorkflowError);
+    await changeCredentialStatus(
+      {
+        credentialId: credentialResult.credentialId,
+        status: "revoked",
+        reason: "Synthetic integration cleanup.",
+      },
+      operatorId,
+    );
+    await expect(
+      revealManagedCredential(credentialResult.credentialId, operatorId),
     ).rejects.toBeInstanceOf(CredSignalWorkflowError);
   });
 

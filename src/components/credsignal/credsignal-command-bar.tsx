@@ -11,7 +11,9 @@ interface CredSignalCommandBarProps {
   operators: CredSignalOperatorDto[];
   activeOperatorId: string;
   onOperatorChange: (operatorId: string) => void;
-  onAddExposure: () => void;
+  view?: "inventory" | "globe";
+  onAddCredential?: () => void;
+  onAddExposure?: () => void;
 }
 
 export function CredSignalCommandBar({
@@ -19,37 +21,51 @@ export function CredSignalCommandBar({
   operators,
   activeOperatorId,
   onOperatorChange,
+  view = "globe",
+  onAddCredential,
   onAddExposure,
 }: CredSignalCommandBarProps) {
+  const inventoryView = view === "inventory";
+
   return (
     <header className={styles.commandBar}>
       <ProductSwitcher currentProduct="credsignal" />
 
       <div className={styles.commandModule}>
         <span className={styles.commandLabel}>Module</span>
-        <span>Credential Exposure</span>
+        <span>
+          {inventoryView ? "Credential Inventory" : "Credential Posture"}
+        </span>
       </div>
 
       <dl className={styles.commandMetrics} aria-label="CredSignal summary">
         <div>
-          <dt>Protectees</dt>
-          <dd>{metrics.protectees}</dd>
+          <dt>{inventoryView ? "Credentials" : "People"}</dt>
+          <dd>{inventoryView ? metrics.credentials : metrics.protectees}</dd>
         </div>
         <div>
-          <dt>Open cases</dt>
-          <dd>{metrics.openCases}</dd>
+          <dt>{inventoryView ? "Exposed" : "Credentials"}</dt>
+          <dd>
+            {inventoryView ? metrics.exposedCredentials : metrics.credentials}
+          </dd>
         </div>
         <div
           className={
-            metrics.criticalProtectees > 0 ? styles.criticalMetric : undefined
+            !inventoryView && metrics.exposedCredentials > 0
+              ? styles.criticalMetric
+              : undefined
           }
         >
-          <dt>Critical</dt>
-          <dd>{metrics.criticalProtectees}</dd>
+          <dt>{inventoryView ? "Open cases" : "Exposed"}</dt>
+          <dd>
+            {inventoryView ? metrics.openCases : metrics.exposedCredentials}
+          </dd>
         </div>
         <div>
-          <dt>Overdue</dt>
-          <dd>{metrics.overdueTasks}</dd>
+          <dt>{inventoryView ? "Unmatched" : "Open cases"}</dt>
+          <dd>
+            {inventoryView ? metrics.unmatchedExposures : metrics.openCases}
+          </dd>
         </div>
       </dl>
 
@@ -71,11 +87,11 @@ export function CredSignalCommandBar({
 
       <button
         className={styles.primaryAction}
-        onClick={onAddExposure}
+        onClick={inventoryView ? onAddCredential : onAddExposure}
         type="button"
       >
         <span aria-hidden="true">＋</span>
-        Add exposure
+        {inventoryView ? "Add credential" : "Add exposure"}
       </button>
     </header>
   );

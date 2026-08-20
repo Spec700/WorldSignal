@@ -13,6 +13,19 @@ export const credentialKinds = [
   "api_key",
   "other",
 ] as const;
+export const managedCredentialKinds = [
+  "password",
+  "session_token",
+  "session_cookie",
+  "api_key",
+  "other",
+] as const;
+export const credentialAssetStatuses = [
+  "active",
+  "rotating",
+  "revoked",
+  "retired",
+] as const;
 export const exposureSourceTypes = [
   "breach",
   "infostealer",
@@ -56,6 +69,7 @@ export const taskStatuses = [
 ] as const;
 
 export type CredentialKind = (typeof credentialKinds)[number];
+export type ManagedCredentialKind = (typeof managedCredentialKinds)[number];
 export type ExposurePriority = (typeof priorities)[number];
 
 const trimmedText = (label: string, maximum: number) =>
@@ -95,10 +109,40 @@ export const createExposureInputSchema = z
     }
   });
 
+export const createCredentialInputSchema = z.object({
+  protecteeId: z.string().uuid(),
+  identityId: z.union([z.string().uuid(), z.literal("")]).optional(),
+  accountIdentifier: trimmedText("Account identifier", 320),
+  service: trimmedText("Service", 200),
+  serviceDomain: z.string().trim().max(253).optional().default(""),
+  credentialKind: z.enum(managedCredentialKinds),
+  credentialValue: z
+    .string()
+    .min(1, "Credential value is required.")
+    .max(65_536),
+  notes: z.string().trim().max(4_000).optional().default(""),
+});
+
+export const rotateCredentialInputSchema = z.object({
+  credentialId: z.string().uuid(),
+  credentialValue: z
+    .string()
+    .min(1, "The replacement credential value is required.")
+    .max(65_536),
+  notes: z.string().trim().max(4_000).optional().default(""),
+});
+
+export const changeCredentialStatusInputSchema = z.object({
+  credentialId: z.string().uuid(),
+  status: z.enum(["revoked", "retired"]),
+  reason: trimmedText("Status rationale", 1_000),
+});
+
 export const matchExposureInputSchema = z.object({
   exposureId: z.string().uuid(),
   protecteeId: z.string().uuid(),
   identityId: z.string().uuid(),
+  credentialId: z.union([z.string().uuid(), z.literal("")]).optional(),
   reason: trimmedText("Match rationale", 1_000),
 });
 
@@ -149,6 +193,11 @@ export const updateCaseTaskInputSchema = z.object({
 });
 
 export type CreateExposureInput = z.infer<typeof createExposureInputSchema>;
+export type CreateCredentialInput = z.infer<typeof createCredentialInputSchema>;
+export type RotateCredentialInput = z.infer<typeof rotateCredentialInputSchema>;
+export type ChangeCredentialStatusInput = z.infer<
+  typeof changeCredentialStatusInputSchema
+>;
 export type MatchExposureInput = z.infer<typeof matchExposureInputSchema>;
 export type CreateCaseCommunicationInput = z.infer<
   typeof createCaseCommunicationInputSchema
