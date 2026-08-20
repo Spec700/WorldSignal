@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -7,6 +8,10 @@ import {
   revealCredentialAction,
   transitionCaseAction,
 } from "@/app/credsignal/actions";
+import {
+  credentialPostureForProtectee,
+  credentialPriorityForProtectee,
+} from "@/components/credsignal/credsignal-globe-model";
 import type { CredSignalActionState } from "@/features/credsignal/action-state";
 import type {
   CredSignalCaseDto,
@@ -62,6 +67,16 @@ export function CredSignalDossier({
   onClose,
 }: CredSignalDossierProps) {
   const router = useRouter();
+  const credentialPosture = credentialPostureForProtectee(protectee);
+  const managedCredentialCount = protectee.credentials.filter(
+    (credential) => credential.status !== "retired",
+  ).length;
+  const exposedCredentialCount = protectee.credentials.filter(
+    (credential) =>
+      credential.exposurePosture === "potential_exposure" ||
+      credential.exposurePosture === "confirmed_exposure" ||
+      credential.exposurePosture === "in_response",
+  ).length;
   const [pendingId, setPendingId] = useState<string>();
   const [notice, setNotice] = useState<CredSignalActionState>();
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>(
@@ -141,9 +156,9 @@ export function CredSignalDossier({
     >
       <div
         className={styles.dossierHeader}
-        data-priority={protectee.activePriority ?? "low"}
+        data-priority={credentialPriorityForProtectee(protectee)}
       >
-        <span className={styles.eyebrow}>Protectee dossier</span>
+        <span className={styles.eyebrow}>Person credential dossier</span>
         <button
           className={styles.manageProtecteeAction}
           onClick={onManage}
@@ -165,16 +180,16 @@ export function CredSignalDossier({
         </p>
         <dl className={styles.dossierSummary}>
           <div>
-            <dt>Active priority</dt>
-            <dd>{protectee.activePriority ?? "clear"}</dd>
+            <dt>Credentials</dt>
+            <dd>{managedCredentialCount}</dd>
           </div>
           <div>
-            <dt>Open cases</dt>
-            <dd>{protectee.openCaseCount}</dd>
+            <dt>Exposed</dt>
+            <dd>{exposedCredentialCount}</dd>
           </div>
           <div>
-            <dt>Open tasks</dt>
-            <dd>{protectee.openTaskCount}</dd>
+            <dt>Posture</dt>
+            <dd>{titleCase(credentialPosture)}</dd>
           </div>
         </dl>
       </div>
@@ -253,6 +268,38 @@ export function CredSignalDossier({
                   </li>
                 ))}
               </ul>
+            </section>
+            <section className={styles.dossierSection}>
+              <h3>Managed credentials</h3>
+              {protectee.credentials.length > 0 ? (
+                <>
+                  <ul className={styles.personCredentialList}>
+                    {protectee.credentials.map((credential) => (
+                      <li
+                        data-posture={credential.exposurePosture}
+                        key={credential.id}
+                      >
+                        <div>
+                          <strong>{credential.service}</strong>
+                          <small>{credential.accountIdentifier}</small>
+                        </div>
+                        <span>{titleCase(credential.status)}</span>
+                        <small>{titleCase(credential.exposurePosture)}</small>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    className={styles.credentialInventoryLink}
+                    href="/credsignal"
+                  >
+                    Open credential inventory →
+                  </Link>
+                </>
+              ) : (
+                <p className={styles.emptyCopy}>
+                  No managed credentials are recorded for this person.
+                </p>
+              )}
             </section>
             <section className={styles.dossierSection}>
               <h3>Immediate work</h3>

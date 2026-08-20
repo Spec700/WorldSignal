@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { useMemo, type RefObject } from "react";
 
+import {
+  credentialPostureForProtectee,
+  credentialPriorityForProtectee,
+} from "@/components/credsignal/credsignal-globe-model";
 import type {
   CredSignalCaseDto,
   CredSignalDashboardDto,
@@ -10,6 +14,13 @@ import type {
 import styles from "@/app/credsignal/credsignal.module.css";
 
 export type CredSignalQueueView = "protectees" | "cases" | "unmatched";
+
+function titleCase(value: string) {
+  return value
+    .split("_")
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
 
 interface CredSignalRailProps {
   dashboard: CredSignalDashboardDto;
@@ -103,11 +114,11 @@ export function CredSignalRail({
       </div>
 
       <label className={styles.searchControl}>
-        <span className="sr-only">Search protectees and cases</span>
+        <span className="sr-only">Search people and cases</span>
         <span aria-hidden="true">⌕</span>
         <input
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Protectee, identity, case…"
+          placeholder="Person, identity, case…"
           ref={searchRef}
           type="search"
           value={query}
@@ -126,7 +137,7 @@ export function CredSignalRail({
           role="tab"
           type="button"
         >
-          Protectees <span>{dashboard.protectees.length}</span>
+          People <span>{dashboard.protectees.length}</span>
         </button>
         <button
           aria-selected={view === "cases"}
@@ -149,37 +160,50 @@ export function CredSignalRail({
       <div className={styles.queueList} role="tabpanel">
         {view === "protectees" ? (
           protectees.length > 0 ? (
-            protectees.map((protectee) => (
-              <button
-                aria-pressed={protectee.id === selectedProtecteeId}
-                className={styles.queueItem}
-                data-priority={protectee.activePriority ?? "low"}
-                key={protectee.id}
-                onClick={() => onSelectProtectee(protectee.id)}
-                type="button"
-              >
-                <span className={styles.queuePriority} aria-hidden="true" />
-                <span className={styles.queueCopy}>
-                  <strong>{protectee.displayName}</strong>
-                  <small>
-                    {protectee.organization ?? "Independent"} ·{" "}
-                    {protectee.location?.label ?? "No location"}
-                  </small>
-                  <span>
-                    {protectee.openCaseCount} open cases ·{" "}
-                    {protectee.openTaskCount} tasks
+            protectees.map((protectee) => {
+              const posture = credentialPostureForProtectee(protectee);
+              const credentialCount = protectee.credentials.filter(
+                (credential) => credential.status !== "retired",
+              ).length;
+              const exposedCount = protectee.credentials.filter(
+                (credential) =>
+                  credential.exposurePosture === "potential_exposure" ||
+                  credential.exposurePosture === "confirmed_exposure" ||
+                  credential.exposurePosture === "in_response",
+              ).length;
+
+              return (
+                <button
+                  aria-pressed={protectee.id === selectedProtecteeId}
+                  className={styles.queueItem}
+                  data-priority={credentialPriorityForProtectee(protectee)}
+                  key={protectee.id}
+                  onClick={() => onSelectProtectee(protectee.id)}
+                  type="button"
+                >
+                  <span className={styles.queuePriority} aria-hidden="true" />
+                  <span className={styles.queueCopy}>
+                    <strong>{protectee.displayName}</strong>
+                    <small>
+                      {protectee.organization ?? "Independent"} ·{" "}
+                      {protectee.location?.label ?? "No location"}
+                    </small>
+                    <span>
+                      {credentialCount} managed · {exposedCount} exposed ·{" "}
+                      {protectee.openCaseCount} cases
+                    </span>
                   </span>
-                </span>
-                <span className={styles.priorityText}>
-                  {protectee.status === "active"
-                    ? (protectee.activePriority ?? "clear")
-                    : protectee.status}
-                </span>
-              </button>
-            ))
+                  <span className={styles.priorityText}>
+                    {protectee.status === "active"
+                      ? titleCase(posture)
+                      : titleCase(protectee.status)}
+                  </span>
+                </button>
+              );
+            })
           ) : (
             <div className={styles.queueEmpty}>
-              <strong>No protectees match</strong>
+              <strong>No people match</strong>
               <span>Clear the search or add a monitored person.</span>
             </div>
           )

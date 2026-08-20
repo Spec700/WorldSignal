@@ -40,31 +40,31 @@ export function CredSignalCommandBar({
 
       <dl className={styles.commandMetrics} aria-label="CredSignal summary">
         <div>
-          <dt>{inventoryView ? "Credentials" : "Protectees"}</dt>
+          <dt>{inventoryView ? "Credentials" : "People"}</dt>
           <dd>{inventoryView ? metrics.credentials : metrics.protectees}</dd>
         </div>
         <div>
-          <dt>{inventoryView ? "Exposed" : "Open cases"}</dt>
+          <dt>{inventoryView ? "Exposed" : "Credentials"}</dt>
           <dd>
-            {inventoryView ? metrics.exposedCredentials : metrics.openCases}
+            {inventoryView ? metrics.exposedCredentials : metrics.credentials}
           </dd>
         </div>
         <div
           className={
-            !inventoryView && metrics.criticalProtectees > 0
+            !inventoryView && metrics.exposedCredentials > 0
               ? styles.criticalMetric
               : undefined
           }
         >
-          <dt>{inventoryView ? "Open cases" : "Critical"}</dt>
+          <dt>{inventoryView ? "Open cases" : "Exposed"}</dt>
           <dd>
-            {inventoryView ? metrics.openCases : metrics.criticalProtectees}
+            {inventoryView ? metrics.openCases : metrics.exposedCredentials}
           </dd>
         </div>
         <div>
-          <dt>{inventoryView ? "Unmatched" : "Overdue"}</dt>
+          <dt>{inventoryView ? "Unmatched" : "Open cases"}</dt>
           <dd>
-            {inventoryView ? metrics.unmatchedExposures : metrics.overdueTasks}
+            {inventoryView ? metrics.unmatchedExposures : metrics.openCases}
           </dd>
         </div>
       </dl>

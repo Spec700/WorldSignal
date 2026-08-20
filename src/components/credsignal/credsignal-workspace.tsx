@@ -200,9 +200,10 @@ export function CredSignalWorkspace({
         <main className={styles.stage}>
           <header className={styles.stageHeader}>
             <span>
-              <strong>Global protectee view</strong>
+              <strong>Global credential posture</strong>
               <small>
-                Approved locations · aggregate unresolved credential risk
+                Priority Signals people · managed credentials · exposure
+                response
               </small>
             </span>
             <div className={styles.stageHeaderActions}>
@@ -211,7 +212,7 @@ export function CredSignalWorkspace({
                   activeProtectees.filter((protectee) => protectee.location)
                     .length
                 }{" "}
-                located protectees
+                located people
               </span>
               <Link className={styles.secondaryAction} href="/credsignal">
                 Table view
@@ -230,13 +231,14 @@ export function CredSignalWorkspace({
             />
             {!selectedProtectee ? (
               <div className={styles.stageBrief}>
-                <span className={styles.eyebrow}>Risk posture</span>
+                <span className={styles.eyebrow}>Credential posture</span>
                 <strong>
-                  {dashboard.metrics.openCases} active response cases
+                  {dashboard.metrics.exposedCredentials} exposed managed
+                  credentials
                 </strong>
                 <p>
-                  Select a protectee marker or queue item to coordinate
-                  remediation.
+                  Select a person marker or queue item to inspect credentials,
+                  evidence, and active response work.
                 </p>
               </div>
             ) : null}

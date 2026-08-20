@@ -859,6 +859,84 @@
   color: var(--color-accent-strong);
 }
 
+.personCredentialList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-line);
+  list-style: none;
+}
+
+.personCredentialList li {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 3px 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.personCredentialList li > div {
+  min-width: 0;
+}
+
+.personCredentialList strong,
+.personCredentialList li > div small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personCredentialList strong {
+  font-size: 0.66rem;
+}
+
+.personCredentialList li > div small {
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.55rem;
+}
+
+.personCredentialList li > span,
+.personCredentialList li > small {
+  color: var(--color-text-faint);
+  font-size: 0.54rem;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.personCredentialList li[data-posture="potential_exposure"] > small {
+  color: var(--color-medium);
+}
+
+.personCredentialList li[data-posture="confirmed_exposure"] > small,
+.personCredentialList li[data-posture="in_response"] > small {
+  color: var(--color-critical);
+}
+
+.personCredentialList li[data-posture="remediated"] > small {
+  color: var(--color-ok);
+}
+
+.credentialInventoryLink {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 0 9px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-strong);
+  font-size: 0.59rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.credentialInventoryLink:hover {
+  background: var(--color-surface-active);
+}
+
 .caseJump,
 .exposureCard,
 .caseCard {
