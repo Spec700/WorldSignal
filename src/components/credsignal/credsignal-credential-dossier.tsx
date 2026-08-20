@@ -24,6 +24,8 @@ interface CredSignalCredentialDossierProps {
   credential: CredSignalCredentialDto;
   protectee?: CredSignalProtecteeDto;
   activeOperatorId: string;
+  mode?: "panel" | "inline";
+  onBackToPerson?: () => void;
   onClose: () => void;
   onManagePerson: () => void;
   onRefresh: () => void;
@@ -66,6 +68,8 @@ export function CredSignalCredentialDossier({
   credential,
   protectee,
   activeOperatorId,
+  mode = "panel",
+  onBackToPerson,
   onClose,
   onManagePerson,
   onRefresh,
@@ -154,10 +158,13 @@ export function CredSignalCredentialDossier({
     }
   }
 
+  const Container = mode === "inline" ? "section" : "aside";
+
   return (
-    <aside
+    <Container
       aria-label={`Credential record for ${credential.accountIdentifier}`}
       className={styles.dossier}
+      data-mode={mode}
     >
       <header
         className={styles.dossierHeader}
@@ -166,10 +173,10 @@ export function CredSignalCredentialDossier({
         <span className={styles.eyebrow}>Managed credential</span>
         <button
           className={styles.manageProtecteeAction}
-          onClick={onManagePerson}
+          onClick={onBackToPerson ?? onManagePerson}
           type="button"
         >
-          Manage person
+          {onBackToPerson ? "Back to person" : "Manage person"}
         </button>
         <button
           aria-label="Close credential details"
@@ -413,6 +420,6 @@ export function CredSignalCredentialDossier({
           </section>
         ) : null}
       </div>
-    </aside>
+    </Container>
   );
 }
