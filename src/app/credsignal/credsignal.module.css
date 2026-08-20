@@ -868,21 +868,35 @@
 }
 
 .personCredentialList li {
-  display: grid;
   min-height: 54px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.personCredentialAction {
+  display: grid;
+  width: 100%;
+  min-height: 53px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
   gap: 3px 9px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--color-line);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
 }
 
-.personCredentialList li > div {
+.personCredentialAction:hover,
+.personCredentialAction:focus-visible {
+  background: var(--color-surface-active);
+}
+
+.personCredentialAction > span:first-child {
   min-width: 0;
 }
 
 .personCredentialList strong,
-.personCredentialList li > div small {
+.personCredentialAction > span:first-child small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -893,30 +907,42 @@
   font-size: 0.66rem;
 }
 
-.personCredentialList li > div small {
+.personCredentialAction > span:first-child small {
   margin-top: 2px;
   color: var(--color-text-faint);
   font-size: 0.55rem;
 }
 
-.personCredentialList li > span,
-.personCredentialList li > small {
+.personCredentialAction > span:not(:first-child),
+.personCredentialAction > small {
   color: var(--color-text-faint);
   font-size: 0.54rem;
   text-align: right;
   text-transform: uppercase;
 }
 
-.personCredentialList li[data-posture="potential_exposure"] > small {
+.personCredentialList
+  li[data-posture="potential_exposure"]
+  .personCredentialAction
+  > small {
   color: var(--color-medium);
 }
 
-.personCredentialList li[data-posture="confirmed_exposure"] > small,
-.personCredentialList li[data-posture="in_response"] > small {
+.personCredentialList
+  li[data-posture="confirmed_exposure"]
+  .personCredentialAction
+  > small,
+.personCredentialList
+  li[data-posture="in_response"]
+  .personCredentialAction
+  > small {
   color: var(--color-critical);
 }
 
-.personCredentialList li[data-posture="remediated"] > small {
+.personCredentialList
+  li[data-posture="remediated"]
+  .personCredentialAction
+  > small {
   color: var(--color-ok);
 }
 

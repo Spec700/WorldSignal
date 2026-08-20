@@ -697,6 +697,11 @@ export function CredSignalInventoryWorkspace({
             activeOperatorId={activeOperatorId}
             credential={selectedCredential}
             key={selectedCredential.id}
+            onBackToPerson={
+              selectedProtectee
+                ? () => setSelectedCredentialId(undefined)
+                : undefined
+            }
             onClose={() => setSelectedCredentialId(undefined)}
             onManagePerson={() =>
               router.push(`/home?person=${selectedCredential.protecteeId}`)
@@ -712,6 +717,7 @@ export function CredSignalInventoryWorkspace({
             key={selectedProtectee.id}
             onClose={() => setSelectedProtecteeId(undefined)}
             onManage={() => router.push(`/home?person=${selectedProtectee.id}`)}
+            onSelectCredential={setSelectedCredentialId}
             onTabChange={setDossierTab}
             operators={dashboard.operators}
             protectee={selectedProtectee}

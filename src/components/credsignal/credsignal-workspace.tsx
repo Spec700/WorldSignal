@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { CredSignalActivity } from "@/components/credsignal/credsignal-activity";
 import { CredSignalCommandBar } from "@/components/credsignal/credsignal-command-bar";
+import { CredSignalCredentialDossier } from "@/components/credsignal/credsignal-credential-dossier";
 import {
   CredSignalDossier,
   type CredSignalDossierTab,
@@ -47,6 +48,7 @@ export function CredSignalWorkspace({
   const [view, setView] = useState<CredSignalQueueView>("protectees");
   const [query, setQuery] = useState("");
   const [selectedProtecteeId, setSelectedProtecteeId] = useState<string>();
+  const [selectedCredentialId, setSelectedCredentialId] = useState<string>();
   const [selectedExposureId, setSelectedExposureId] = useState<string>();
   const [dossierTab, setDossierTab] =
     useState<CredSignalDossierTab>("overview");
@@ -61,6 +63,13 @@ export function CredSignalWorkspace({
         (protectee) => protectee.id === selectedProtecteeId,
       ),
     [dashboard.protectees, selectedProtecteeId],
+  );
+  const selectedCredential = useMemo(
+    () =>
+      dashboard.credentials.find(
+        (credential) => credential.id === selectedCredentialId,
+      ),
+    [dashboard.credentials, selectedCredentialId],
   );
   const activeProtectees = useMemo(
     () =>
@@ -91,6 +100,8 @@ export function CredSignalWorkspace({
           setIntakeOpen(false);
         } else if (selectedUnmatchedExposure) {
           setSelectedExposureId(undefined);
+        } else if (selectedCredential) {
+          setSelectedCredentialId(undefined);
         } else {
           setSelectedProtecteeId(undefined);
         }
@@ -98,12 +109,13 @@ export function CredSignalWorkspace({
     }
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [intakeOpen, selectedUnmatchedExposure]);
+  }, [intakeOpen, selectedCredential, selectedUnmatchedExposure]);
 
   const selectProtectee = useCallback(
     (protecteeId: string, tab: CredSignalDossierTab = "overview") => {
       setIntakeOpen(false);
       setSelectedExposureId(undefined);
+      setSelectedCredentialId(undefined);
       setSelectedProtecteeId(protecteeId);
       setDossierTab(tab);
     },
@@ -113,11 +125,13 @@ export function CredSignalWorkspace({
   const selectUnmatchedExposure = useCallback((exposureId: string) => {
     setIntakeOpen(false);
     setSelectedProtecteeId(undefined);
+    setSelectedCredentialId(undefined);
     setSelectedExposureId(exposureId);
   }, []);
 
   const openIntake = useCallback(() => {
     setSelectedProtecteeId(undefined);
+    setSelectedCredentialId(undefined);
     setSelectedExposureId(undefined);
     setIntakeOpen(true);
   }, []);
@@ -140,6 +154,7 @@ export function CredSignalWorkspace({
   const handleMatched = useCallback(
     (protecteeId: string) => {
       setSelectedExposureId(undefined);
+      setSelectedCredentialId(undefined);
       setSelectedProtecteeId(protecteeId);
       setDossierTab("cases");
       router.refresh();
@@ -280,12 +295,29 @@ export function CredSignalWorkspace({
             onMatched={handleMatched}
             protectees={activeProtectees}
           />
+        ) : selectedCredential ? (
+          <CredSignalCredentialDossier
+            activeOperatorId={activeOperatorId}
+            credential={selectedCredential}
+            key={selectedCredential.id}
+            onBackToPerson={() => setSelectedCredentialId(undefined)}
+            onClose={() => {
+              setSelectedCredentialId(undefined);
+              setSelectedProtecteeId(undefined);
+            }}
+            onManagePerson={() =>
+              router.push(`/home?person=${selectedCredential.protecteeId}`)
+            }
+            onRefresh={() => router.refresh()}
+            protectee={selectedProtectee}
+          />
         ) : selectedProtectee ? (
           <CredSignalDossier
             activeOperatorId={activeOperatorId}
             key={selectedProtectee.id}
             onClose={() => setSelectedProtecteeId(undefined)}
             onManage={() => router.push(`/home?person=${selectedProtectee.id}`)}
+            onSelectCredential={setSelectedCredentialId}
             onTabChange={setDossierTab}
             operators={dashboard.operators}
             protectee={selectedProtectee}

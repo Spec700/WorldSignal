@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -32,7 +31,9 @@ interface CredSignalDossierProps {
   operators: CredSignalOperatorDto[];
   tab: CredSignalDossierTab;
   activeOperatorId: string;
+  mode?: "panel" | "inline";
   onTabChange: (tab: CredSignalDossierTab) => void;
+  onSelectCredential: (credentialId: string) => void;
   onManage: () => void;
   onClose: () => void;
 }
@@ -62,7 +63,9 @@ export function CredSignalDossier({
   operators,
   tab,
   activeOperatorId,
+  mode = "panel",
   onTabChange,
+  onSelectCredential,
   onManage,
   onClose,
 }: CredSignalDossierProps) {
@@ -149,10 +152,14 @@ export function CredSignalDossier({
     }
   }
 
+  const Container = mode === "inline" ? "section" : "aside";
+
   return (
-    <aside
+    <Container
       className={styles.dossier}
       aria-label={`${protectee.displayName} credential dossier`}
+      data-mode={mode}
+      data-tab={tab}
     >
       <div
         className={styles.dossierHeader}
@@ -279,21 +286,22 @@ export function CredSignalDossier({
                         data-posture={credential.exposurePosture}
                         key={credential.id}
                       >
-                        <div>
-                          <strong>{credential.service}</strong>
-                          <small>{credential.accountIdentifier}</small>
-                        </div>
-                        <span>{titleCase(credential.status)}</span>
-                        <small>{titleCase(credential.exposurePosture)}</small>
+                        <button
+                          aria-label={`Open ${credential.service} credential for ${protectee.displayName}`}
+                          className={styles.personCredentialAction}
+                          onClick={() => onSelectCredential(credential.id)}
+                          type="button"
+                        >
+                          <span>
+                            <strong>{credential.service}</strong>
+                            <small>{credential.accountIdentifier}</small>
+                          </span>
+                          <span>{titleCase(credential.status)}</span>
+                          <small>{titleCase(credential.exposurePosture)}</small>
+                        </button>
                       </li>
                     ))}
                   </ul>
-                  <Link
-                    className={styles.credentialInventoryLink}
-                    href="/credsignal"
-                  >
-                    Open credential inventory →
-                  </Link>
                 </>
               ) : (
                 <p className={styles.emptyCopy}>
@@ -540,6 +548,6 @@ export function CredSignalDossier({
           </section>
         ) : null}
       </div>
-    </aside>
+    </Container>
   );
 }
