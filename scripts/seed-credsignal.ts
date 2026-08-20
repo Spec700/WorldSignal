@@ -831,7 +831,19 @@ async function seed() {
           notes: "Synthetic credential. Safe for demonstration only.",
           createdByOperatorId: fixture.operatorId,
         })
-        .onConflictDoNothing();
+        .onConflictDoUpdate({
+          target: credentialExposures.id,
+          set: {
+            credentialCiphertext: encrypted.ciphertext,
+            credentialIv: encrypted.iv,
+            credentialAuthTag: encrypted.authTag,
+            credentialKeyVersion: encrypted.keyVersion,
+            credentialFingerprint: fingerprint,
+            credentialLength: fixture.secret.length,
+            dedupeKey,
+            updatedAt: new Date(),
+          },
+        });
     }
 
     const exposureMatchFixtures = [
