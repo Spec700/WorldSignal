@@ -39,6 +39,9 @@ type PostureFilter = "all" | ReturnType<typeof credentialPostureForProtectee>;
 
 const DEFAULT_ACTIVITY_HEIGHT = 116;
 const MIN_ACTIVITY_HEIGHT = 88;
+const DEFAULT_DETAIL_PANEL_WIDTH = 420;
+const MIN_DETAIL_PANEL_WIDTH = 320;
+const MIN_INVENTORY_STAGE_WIDTH = 560;
 const MIN_INVENTORY_HEIGHT = 360;
 const COMMAND_BAR_HEIGHT = 64;
 const RESIZE_HANDLE_SIZE = 8;
@@ -120,8 +123,12 @@ export function CredSignalInventoryWorkspace({
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const [shellRef, shellSize] = useElementSize<HTMLDivElement>();
+  const [inventoryRef, inventorySize] = useElementSize<HTMLDivElement>();
   const [requestedActivityHeight, setRequestedActivityHeight] = useState(
     DEFAULT_ACTIVITY_HEIGHT,
+  );
+  const [requestedDetailPanelWidth, setRequestedDetailPanelWidth] = useState(
+    DEFAULT_DETAIL_PANEL_WIDTH,
   );
   const [view, setView] = useState<InventoryView>("people");
   const [query, setQuery] = useState("");
@@ -326,6 +333,24 @@ export function CredSignalInventoryWorkspace({
     [router],
   );
 
+  const detailPanelOpen = Boolean(
+    createOpen ||
+    intakeOpen ||
+    selectedUnmatchedExposure ||
+    selectedCredential ||
+    selectedProtectee,
+  );
+  const maximumDetailPanelWidth = Math.max(
+    MIN_DETAIL_PANEL_WIDTH,
+    (inventorySize.width || 1440) -
+      MIN_INVENTORY_STAGE_WIDTH -
+      RESIZE_HANDLE_SIZE,
+  );
+  const detailPanelWidth = Math.min(
+    requestedDetailPanelWidth,
+    maximumDetailPanelWidth,
+  );
+
   const maximumActivityHeight = Math.max(
     MIN_ACTIVITY_HEIGHT,
     (shellSize.height || 800) -
@@ -339,6 +364,9 @@ export function CredSignalInventoryWorkspace({
   );
   const shellStyle = {
     "--activity-strip-height": `${activityHeight}px`,
+  } as CSSProperties;
+  const inventoryStyle = {
+    "--detail-panel-width": `${detailPanelWidth}px`,
   } as CSSProperties;
 
   if (dashboard.setupRequired) {
@@ -382,6 +410,8 @@ export function CredSignalInventoryWorkspace({
       <div
         className={styles.inventoryWorkspace}
         id="people-credential-operations"
+        ref={inventoryRef}
+        style={inventoryStyle}
       >
         <main className={styles.inventoryStage}>
           <header className={styles.inventoryHeader}>
@@ -759,6 +789,18 @@ export function CredSignalInventoryWorkspace({
             <span>Synthetic demo workspace · values encrypted at rest</span>
           </footer>
         </main>
+
+        {detailPanelOpen ? (
+          <ResizeHandle
+            direction={-1}
+            label="Resize credential detail panel"
+            max={maximumDetailPanelWidth}
+            min={MIN_DETAIL_PANEL_WIDTH}
+            onResize={setRequestedDetailPanelWidth}
+            orientation="vertical"
+            value={detailPanelWidth}
+          />
+        ) : null}
 
         {createOpen ? (
           <CredSignalCredentialCreate

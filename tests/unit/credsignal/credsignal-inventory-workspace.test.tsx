@@ -168,6 +168,17 @@ describe("CredSignal inventory workspace", () => {
         name: "Avery Chen credential dossier",
       }),
     ).toBeInTheDocument();
+    const detailHandle = screen.getByRole("separator", {
+      name: "Resize credential detail panel",
+    });
+    expect(detailHandle).toHaveAttribute("aria-valuenow", "420");
+    fireEvent.keyDown(detailHandle, { key: "ArrowLeft" });
+    expect(detailHandle).toHaveAttribute("aria-valuenow", "436");
+    expect(
+      detailHandle.parentElement?.style.getPropertyValue(
+        "--detail-panel-width",
+      ),
+    ).toBe("436px");
     expect(screen.getAllByRole("row")).toHaveLength(tableRowCount);
     expect(
       screen.getByRole("button", { name: /Avery Chen/i, pressed: true }),

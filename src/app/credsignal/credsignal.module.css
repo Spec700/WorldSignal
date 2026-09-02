@@ -1870,7 +1870,9 @@
 }
 
 .inventoryWorkspace:has(> .dossier, > .intakePanel) {
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns:
+    minmax(0, 1fr) 8px
+    var(--detail-panel-width, 420px);
 }
 
 .inventoryStage {
@@ -2512,7 +2514,9 @@
 
 @media (max-width: 1240px) {
   .inventoryWorkspace:has(> .dossier, > .intakePanel) {
-    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-columns:
+      minmax(0, 1fr) 8px
+      var(--detail-panel-width, 390px);
   }
 
   .workspace,
@@ -2584,6 +2588,10 @@
     grid-column: 1;
     border-top: 1px solid var(--color-line-strong);
     border-left: 0;
+  }
+
+  .inventoryWorkspace > :global(.resize-handle--vertical) {
+    display: none;
   }
 
   .inventoryControls {
