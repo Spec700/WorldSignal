@@ -1,16 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import { CommandBar } from "@/components/command-bar/command-bar";
 import { EventDossier } from "@/components/dossier/event-dossier";
 import { OperationalStage } from "@/components/globe/operational-stage";
+import { ResizeHandle } from "@/components/layout/resize-handle";
 import { OperationsRail } from "@/components/operations-rail/operations-rail";
 import {
   toPersonGlobePoints,
   type PersonLocationSubject,
 } from "@/components/people/person-globe-model";
 import { HazardTimeline } from "@/components/timeline/hazard-timeline";
+import { useElementSize } from "@/hooks/use-element-size";
 import {
   HazardBatchRequestError,
   loadHazardBatch,
@@ -54,6 +63,16 @@ const HAZARD_CATEGORIES: EventCategory[] = [
   "volcano",
   "wildfire",
 ];
+const DEFAULT_RAIL_WIDTH = 300;
+const MIN_RAIL_WIDTH = 260;
+const DEFAULT_DOSSIER_WIDTH = 380;
+const MIN_DOSSIER_WIDTH = 320;
+const DEFAULT_TIMELINE_HEIGHT = 102;
+const MIN_TIMELINE_HEIGHT = 82;
+const MIN_STAGE_WIDTH = 360;
+const MIN_WORKSPACE_HEIGHT = 320;
+const COMMAND_BAR_HEIGHT = 58;
+const RESIZE_HANDLE_SIZE = 8;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -74,6 +93,16 @@ function WorldSignalWorkspace({ people }: { people: PersonLocationSubject[] }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const requestInFlightRef = useRef(false);
   const rangeChangeInFlightRef = useRef(false);
+  const [shellRef, shellSize] = useElementSize<HTMLDivElement>();
+  const [workspaceRef, workspaceSize] = useElementSize<HTMLDivElement>();
+  const [requestedRailWidth, setRequestedRailWidth] =
+    useState(DEFAULT_RAIL_WIDTH);
+  const [requestedDossierWidth, setRequestedDossierWidth] = useState(
+    DEFAULT_DOSSIER_WIDTH,
+  );
+  const [requestedTimelineHeight, setRequestedTimelineHeight] = useState(
+    DEFAULT_TIMELINE_HEIGHT,
+  );
   const restoring = state.cacheState === "checking";
 
   useEffect(() => {
@@ -398,8 +427,44 @@ function WorldSignalWorkspace({ people }: { people: PersonLocationSubject[] }) {
     [dispatch],
   );
 
+  const availableWorkspaceWidth = workspaceSize.width || 1440;
+  const maximumDossierWidth = Math.max(
+    MIN_DOSSIER_WIDTH,
+    availableWorkspaceWidth -
+      MIN_RAIL_WIDTH -
+      MIN_STAGE_WIDTH -
+      RESIZE_HANDLE_SIZE * 2,
+  );
+  const dossierWidth = Math.min(requestedDossierWidth, maximumDossierWidth);
+  const maximumRailWidth = Math.max(
+    MIN_RAIL_WIDTH,
+    availableWorkspaceWidth -
+      MIN_STAGE_WIDTH -
+      RESIZE_HANDLE_SIZE * (selectedEvent ? 2 : 1) -
+      (selectedEvent ? dossierWidth : 0),
+  );
+  const railWidth = Math.min(requestedRailWidth, maximumRailWidth);
+  const maximumTimelineHeight = Math.max(
+    MIN_TIMELINE_HEIGHT,
+    (shellSize.height || 800) -
+      COMMAND_BAR_HEIGHT -
+      MIN_WORKSPACE_HEIGHT -
+      RESIZE_HANDLE_SIZE,
+  );
+  const timelineHeight = Math.min(
+    requestedTimelineHeight,
+    maximumTimelineHeight,
+  );
+  const shellStyle = {
+    "--timeline-height": `${timelineHeight}px`,
+  } as CSSProperties;
+  const workspaceStyle = {
+    "--dossier-width": `${dossierWidth}px`,
+    "--operations-rail-width": `${railWidth}px`,
+  } as CSSProperties;
+
   return (
-    <div className="worldsignal-shell">
+    <div className="worldsignal-shell" ref={shellRef} style={shellStyle}>
       <a className="skip-link" href="#main-content">
         Skip to operational view
       </a>
@@ -416,7 +481,11 @@ function WorldSignalWorkspace({ people }: { people: PersonLocationSubject[] }) {
         visibleCount={visibleEvents.length}
         window={state.filters.window}
       />
-      <div className={`workspace-grid${selectedEvent ? " has-dossier" : ""}`}>
+      <div
+        className={`workspace-grid${selectedEvent ? " has-dossier" : ""}`}
+        ref={workspaceRef}
+        style={workspaceStyle}
+      >
         <OperationsRail
           categoryCounts={categoryCounts}
           changesByEventId={state.changesByEventId}
@@ -443,6 +512,14 @@ function WorldSignalWorkspace({ people }: { people: PersonLocationSubject[] }) {
           selectedEventId={state.selectedEventId}
           sourceHealth={state.latestSourceHealth}
         />
+        <ResizeHandle
+          label="Resize operations rail"
+          max={maximumRailWidth}
+          min={MIN_RAIL_WIDTH}
+          onResize={setRequestedRailWidth}
+          orientation="vertical"
+          value={railWidth}
+        />
         <OperationalStage
           batchIsPrevious={state.batchFreshness === "previous"}
           events={visibleEvents}
@@ -466,18 +543,38 @@ function WorldSignalWorkspace({ people }: { people: PersonLocationSubject[] }) {
           visibleCount={visibleEvents.length}
         />
         {selectedEvent ? (
-          <EventDossier
-            change={state.changesByEventId.get(selectedEvent.id)}
-            event={selectedEvent}
-            geometry={state.selectedGeometry}
-            geometryError={state.geometryError}
-            geometryState={state.geometryState}
-            onClose={() => dispatch({ type: "selection/clear" })}
-            onRetryGeometry={() => dispatch({ type: "geometry/retry" })}
-            sourceHealth={state.latestSourceHealth}
-          />
+          <>
+            <ResizeHandle
+              direction={-1}
+              label="Resize event dossier"
+              max={maximumDossierWidth}
+              min={MIN_DOSSIER_WIDTH}
+              onResize={setRequestedDossierWidth}
+              orientation="vertical"
+              value={dossierWidth}
+            />
+            <EventDossier
+              change={state.changesByEventId.get(selectedEvent.id)}
+              event={selectedEvent}
+              geometry={state.selectedGeometry}
+              geometryError={state.geometryError}
+              geometryState={state.geometryState}
+              onClose={() => dispatch({ type: "selection/clear" })}
+              onRetryGeometry={() => dispatch({ type: "geometry/retry" })}
+              sourceHealth={state.latestSourceHealth}
+            />
+          </>
         ) : null}
       </div>
+      <ResizeHandle
+        direction={-1}
+        label="Resize timeline"
+        max={maximumTimelineHeight}
+        min={MIN_TIMELINE_HEIGHT}
+        onResize={setRequestedTimelineHeight}
+        orientation="horizontal"
+        value={timelineHeight}
+      />
       <HazardTimeline
         batch={state.batch}
         changesByEventId={state.changesByEventId}

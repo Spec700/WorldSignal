@@ -67,6 +67,160 @@ async function loadFixtureBatch(page: Page) {
   ).toBeVisible();
 }
 
+test("event stream can be expanded without losing access to rail controls", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const stream = page.locator(".stream-section");
+  const handle = page.getByRole("separator", {
+    name: /resize event stream/i,
+  });
+  const initialBounds = await stream.boundingBox();
+  const handleBounds = await handle.boundingBox();
+
+  expect(initialBounds).not.toBeNull();
+  expect(handleBounds).not.toBeNull();
+
+  await page.mouse.move(
+    (handleBounds?.x ?? 0) + (handleBounds?.width ?? 0) / 2,
+    (handleBounds?.y ?? 0) + (handleBounds?.height ?? 0) / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    (handleBounds?.x ?? 0) + (handleBounds?.width ?? 0) / 2,
+    (handleBounds?.y ?? 0) - 120,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+
+  const expandedBounds = await stream.boundingBox();
+  expect(
+    (expandedBounds?.height ?? 0) - (initialBounds?.height ?? 0),
+  ).toBeGreaterThan(80);
+  await expect(
+    page.getByRole("searchbox", { name: /search loaded events/i }),
+  ).toBeVisible();
+  await expect(page.locator("[data-event-row]").first()).toBeVisible();
+});
+
+test("workspace panels can be resized from the keyboard", async ({ page }) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const rail = page.getByLabel("Event controls and stream");
+  const timeline = page.getByLabel("Loaded hazard timeline");
+  const peoplePanel = page.getByLabel("People presence layer");
+  const initialRail = await rail.boundingBox();
+  const initialTimeline = await timeline.boundingBox();
+  const initialPeoplePanel = await peoplePanel.boundingBox();
+
+  await page
+    .getByRole("separator", { name: /resize operations rail/i })
+    .press("ArrowRight");
+  await page
+    .getByRole("separator", { name: /resize timeline/i })
+    .press("ArrowUp");
+  await page
+    .getByRole("separator", { name: /resize people panel width/i })
+    .press("ArrowLeft");
+
+  expect((await rail.boundingBox())?.width).toBe(
+    (initialRail?.width ?? 0) + 16,
+  );
+  expect((await timeline.boundingBox())?.height).toBe(
+    (initialTimeline?.height ?? 0) + 16,
+  );
+  expect((await peoplePanel.boundingBox())?.width).toBe(
+    (initialPeoplePanel?.width ?? 0) + 16,
+  );
+
+  await page
+    .getByRole("button", { name: /earthquake: m6\.4 earthquake/i })
+    .click();
+  const dossier = page.locator(".event-dossier");
+  const initialDossier = await dossier.boundingBox();
+
+  await page
+    .getByRole("separator", { name: /resize event dossier/i })
+    .press("ArrowLeft");
+
+  expect((await dossier.boundingBox())?.width).toBe(
+    (initialDossier?.width ?? 0) + 16,
+  );
+});
+
+test("people presence panel minimizes and restores its previous size", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const panel = page.getByLabel("People presence layer");
+  const widthHandle = page.getByRole("separator", {
+    name: /resize people panel width/i,
+  });
+  await widthHandle.press("ArrowLeft");
+  const expandedBounds = await panel.boundingBox();
+
+  await page
+    .getByRole("button", { name: /minimize people presence panel/i })
+    .click();
+
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(
+    page.getByRole("button", { name: /expand people presence panel/i }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.locator(".people-presence-content")).toBeHidden();
+  await expect(widthHandle).toHaveCount(0);
+  const minimizedBounds = await panel.boundingBox();
+  expect(minimizedBounds?.height).toBeLessThan(60);
+  expect(minimizedBounds?.width).toBeLessThan(expandedBounds?.width ?? 0);
+
+  await page
+    .getByRole("button", { name: /expand people presence panel/i })
+    .click();
+
+  await expect(panel).not.toHaveClass(/is-minimized/);
+  await expect(panel.locator(".people-presence-content")).toBeVisible();
+  expect((await panel.boundingBox())?.width).toBe(expandedBounds?.width);
+  expect((await panel.boundingBox())?.height).toBe(expandedBounds?.height);
+});
+
+test("people presence ranks protectees nearest to the selected hazard", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const panel = page.getByLabel("People presence layer");
+  const people = panel.locator("li");
+  await expect(people.first()).toContainText("Amara Okafor");
+
+  await page
+    .getByRole("button", {
+      name: /tropical cyclone: tropical cyclone example/i,
+    })
+    .click();
+
+  await expect(
+    page.getByText(/3 validated geometry features rendered/i),
+  ).toBeVisible();
+  await expect(panel).toHaveAttribute("data-proximity", "true");
+  await expect(panel.locator("header")).toContainText(
+    "Nearest to Tropical Cyclone Example",
+  );
+  await expect(people.first()).toContainText("Kenji Sato");
+  await expect(people.first()).toContainText(/km from hazard/i);
+
+  await page.keyboard.press("Escape");
+
+  await expect(panel).toHaveAttribute("data-proximity", "false");
+  await expect(people.first()).toContainText("Amara Okafor");
+  await expect(panel.getByText(/km from hazard/i)).toHaveCount(0);
+});
+
 test("manual retrieval, filters, range changes, and time scrubbing stay synchronized", async ({
   page,
 }) => {

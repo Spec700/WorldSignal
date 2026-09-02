@@ -3,7 +3,9 @@
   height: 100vh;
   height: 100dvh;
   min-width: 0;
-  grid-template-rows: 64px minmax(0, 1fr) 116px;
+  grid-template-rows:
+    64px minmax(0, 1fr) 8px
+    var(--activity-strip-height, 116px);
   overflow: hidden;
   background: var(--color-bg);
 }
@@ -1868,7 +1870,9 @@
 }
 
 .inventoryWorkspace:has(> .dossier, > .intakePanel) {
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns:
+    minmax(0, 1fr) 8px
+    var(--detail-panel-width, 420px);
 }
 
 .inventoryStage {
@@ -2510,7 +2514,9 @@
 
 @media (max-width: 1240px) {
   .inventoryWorkspace:has(> .dossier, > .intakePanel) {
-    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-columns:
+      minmax(0, 1fr) 8px
+      var(--detail-panel-width, 390px);
   }
 
   .workspace,
@@ -2542,6 +2548,10 @@
     min-height: 100dvh;
     grid-template-rows: auto auto auto;
     overflow: visible;
+  }
+
+  .shell > :global(.resize-handle--horizontal) {
+    display: none;
   }
 
   .commandBar {
@@ -2578,6 +2588,10 @@
     grid-column: 1;
     border-top: 1px solid var(--color-line-strong);
     border-left: 0;
+  }
+
+  .inventoryWorkspace > :global(.resize-handle--vertical) {
+    display: none;
   }
 
   .inventoryControls {

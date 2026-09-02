@@ -70,6 +70,36 @@ const personFixture: PersonDto = {
   updatedAt: "2026-08-18T12:00:00.000Z",
 };
 
+function personAt({
+  id,
+  displayName,
+  label,
+  latitude,
+  longitude,
+}: {
+  id: string;
+  displayName: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+}): PersonDto {
+  const location = {
+    ...personFixture.location!,
+    id: `location-${id}`,
+    label,
+    latitude,
+    longitude,
+    effectiveFrom: "2026-08-01T00:00:00.000Z",
+  };
+  return {
+    ...personFixture,
+    id,
+    displayName,
+    location,
+    locationHistory: [location],
+  };
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -84,6 +114,175 @@ async function loadButton() {
 }
 
 describe("WorldSignal application shell", () => {
+  it("lets keyboard users expand and shrink the event stream", async () => {
+    render(<WorldSignalApp />);
+
+    const handle = await screen.findByRole("separator", {
+      name: /resize event stream/i,
+    });
+    const rail = screen.getByLabelText("Event controls and stream");
+
+    expect(handle).toHaveAttribute("aria-orientation", "horizontal");
+    expect(handle).toHaveAttribute("aria-valuenow", "280");
+    expect(rail.style.getPropertyValue("--event-stream-height")).toBe("280px");
+
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
+
+    expect(handle).toHaveAttribute("aria-valuenow", "296");
+    expect(rail.style.getPropertyValue("--event-stream-height")).toBe("296px");
+
+    fireEvent.keyDown(handle, { key: "ArrowDown", shiftKey: true });
+
+    expect(handle).toHaveAttribute("aria-valuenow", "248");
+    expect(rail.style.getPropertyValue("--event-stream-height")).toBe("248px");
+  });
+
+  it("exposes keyboard-operable splitters for each active workspace panel", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(eventBatchFixture),
+    );
+
+    render(<WorldSignalApp />);
+
+    const railHandle = screen.getByRole("separator", {
+      name: /resize operations rail/i,
+    });
+    const timelineHandle = screen.getByRole("separator", {
+      name: /resize timeline/i,
+    });
+    const peopleWidthHandle = screen.getByRole("separator", {
+      name: /resize people panel width/i,
+    });
+    const peopleHeightHandle = screen.getByRole("separator", {
+      name: /resize people panel height/i,
+    });
+    const workspace = document.querySelector<HTMLElement>(".workspace-grid");
+    const shell = document.querySelector<HTMLElement>(".worldsignal-shell");
+    const peoplePanel = screen.getByLabelText("People presence layer");
+
+    expect(railHandle).toHaveAttribute("aria-orientation", "vertical");
+    expect(timelineHandle).toHaveAttribute("aria-orientation", "horizontal");
+
+    fireEvent.keyDown(railHandle, { key: "ArrowRight" });
+    fireEvent.keyDown(timelineHandle, { key: "ArrowUp" });
+    fireEvent.keyDown(peopleWidthHandle, { key: "ArrowLeft" });
+    fireEvent.keyDown(peopleHeightHandle, { key: "ArrowDown" });
+
+    expect(workspace?.style.getPropertyValue("--operations-rail-width")).toBe(
+      "316px",
+    );
+    expect(shell?.style.getPropertyValue("--timeline-height")).toBe("118px");
+    expect(peoplePanel.style.getPropertyValue("--people-panel-width")).toBe(
+      "254px",
+    );
+    expect(peoplePanel.style.getPropertyValue("--people-panel-height")).toBe(
+      "326px",
+    );
+
+    await user.click(await loadButton());
+    await user.click(
+      await screen.findByRole("button", {
+        name: /earthquake: m6\.4 earthquake/i,
+      }),
+    );
+
+    const dossierHandle = screen.getByRole("separator", {
+      name: /resize event dossier/i,
+    });
+    expect(dossierHandle).toHaveAttribute("aria-orientation", "vertical");
+
+    fireEvent.keyDown(dossierHandle, { key: "ArrowLeft" });
+    expect(workspace?.style.getPropertyValue("--dossier-width")).toBe("396px");
+  });
+
+  it("minimizes and restores the people presence panel without losing its size", async () => {
+    const user = userEvent.setup();
+    render(<WorldSignalApp people={[personFixture]} />);
+
+    const panel = screen.getByLabelText("People presence layer");
+    const widthHandle = screen.getByRole("separator", {
+      name: /resize people panel width/i,
+    });
+    fireEvent.keyDown(widthHandle, { key: "ArrowLeft" });
+    expect(panel.style.getPropertyValue("--people-panel-width")).toBe("254px");
+
+    const minimize = screen.getByRole("button", {
+      name: /minimize people presence panel/i,
+    });
+    await user.click(minimize);
+
+    expect(panel).toHaveClass("is-minimized");
+    expect(
+      screen.getByRole("button", { name: /expand people presence panel/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("button", { name: /avery chen.*london/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: /resize people panel width/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /expand people presence panel/i }),
+    );
+
+    expect(panel).not.toHaveClass("is-minimized");
+    expect(panel.style.getPropertyValue("--people-panel-width")).toBe("254px");
+    expect(
+      screen.getByRole("button", { name: /avery chen.*london/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("ranks people by the selected hazard detail and restores normal order when cleared", async () => {
+    const user = userEvent.setup();
+    const nearCentroid = personAt({
+      id: "near-centroid",
+      displayName: "Centroid Person",
+      label: "Near event centroid",
+      latitude: 19.4,
+      longitude: 132.7,
+    });
+    const nearDetail = personAt({
+      id: "near-detail",
+      displayName: "Detail Person",
+      label: "Inside detailed geometry",
+      latitude: 20.5,
+      longitude: -167.2,
+    });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(eventBatchFixture))
+      .mockResolvedValueOnce(Response.json(gdacsGeometryFixture));
+
+    render(<WorldSignalApp people={[nearCentroid, nearDetail]} />);
+    const panel = screen.getByLabelText("People presence layer");
+    const listedNames = () =>
+      [...panel.querySelectorAll("li strong")].map((node) => node.textContent);
+
+    expect(listedNames()).toEqual(["Centroid Person", "Detail Person"]);
+
+    await user.click(await loadButton());
+    await user.click(
+      await screen.findByRole("button", { name: /tropical cyclone:/i }),
+    );
+
+    await screen.findByText(/3 validated geometry features rendered/i);
+    await waitFor(() =>
+      expect(listedNames()).toEqual(["Detail Person", "Centroid Person"]),
+    );
+    expect(panel).toHaveAttribute("data-proximity", "true");
+    expect(panel).toHaveTextContent("Nearest to Tropical Cyclone Example");
+    expect(panel).toHaveTextContent("<1 km from hazard");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(listedNames()).toEqual(["Centroid Person", "Detail Person"]),
+    );
+    expect(panel).toHaveAttribute("data-proximity", "false");
+    expect(panel).not.toHaveTextContent(/km from hazard/i);
+  });
+
   it("starts idle and performs no source request until the user asks", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 

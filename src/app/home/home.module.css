@@ -184,14 +184,18 @@
 }
 
 .workspace:has(> .dossier, > .editor) {
-  grid-template-columns: minmax(0, 1fr) 410px;
+  grid-template-columns:
+    minmax(0, 1fr) 8px
+    var(--home-detail-panel-width, 410px);
 }
 
 .globeWorkspace {
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns:
+    var(--globe-roster-width, 300px) 8px
+    minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1514,6 +1518,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .workspace > :global(.resize-handle--vertical) {
+    display: none;
+  }
+
   .dossier,
   .editor {
     position: absolute;
@@ -1579,7 +1587,11 @@
   }
 
   .globeWorkspace {
-    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-columns: var(--globe-roster-width, 250px) minmax(0, 1fr);
+  }
+
+  .globeWorkspace > :global(.resize-handle--vertical) {
+    display: none;
   }
 
   .globeLegend {

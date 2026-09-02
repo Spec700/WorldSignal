@@ -1,8 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
+import { ResizeHandle } from "@/components/layout/resize-handle";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import { HomeHeader } from "@/components/people/home-header";
 import { PersonEditor } from "@/components/people/person-editor";
@@ -13,11 +20,17 @@ import type {
   PersonStatus,
   PersonTier,
 } from "@/features/people/types";
+import { useElementSize } from "@/hooks/use-element-size";
 
 import styles from "@/app/home/home.module.css";
 
 type StatusFilter = "all" | PersonStatus;
 type TierFilter = "all" | PersonTier;
+
+const DEFAULT_DETAIL_PANEL_WIDTH = 410;
+const MIN_DETAIL_PANEL_WIDTH = 320;
+const MIN_ROSTER_WIDTH = 640;
+const RESIZE_HANDLE_SIZE = 8;
 
 interface PeopleWorkspaceProps {
   dashboard: PeopleDashboardDto;
@@ -208,6 +221,10 @@ export function PeopleWorkspace({
 }: PeopleWorkspaceProps) {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [workspaceRef, workspaceSize] = useElementSize<HTMLDivElement>();
+  const [requestedDetailPanelWidth, setRequestedDetailPanelWidth] = useState(
+    DEFAULT_DETAIL_PANEL_WIDTH,
+  );
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [tier, setTier] = useState<TierFilter>("all");
@@ -232,6 +249,18 @@ export function PeopleWorkspace({
       ),
     [dashboard.people, query, status, tier],
   );
+  const detailPanelOpen = Boolean(editorMode || selectedPerson);
+  const maximumDetailPanelWidth = Math.max(
+    MIN_DETAIL_PANEL_WIDTH,
+    (workspaceSize.width || 1440) - MIN_ROSTER_WIDTH - RESIZE_HANDLE_SIZE,
+  );
+  const detailPanelWidth = Math.min(
+    requestedDetailPanelWidth,
+    maximumDetailPanelWidth,
+  );
+  const workspaceStyle = {
+    "--home-detail-panel-width": `${detailPanelWidth}px`,
+  } as CSSProperties;
 
   useEffect(() => {
     function handleKeyboard(event: KeyboardEvent) {
@@ -311,7 +340,12 @@ export function PeopleWorkspace({
         operators={dashboard.operators}
       />
 
-      <div className={styles.workspace} id="people-main">
+      <div
+        className={styles.workspace}
+        id="people-main"
+        ref={workspaceRef}
+        style={workspaceStyle}
+      >
         <main className={styles.roster}>
           <section className={styles.rosterIntro}>
             <div>
@@ -501,6 +535,18 @@ export function PeopleWorkspace({
             <span>Synthetic demonstration data only.</span>
           </footer>
         </main>
+
+        {detailPanelOpen ? (
+          <ResizeHandle
+            direction={-1}
+            label="Resize person detail panel"
+            max={maximumDetailPanelWidth}
+            min={MIN_DETAIL_PANEL_WIDTH}
+            onResize={setRequestedDetailPanelWidth}
+            orientation="vertical"
+            value={detailPanelWidth}
+          />
+        ) : null}
 
         {editorMode ? (
           <PersonEditor

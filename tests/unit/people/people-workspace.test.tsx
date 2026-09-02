@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -138,6 +138,18 @@ describe("People workspace", () => {
     expect(
       screen.getByText("Synthetic executive profile."),
     ).toBeInTheDocument();
+
+    const detailHandle = screen.getByRole("separator", {
+      name: "Resize person detail panel",
+    });
+    expect(detailHandle).toHaveAttribute("aria-valuenow", "410");
+    fireEvent.keyDown(detailHandle, { key: "ArrowLeft" });
+    expect(detailHandle).toHaveAttribute("aria-valuenow", "426");
+    expect(
+      detailHandle.parentElement?.style.getPropertyValue(
+        "--home-detail-panel-width",
+      ),
+    ).toBe("426px");
   });
 
   it("opens create and manage flows from the roster", async () => {

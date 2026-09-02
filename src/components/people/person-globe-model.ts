@@ -4,6 +4,13 @@ import type {
   PersonStatus,
   PersonTier,
 } from "@/features/people/types";
+import type { WorldEvent } from "@/lib/events/types";
+import {
+  distanceBetweenPointsKm,
+  distanceToGeometryCollectionKm,
+  distanceToGeometryKm,
+} from "@/lib/geo/proximity";
+import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 
 export interface PersonLocationSubject {
   id: string;
@@ -42,6 +49,11 @@ export interface PersonGlobePoint {
   tier: PersonTier;
 }
 
+export interface PersonEventProximity {
+  distanceKm: number;
+  person: PersonGlobePoint;
+}
+
 export function toPersonGlobePoints(
   people: PersonLocationSubject[],
   atTimestamp?: string,
@@ -75,6 +87,56 @@ export function toPersonGlobePoints(
       },
     ];
   });
+}
+
+function distanceFromEvent(
+  person: PersonGlobePoint,
+  event: WorldEvent,
+  detailGeometry?: GdacsGeometryCollection,
+): number {
+  if (detailGeometry) {
+    const detailDistance = distanceToGeometryCollectionKm(
+      person,
+      detailGeometry,
+    );
+    if (Number.isFinite(detailDistance)) {
+      return detailDistance;
+    }
+  }
+
+  const eventGeometryDistance = distanceToGeometryKm(person, event.geometry);
+  return Number.isFinite(eventGeometryDistance)
+    ? eventGeometryDistance
+    : distanceBetweenPointsKm(person, event.centroid);
+}
+
+export function rankPeopleByEventProximity(
+  people: PersonGlobePoint[],
+  event: WorldEvent,
+  detailGeometry?: GdacsGeometryCollection,
+): PersonEventProximity[] {
+  return people
+    .map((person, originalIndex) => ({
+      distanceKm: distanceFromEvent(person, event, detailGeometry),
+      originalIndex,
+      person,
+    }))
+    .sort(
+      (left, right) =>
+        left.distanceKm - right.distanceKm ||
+        left.originalIndex - right.originalIndex,
+    )
+    .map(({ distanceKm, person }) => ({ distanceKm, person }));
+}
+
+export function formatProximityDistance(distanceKm: number): string {
+  if (distanceKm < 1) {
+    return "<1 km";
+  }
+
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: distanceKm < 10 ? 1 : 0,
+  }).format(distanceKm)} km`;
 }
 
 function escapeHtml(value: string): string {

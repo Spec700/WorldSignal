@@ -1,10 +1,16 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
+import { ResizeHandle } from "@/components/layout/resize-handle";
 import { LocalTimestamp } from "@/components/local-timestamp";
-import type { PersonGlobePoint } from "@/components/people/person-globe-model";
+import {
+  formatProximityDistance,
+  rankPeopleByEventProximity,
+  type PersonEventProximity,
+  type PersonGlobePoint,
+} from "@/components/people/person-globe-model";
 import type { WorldEvent } from "@/lib/events/types";
 import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 import { formatCoordinate } from "@/lib/time/format";
@@ -47,24 +53,82 @@ interface OperationalStageProps {
   timeCursor: string;
 }
 
+const DEFAULT_PEOPLE_PANEL_WIDTH = 238;
+const MIN_PEOPLE_PANEL_WIDTH = 210;
+const MAX_PEOPLE_PANEL_WIDTH = 420;
+const DEFAULT_PEOPLE_PANEL_HEIGHT = 310;
+const MIN_PEOPLE_PANEL_HEIGHT = 170;
+const MAX_PEOPLE_PANEL_HEIGHT = 520;
+
 function PeoplePresencePanel({
   people,
+  selectedEvent,
+  selectedGeometry,
   selectedPersonId,
   timeCursor,
   onSelect,
 }: {
   people: PersonGlobePoint[];
+  selectedEvent?: WorldEvent;
+  selectedGeometry?: GdacsGeometryCollection;
   selectedPersonId?: string;
   timeCursor: string;
   onSelect: (personId: string) => void;
 }) {
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PEOPLE_PANEL_WIDTH);
+  const [panelHeight, setPanelHeight] = useState(DEFAULT_PEOPLE_PANEL_HEIGHT);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const peopleByProximity = useMemo<PersonEventProximity[] | undefined>(
+    () =>
+      selectedEvent
+        ? rankPeopleByEventProximity(people, selectedEvent, selectedGeometry)
+        : undefined,
+    [people, selectedEvent, selectedGeometry],
+  );
+  const displayedPeople: Array<{
+    distanceKm?: number;
+    person: PersonGlobePoint;
+  }> = peopleByProximity ?? people.map((person) => ({ person }));
+  const panelStyle = {
+    "--people-panel-height": `${panelHeight}px`,
+    "--people-panel-width": `${panelWidth}px`,
+  } as CSSProperties;
+
   return (
-    <aside className="world-people-presence" aria-label="People presence layer">
+    <aside
+      className={`world-people-presence${isMinimized ? " is-minimized" : ""}`}
+      aria-label="People presence layer"
+      data-proximity={Boolean(selectedEvent)}
+      style={panelStyle}
+    >
+      {isMinimized ? null : (
+        <>
+          <ResizeHandle
+            direction={-1}
+            label="Resize people panel width"
+            max={MAX_PEOPLE_PANEL_WIDTH}
+            min={MIN_PEOPLE_PANEL_WIDTH}
+            onResize={setPanelWidth}
+            orientation="vertical"
+            value={panelWidth}
+          />
+          <ResizeHandle
+            label="Resize people panel height"
+            max={MAX_PEOPLE_PANEL_HEIGHT}
+            min={MIN_PEOPLE_PANEL_HEIGHT}
+            onResize={setPanelHeight}
+            orientation="horizontal"
+            value={panelHeight}
+          />
+        </>
+      )}
       <header>
         <span>
           <strong>People presence</strong>
-          <small>
-            {timeCursor ? (
+          <small title={selectedEvent?.title}>
+            {selectedEvent ? (
+              <>Nearest to {selectedEvent.title}</>
+            ) : timeCursor ? (
               <>
                 At <LocalTimestamp timestamp={timeCursor} />
               </>
@@ -73,33 +137,67 @@ function PeoplePresencePanel({
             )}
           </small>
         </span>
-        <em>{people.length}</em>
+        <div className="people-panel-actions">
+          <em aria-label={`${people.length} people`}>{people.length}</em>
+          <button
+            aria-controls="people-presence-content"
+            aria-expanded={!isMinimized}
+            aria-label={
+              isMinimized
+                ? "Expand people presence panel"
+                : "Minimize people presence panel"
+            }
+            onClick={() => setIsMinimized((current) => !current)}
+            title={
+              isMinimized
+                ? "Expand People presence"
+                : "Minimize People presence"
+            }
+            type="button"
+          >
+            <span aria-hidden="true">{isMinimized ? "+" : "−"}</span>
+          </button>
+        </div>
       </header>
-      {people.length > 0 ? (
-        <ul>
-          {people.map((person) => (
-            <li data-selected={person.id === selectedPersonId} key={person.id}>
-              <button
-                aria-pressed={person.id === selectedPersonId}
-                onClick={() => onSelect(person.id)}
-                type="button"
+      <div
+        className="people-presence-content"
+        hidden={isMinimized}
+        id="people-presence-content"
+      >
+        {displayedPeople.length > 0 ? (
+          <ul>
+            {displayedPeople.map(({ person, distanceKm }) => (
+              <li
+                data-selected={person.id === selectedPersonId}
+                key={person.id}
               >
-                <i data-tier={person.tier} aria-hidden="true" />
-                <span>
-                  <strong>{person.displayName}</strong>
-                  <small>{person.locationLabel}</small>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No approved person locations apply at this cursor.</p>
-      )}
-      <footer>
-        <span>Protection tier markers</span>
-        <Link href="/home/globe">Open People globe →</Link>
-      </footer>
+                <button
+                  aria-pressed={person.id === selectedPersonId}
+                  onClick={() => onSelect(person.id)}
+                  type="button"
+                >
+                  <i data-tier={person.tier} aria-hidden="true" />
+                  <span>
+                    <strong>{person.displayName}</strong>
+                    <small>{person.locationLabel}</small>
+                    {distanceKm === undefined ? null : (
+                      <small className="people-proximity-distance">
+                        {formatProximityDistance(distanceKm)} from hazard
+                      </small>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No approved person locations apply at this cursor.</p>
+        )}
+        <footer>
+          <span>Protection tier markers</span>
+          <Link href="/home/globe">Open People globe →</Link>
+        </footer>
+      </div>
     </aside>
   );
 }
@@ -246,6 +344,8 @@ export function OperationalStage({
         <PeoplePresencePanel
           onSelect={onSelectPerson}
           people={people}
+          selectedEvent={selectedEvent}
+          selectedGeometry={selectedGeometry}
           selectedPersonId={selectedPerson?.id}
           timeCursor={timeCursor}
         />
