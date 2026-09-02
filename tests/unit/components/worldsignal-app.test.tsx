@@ -84,6 +84,29 @@ async function loadButton() {
 }
 
 describe("WorldSignal application shell", () => {
+  it("lets keyboard users expand and shrink the event stream", async () => {
+    render(<WorldSignalApp />);
+
+    const handle = await screen.findByRole("separator", {
+      name: /resize event stream/i,
+    });
+    const rail = screen.getByLabelText("Event controls and stream");
+
+    expect(handle).toHaveAttribute("aria-orientation", "horizontal");
+    expect(handle).toHaveAttribute("aria-valuenow", "280");
+    expect(rail.style.getPropertyValue("--event-stream-height")).toBe("280px");
+
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
+
+    expect(handle).toHaveAttribute("aria-valuenow", "296");
+    expect(rail.style.getPropertyValue("--event-stream-height")).toBe("296px");
+
+    fireEvent.keyDown(handle, { key: "ArrowDown", shiftKey: true });
+
+    expect(handle).toHaveAttribute("aria-valuenow", "248");
+    expect(rail.style.getPropertyValue("--event-stream-height")).toBe("248px");
+  });
+
   it("starts idle and performs no source request until the user asks", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 

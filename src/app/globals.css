@@ -399,6 +399,107 @@ button:disabled {
   background: var(--color-surface);
 }
 
+.operations-rail-controls {
+  min-height: 180px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.resize-handle {
+  position: relative;
+  z-index: 9;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: var(--color-surface);
+  touch-action: none;
+}
+
+.resize-handle::before,
+.resize-handle::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
+.resize-handle::before {
+  inset: 0;
+  background: var(--color-line-strong);
+  opacity: 0.65;
+  transition:
+    background 120ms ease-out,
+    opacity 120ms ease-out;
+}
+
+.resize-handle::after {
+  border-color: var(--color-text-faint);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.resize-handle--horizontal {
+  width: 100%;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.resize-handle--horizontal::before {
+  top: 3px;
+  bottom: 3px;
+}
+
+.resize-handle--horizontal::after {
+  top: 2px;
+  left: 50%;
+  width: 28px;
+  height: 4px;
+  border-top: 1px solid;
+  border-bottom: 1px solid;
+  transform: translateX(-50%);
+}
+
+.resize-handle--vertical {
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resize-handle--vertical::before {
+  right: 3px;
+  left: 3px;
+}
+
+.resize-handle--vertical::after {
+  top: 50%;
+  left: 2px;
+  width: 4px;
+  height: 28px;
+  border-right: 1px solid;
+  border-left: 1px solid;
+  transform: translateY(-50%);
+}
+
+.resize-handle:hover::before,
+.resize-handle:focus-visible::before,
+.resize-handle.is-dragging::before {
+  background: var(--color-accent-strong);
+  opacity: 1;
+}
+
+.resize-handle:hover::after,
+.resize-handle:focus-visible::after,
+.resize-handle.is-dragging::after {
+  opacity: 1;
+}
+
+.resize-handle:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: -2px;
+}
+
 .module-nav,
 .rail-control-group,
 .rail-filters,
@@ -859,7 +960,8 @@ button:disabled {
 .stream-section {
   display: flex;
   min-height: 110px;
-  flex: 1;
+  height: min(var(--event-stream-height, 280px), calc(100% - 188px));
+  flex: 0 0 auto;
   flex-direction: column;
   overflow: hidden;
 }
@@ -2238,6 +2340,23 @@ button:disabled {
 
   .operations-rail {
     border-right: 0;
+    overflow: visible;
+  }
+
+  .operations-rail-controls {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .resize-handle {
+    display: none;
+  }
+
+  .stream-section {
+    height: auto;
+    min-height: 320px;
+    max-height: none;
+    flex: 1 0 auto;
   }
 
   .operational-stage {

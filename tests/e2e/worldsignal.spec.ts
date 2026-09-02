@@ -67,6 +67,44 @@ async function loadFixtureBatch(page: Page) {
   ).toBeVisible();
 }
 
+test("event stream can be expanded without losing access to rail controls", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const stream = page.locator(".stream-section");
+  const handle = page.getByRole("separator", {
+    name: /resize event stream/i,
+  });
+  const initialBounds = await stream.boundingBox();
+  const handleBounds = await handle.boundingBox();
+
+  expect(initialBounds).not.toBeNull();
+  expect(handleBounds).not.toBeNull();
+
+  await page.mouse.move(
+    (handleBounds?.x ?? 0) + (handleBounds?.width ?? 0) / 2,
+    (handleBounds?.y ?? 0) + (handleBounds?.height ?? 0) / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    (handleBounds?.x ?? 0) + (handleBounds?.width ?? 0) / 2,
+    (handleBounds?.y ?? 0) - 120,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+
+  const expandedBounds = await stream.boundingBox();
+  expect(
+    (expandedBounds?.height ?? 0) - (initialBounds?.height ?? 0),
+  ).toBeGreaterThan(80);
+  await expect(
+    page.getByRole("searchbox", { name: /search loaded events/i }),
+  ).toBeVisible();
+  await expect(page.locator("[data-event-row]").first()).toBeVisible();
+});
+
 test("manual retrieval, filters, range changes, and time scrubbing stay synchronized", async ({
   page,
 }) => {
