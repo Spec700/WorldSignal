@@ -193,7 +193,9 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns:
+    var(--globe-roster-width, 300px) 8px
+    minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1585,7 +1587,11 @@
   }
 
   .globeWorkspace {
-    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-columns: var(--globe-roster-width, 250px) minmax(0, 1fr);
+  }
+
+  .globeWorkspace > :global(.resize-handle--vertical) {
+    display: none;
   }
 
   .globeLegend {

@@ -3,12 +3,14 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
+import { ResizeHandle } from "@/components/layout/resize-handle";
 import { HomeHeader } from "@/components/people/home-header";
 import { toPersonGlobePoints } from "@/components/people/person-globe-model";
 import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import type { PeopleDashboardDto } from "@/features/people/types";
+import { useElementSize } from "@/hooks/use-element-size";
 
 import styles from "@/app/home/home.module.css";
 
@@ -32,11 +34,22 @@ interface PeopleGlobeWorkspaceProps {
   initialPersonId?: string;
 }
 
+const DEFAULT_GLOBE_ROSTER_WIDTH = 300;
+const COMPACT_GLOBE_ROSTER_WIDTH = 250;
+const MIN_GLOBE_ROSTER_WIDTH = 240;
+const MIN_GLOBE_STAGE_WIDTH = 480;
+const RESIZE_HANDLE_SIZE = 8;
+const COMPACT_LAYOUT_BREAKPOINT = 900;
+
 export function PeopleGlobeWorkspace({
   dashboard,
   initialPersonId,
 }: PeopleGlobeWorkspaceProps) {
   const router = useRouter();
+  const [workspaceRef, workspaceSize] = useElementSize<HTMLElement>();
+  const [requestedRosterWidth, setRequestedRosterWidth] = useState(
+    DEFAULT_GLOBE_ROSTER_WIDTH,
+  );
   const [activeOperatorId, setActiveOperatorId] = useState(
     dashboard.operators[0]?.id ?? "",
   );
@@ -57,6 +70,17 @@ export function PeopleGlobeWorkspace({
   const selectedEntry = mappedPeople.find(
     ({ person }) => person.id === selectedPersonId,
   );
+  const maximumRosterWidth = Math.max(
+    MIN_GLOBE_ROSTER_WIDTH,
+    (workspaceSize.width || 1440) - MIN_GLOBE_STAGE_WIDTH - RESIZE_HANDLE_SIZE,
+  );
+  const rosterWidth =
+    workspaceSize.width > 0 && workspaceSize.width <= COMPACT_LAYOUT_BREAKPOINT
+      ? COMPACT_GLOBE_ROSTER_WIDTH
+      : Math.min(requestedRosterWidth, maximumRosterWidth);
+  const workspaceStyle = {
+    "--globe-roster-width": `${rosterWidth}px`,
+  } as CSSProperties;
 
   if (dashboard.setupRequired) {
     return (
@@ -96,7 +120,12 @@ export function PeopleGlobeWorkspace({
         operators={dashboard.operators}
       />
 
-      <main className={styles.globeWorkspace} id="people-globe-main">
+      <main
+        className={styles.globeWorkspace}
+        id="people-globe-main"
+        ref={workspaceRef}
+        style={workspaceStyle}
+      >
         <aside
           aria-label="People with current approved locations"
           className={styles.globeRoster}
@@ -151,6 +180,15 @@ export function PeopleGlobeWorkspace({
           </section>
           <footer>Operator-maintained locations · not live tracking</footer>
         </aside>
+
+        <ResizeHandle
+          label="Resize people globe roster"
+          max={maximumRosterWidth}
+          min={MIN_GLOBE_ROSTER_WIDTH}
+          onResize={setRequestedRosterWidth}
+          orientation="vertical"
+          value={rosterWidth}
+        />
 
         <section
           className={styles.peopleGlobeStage}
