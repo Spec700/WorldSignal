@@ -188,6 +188,39 @@ test("people presence panel minimizes and restores its previous size", async ({
   expect((await panel.boundingBox())?.height).toBe(expandedBounds?.height);
 });
 
+test("people presence ranks protectees nearest to the selected hazard", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const panel = page.getByLabel("People presence layer");
+  const people = panel.locator("li");
+  await expect(people.first()).toContainText("Amara Okafor");
+
+  await page
+    .getByRole("button", {
+      name: /tropical cyclone: tropical cyclone example/i,
+    })
+    .click();
+
+  await expect(
+    page.getByText(/3 validated geometry features rendered/i),
+  ).toBeVisible();
+  await expect(panel).toHaveAttribute("data-proximity", "true");
+  await expect(panel.locator("header")).toContainText(
+    "Nearest to Tropical Cyclone Example",
+  );
+  await expect(people.first()).toContainText("Kenji Sato");
+  await expect(people.first()).toContainText(/km from hazard/i);
+
+  await page.keyboard.press("Escape");
+
+  await expect(panel).toHaveAttribute("data-proximity", "false");
+  await expect(people.first()).toContainText("Amara Okafor");
+  await expect(panel.getByText(/km from hazard/i)).toHaveCount(0);
+});
+
 test("manual retrieval, filters, range changes, and time scrubbing stay synchronized", async ({
   page,
 }) => {

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatProximityDistance,
   personPointTooltip,
+  rankPeopleByEventProximity,
   toPersonGlobePoints,
 } from "@/components/people/person-globe-model";
 import type { PersonDto } from "@/features/people/types";
+import { earthquakeFixture } from "../../fixtures/events";
 
 const person: PersonDto = {
   id: "person-1",
@@ -88,5 +91,74 @@ describe("person globe model", () => {
     expect(tooltip).toContain("Avery &lt;Chen&gt;");
     expect(tooltip).toContain("Northstar &amp; Labs");
     expect(tooltip).not.toContain("Avery <Chen>");
+  });
+
+  it("ranks people nearest-first using the event geometry", () => {
+    const [london] = toPersonGlobePoints([person]);
+    const tokyo = {
+      ...london!,
+      id: "person-tokyo",
+      displayName: "Kenji Sato",
+      locationLabel: "Tokyo, Japan",
+      latitude: 35.6762,
+      longitude: 139.6503,
+    };
+
+    const ranked = rankPeopleByEventProximity(
+      [london!, tokyo],
+      earthquakeFixture,
+    );
+
+    expect(ranked.map(({ person }) => person.id)).toEqual([
+      "person-tokyo",
+      "person-1",
+    ]);
+    expect(ranked[0]!.distanceKm).toBeLessThan(ranked[1]!.distanceKm);
+  });
+
+  it("re-ranks against detailed paths and affected areas when they arrive", () => {
+    const [london] = toPersonGlobePoints([person]);
+    const nearCentroid = {
+      ...london!,
+      id: "near-centroid",
+      latitude: 38,
+      longitude: 143,
+    };
+    const nearDetail = {
+      ...london!,
+      id: "near-detail",
+      latitude: 20.5,
+      longitude: -167.2,
+    };
+    const detailGeometry = {
+      type: "FeatureCollection" as const,
+      features: [
+        {
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: [-167.2, 20.5] },
+          properties: {},
+        },
+      ],
+    };
+
+    expect(
+      rankPeopleByEventProximity(
+        [nearDetail, nearCentroid],
+        earthquakeFixture,
+      )[0]!.person.id,
+    ).toBe("near-centroid");
+    expect(
+      rankPeopleByEventProximity(
+        [nearDetail, nearCentroid],
+        earthquakeFixture,
+        detailGeometry,
+      )[0]!.person.id,
+    ).toBe("near-detail");
+  });
+
+  it("formats proximity distances for compact operational display", () => {
+    expect(formatProximityDistance(0)).toBe("<1 km");
+    expect(formatProximityDistance(4.25)).toBe("4.3 km");
+    expect(formatProximityDistance(1234.4)).toBe("1,234 km");
   });
 });

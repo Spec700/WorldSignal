@@ -70,6 +70,36 @@ const personFixture: PersonDto = {
   updatedAt: "2026-08-18T12:00:00.000Z",
 };
 
+function personAt({
+  id,
+  displayName,
+  label,
+  latitude,
+  longitude,
+}: {
+  id: string;
+  displayName: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+}): PersonDto {
+  const location = {
+    ...personFixture.location!,
+    id: `location-${id}`,
+    label,
+    latitude,
+    longitude,
+    effectiveFrom: "2026-08-01T00:00:00.000Z",
+  };
+  return {
+    ...personFixture,
+    id,
+    displayName,
+    location,
+    locationHistory: [location],
+  };
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -202,6 +232,55 @@ describe("WorldSignal application shell", () => {
     expect(
       screen.getByRole("button", { name: /avery chen.*london/i }),
     ).toBeInTheDocument();
+  });
+
+  it("ranks people by the selected hazard detail and restores normal order when cleared", async () => {
+    const user = userEvent.setup();
+    const nearCentroid = personAt({
+      id: "near-centroid",
+      displayName: "Centroid Person",
+      label: "Near event centroid",
+      latitude: 19.4,
+      longitude: 132.7,
+    });
+    const nearDetail = personAt({
+      id: "near-detail",
+      displayName: "Detail Person",
+      label: "Inside detailed geometry",
+      latitude: 20.5,
+      longitude: -167.2,
+    });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(eventBatchFixture))
+      .mockResolvedValueOnce(Response.json(gdacsGeometryFixture));
+
+    render(<WorldSignalApp people={[nearCentroid, nearDetail]} />);
+    const panel = screen.getByLabelText("People presence layer");
+    const listedNames = () =>
+      [...panel.querySelectorAll("li strong")].map((node) => node.textContent);
+
+    expect(listedNames()).toEqual(["Centroid Person", "Detail Person"]);
+
+    await user.click(await loadButton());
+    await user.click(
+      await screen.findByRole("button", { name: /tropical cyclone:/i }),
+    );
+
+    await screen.findByText(/3 validated geometry features rendered/i);
+    await waitFor(() =>
+      expect(listedNames()).toEqual(["Detail Person", "Centroid Person"]),
+    );
+    expect(panel).toHaveAttribute("data-proximity", "true");
+    expect(panel).toHaveTextContent("Nearest to Tropical Cyclone Example");
+    expect(panel).toHaveTextContent("<1 km from hazard");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(listedNames()).toEqual(["Centroid Person", "Detail Person"]),
+    );
+    expect(panel).toHaveAttribute("data-proximity", "false");
+    expect(panel).not.toHaveTextContent(/km from hazard/i);
   });
 
   it("starts idle and performs no source request until the user asks", async () => {

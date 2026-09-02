@@ -1608,6 +1608,10 @@ button:disabled {
   text-align: left;
 }
 
+.world-people-presence[data-proximity="true"] li button {
+  min-height: 58px;
+}
+
 .world-people-presence li button:hover {
   background: var(--color-surface-raised);
 }
@@ -1644,6 +1648,11 @@ button:disabled {
   margin-top: 2px;
   color: var(--color-text-faint);
   font-size: 0.54rem;
+}
+
+.world-people-presence li .people-proximity-distance {
+  color: var(--color-accent-strong);
+  font-variant-numeric: tabular-nums;
 }
 
 .people-presence-content > p {

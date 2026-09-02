@@ -135,33 +135,49 @@ function pointInRing(point: Vector3, ring: readonly Position[]): boolean {
     return false;
   }
 
-  const tangents = ring.map((position) => {
-    const vertex = positionVector(position);
-    const projection = dot(vertex, point);
-    return normalize([
-      vertex[0] - point[0] * projection,
-      vertex[1] - point[1] * projection,
-      vertex[2] - point[2] * projection,
-    ]);
-  });
-
-  if (tangents.some((tangent) => !tangent)) {
-    return true;
+  const unwrappedLongitudes: number[] = [];
+  for (const position of ring) {
+    let longitude = position[0];
+    const previous = unwrappedLongitudes.at(-1);
+    if (previous !== undefined) {
+      while (longitude - previous > 180) longitude -= 360;
+      while (longitude - previous < -180) longitude += 360;
+    }
+    unwrappedLongitudes.push(longitude);
   }
 
-  let winding = 0;
-  for (let index = 1; index < tangents.length; index += 1) {
-    const previous = tangents[index - 1];
-    const current = tangents[index];
-    if (!previous || !current) {
+  const ringCenterLongitude =
+    unwrappedLongitudes.reduce((sum, longitude) => sum + longitude, 0) /
+    unwrappedLongitudes.length;
+  let pointLongitude = (Math.atan2(point[1], point[0]) * 180) / Math.PI;
+  while (pointLongitude - ringCenterLongitude > 180) pointLongitude -= 360;
+  while (pointLongitude - ringCenterLongitude < -180) pointLongitude += 360;
+  const pointLatitude = (Math.asin(clampUnit(point[2])) * 180) / Math.PI;
+
+  let inside = false;
+  for (
+    let index = 0, previous = ring.length - 1;
+    index < ring.length;
+    previous = index++
+  ) {
+    const currentLatitude = ring[index][1];
+    const previousLatitude = ring[previous][1];
+    const crossesLatitude =
+      currentLatitude > pointLatitude !== previousLatitude > pointLatitude;
+    if (!crossesLatitude) {
       continue;
     }
-    winding += Math.atan2(
-      dot(point, cross(previous, current)),
-      dot(previous, current),
-    );
+
+    const intersectionLongitude =
+      ((unwrappedLongitudes[previous] - unwrappedLongitudes[index]) *
+        (pointLatitude - currentLatitude)) /
+        (previousLatitude - currentLatitude) +
+      unwrappedLongitudes[index];
+    if (pointLongitude < intersectionLongitude) {
+      inside = !inside;
+    }
   }
-  return Math.abs(winding) > Math.PI;
+  return inside;
 }
 
 function distanceToPolygonRadians(

@@ -103,6 +103,26 @@ describe("geographic proximity", () => {
     expect(distance).toBe(0);
   });
 
+  it("does not invert a small affected area onto its antipodal region", () => {
+    const distance = distanceToGeometryKm(
+      { latitude: -5, longitude: -175 },
+      {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0],
+          ],
+        ],
+      },
+    );
+
+    expect(distance).toBeGreaterThan(10_000);
+  });
+
   it("uses the nearest feature in a detailed geometry collection", () => {
     const distance = distanceToGeometryCollectionKm(
       { latitude: 0, longitude: 5 },

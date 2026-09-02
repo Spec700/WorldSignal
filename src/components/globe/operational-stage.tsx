@@ -1,11 +1,16 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
 import { ResizeHandle } from "@/components/layout/resize-handle";
 import { LocalTimestamp } from "@/components/local-timestamp";
-import type { PersonGlobePoint } from "@/components/people/person-globe-model";
+import {
+  formatProximityDistance,
+  rankPeopleByEventProximity,
+  type PersonEventProximity,
+  type PersonGlobePoint,
+} from "@/components/people/person-globe-model";
 import type { WorldEvent } from "@/lib/events/types";
 import type { GdacsGeometryCollection } from "@/lib/sources/gdacs/geometry";
 import { formatCoordinate } from "@/lib/time/format";
@@ -57,11 +62,15 @@ const MAX_PEOPLE_PANEL_HEIGHT = 520;
 
 function PeoplePresencePanel({
   people,
+  selectedEvent,
+  selectedGeometry,
   selectedPersonId,
   timeCursor,
   onSelect,
 }: {
   people: PersonGlobePoint[];
+  selectedEvent?: WorldEvent;
+  selectedGeometry?: GdacsGeometryCollection;
   selectedPersonId?: string;
   timeCursor: string;
   onSelect: (personId: string) => void;
@@ -69,6 +78,17 @@ function PeoplePresencePanel({
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PEOPLE_PANEL_WIDTH);
   const [panelHeight, setPanelHeight] = useState(DEFAULT_PEOPLE_PANEL_HEIGHT);
   const [isMinimized, setIsMinimized] = useState(false);
+  const peopleByProximity = useMemo<PersonEventProximity[] | undefined>(
+    () =>
+      selectedEvent
+        ? rankPeopleByEventProximity(people, selectedEvent, selectedGeometry)
+        : undefined,
+    [people, selectedEvent, selectedGeometry],
+  );
+  const displayedPeople: Array<{
+    distanceKm?: number;
+    person: PersonGlobePoint;
+  }> = peopleByProximity ?? people.map((person) => ({ person }));
   const panelStyle = {
     "--people-panel-height": `${panelHeight}px`,
     "--people-panel-width": `${panelWidth}px`,
@@ -78,6 +98,7 @@ function PeoplePresencePanel({
     <aside
       className={`world-people-presence${isMinimized ? " is-minimized" : ""}`}
       aria-label="People presence layer"
+      data-proximity={Boolean(selectedEvent)}
       style={panelStyle}
     >
       {isMinimized ? null : (
@@ -104,8 +125,10 @@ function PeoplePresencePanel({
       <header>
         <span>
           <strong>People presence</strong>
-          <small>
-            {timeCursor ? (
+          <small title={selectedEvent?.title}>
+            {selectedEvent ? (
+              <>Nearest to {selectedEvent.title}</>
+            ) : timeCursor ? (
               <>
                 At <LocalTimestamp timestamp={timeCursor} />
               </>
@@ -141,9 +164,9 @@ function PeoplePresencePanel({
         hidden={isMinimized}
         id="people-presence-content"
       >
-        {people.length > 0 ? (
+        {displayedPeople.length > 0 ? (
           <ul>
-            {people.map((person) => (
+            {displayedPeople.map(({ person, distanceKm }) => (
               <li
                 data-selected={person.id === selectedPersonId}
                 key={person.id}
@@ -157,6 +180,11 @@ function PeoplePresencePanel({
                   <span>
                     <strong>{person.displayName}</strong>
                     <small>{person.locationLabel}</small>
+                    {distanceKm === undefined ? null : (
+                      <small className="people-proximity-distance">
+                        {formatProximityDistance(distanceKm)} from hazard
+                      </small>
+                    )}
                   </span>
                 </button>
               </li>
@@ -316,6 +344,8 @@ export function OperationalStage({
         <PeoplePresencePanel
           onSelect={onSelectPerson}
           people={people}
+          selectedEvent={selectedEvent}
+          selectedGeometry={selectedGeometry}
           selectedPersonId={selectedPerson?.id}
           timeCursor={timeCursor}
         />
