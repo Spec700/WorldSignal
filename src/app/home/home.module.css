@@ -184,7 +184,9 @@
 }
 
 .workspace:has(> .dossier, > .editor) {
-  grid-template-columns: minmax(0, 1fr) 410px;
+  grid-template-columns:
+    minmax(0, 1fr) 8px
+    var(--home-detail-panel-width, 410px);
 }
 
 .globeWorkspace {
@@ -1512,6 +1514,10 @@
 
   .workspace:has(> .dossier, > .editor) {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace > :global(.resize-handle--vertical) {
+    display: none;
   }
 
   .dossier,
