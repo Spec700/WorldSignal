@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import { CredSignalActivity } from "@/components/credsignal/credsignal-activity";
 import { CredSignalCommandBar } from "@/components/credsignal/credsignal-command-bar";
@@ -15,18 +22,26 @@ import {
 import { CredSignalIntake } from "@/components/credsignal/credsignal-intake";
 import { CredSignalTriage } from "@/components/credsignal/credsignal-triage";
 import { credentialPostureForProtectee } from "@/components/credsignal/credsignal-globe-model";
+import { ResizeHandle } from "@/components/layout/resize-handle";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import { ProductSwitcher } from "@/components/product-switcher/product-switcher";
 import type {
   CredSignalDashboardDto,
   CredSignalProtecteeDto,
 } from "@/features/credsignal/types";
+import { useElementSize } from "@/hooks/use-element-size";
 
 import styles from "@/app/credsignal/credsignal.module.css";
 
 type InventoryView = "people" | "cases" | "unmatched";
 type StatusFilter = "all" | CredSignalProtecteeDto["status"];
 type PostureFilter = "all" | ReturnType<typeof credentialPostureForProtectee>;
+
+const DEFAULT_ACTIVITY_HEIGHT = 116;
+const MIN_ACTIVITY_HEIGHT = 88;
+const MIN_INVENTORY_HEIGHT = 360;
+const COMMAND_BAR_HEIGHT = 64;
+const RESIZE_HANDLE_SIZE = 8;
 
 function normalizeSearchText(value: string) {
   return value
@@ -104,6 +119,10 @@ export function CredSignalInventoryWorkspace({
 }) {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [shellRef, shellSize] = useElementSize<HTMLDivElement>();
+  const [requestedActivityHeight, setRequestedActivityHeight] = useState(
+    DEFAULT_ACTIVITY_HEIGHT,
+  );
   const [view, setView] = useState<InventoryView>("people");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -307,6 +326,21 @@ export function CredSignalInventoryWorkspace({
     [router],
   );
 
+  const maximumActivityHeight = Math.max(
+    MIN_ACTIVITY_HEIGHT,
+    (shellSize.height || 800) -
+      COMMAND_BAR_HEIGHT -
+      MIN_INVENTORY_HEIGHT -
+      RESIZE_HANDLE_SIZE,
+  );
+  const activityHeight = Math.min(
+    requestedActivityHeight,
+    maximumActivityHeight,
+  );
+  const shellStyle = {
+    "--activity-strip-height": `${activityHeight}px`,
+  } as CSSProperties;
+
   if (dashboard.setupRequired) {
     return (
       <main className={styles.setupShell}>
@@ -332,7 +366,7 @@ export function CredSignalInventoryWorkspace({
   }
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} ref={shellRef} style={shellStyle}>
       <a className="skip-link" href="#people-credential-operations">
         Skip to people credential operations
       </a>
@@ -783,6 +817,15 @@ export function CredSignalInventoryWorkspace({
         ) : null}
       </div>
 
+      <ResizeHandle
+        direction={-1}
+        label="Resize case activity"
+        max={maximumActivityHeight}
+        min={MIN_ACTIVITY_HEIGHT}
+        onResize={setRequestedActivityHeight}
+        orientation="horizontal"
+        value={activityHeight}
+      />
       <CredSignalActivity activity={dashboard.recentActivity} />
     </div>
   );

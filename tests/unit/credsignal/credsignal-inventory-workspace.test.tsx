@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -124,6 +124,21 @@ afterEach(() => {
 });
 
 describe("CredSignal inventory workspace", () => {
+  it("resizes the case activity strip with the keyboard", () => {
+    render(<CredSignalInventoryWorkspace dashboard={dashboard} />);
+
+    const handle = screen.getByRole("separator", {
+      name: "Resize case activity",
+    });
+
+    expect(handle).toHaveAttribute("aria-valuenow", "116");
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
+    expect(handle).toHaveAttribute("aria-valuenow", "132");
+    expect(
+      handle.parentElement?.style.getPropertyValue("--activity-strip-height"),
+    ).toBe("132px");
+  });
+
   it("filters people and drills from a person into credential management", async () => {
     const user = userEvent.setup();
     render(<CredSignalInventoryWorkspace dashboard={dashboard} />);
