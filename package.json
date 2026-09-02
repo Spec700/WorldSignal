@@ -22,6 +22,7 @@
     "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed-credsignal.ts",
     "db:studio": "drizzle-kit studio",
     "docker:bootstrap": "node --import tsx scripts/bootstrap-docker.ts",
+    "flights:worker": "node --env-file-if-exists=.env --import tsx scripts/flight-worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run",
     "test:coverage": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --coverage",
