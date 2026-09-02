@@ -151,6 +151,43 @@ test("workspace panels can be resized from the keyboard", async ({ page }) => {
   );
 });
 
+test("people presence panel minimizes and restores its previous size", async ({
+  page,
+}) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const panel = page.getByLabel("People presence layer");
+  const widthHandle = page.getByRole("separator", {
+    name: /resize people panel width/i,
+  });
+  await widthHandle.press("ArrowLeft");
+  const expandedBounds = await panel.boundingBox();
+
+  await page
+    .getByRole("button", { name: /minimize people presence panel/i })
+    .click();
+
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(
+    page.getByRole("button", { name: /expand people presence panel/i }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.locator(".people-presence-content")).toBeHidden();
+  await expect(widthHandle).toHaveCount(0);
+  const minimizedBounds = await panel.boundingBox();
+  expect(minimizedBounds?.height).toBeLessThan(60);
+  expect(minimizedBounds?.width).toBeLessThan(expandedBounds?.width ?? 0);
+
+  await page
+    .getByRole("button", { name: /expand people presence panel/i })
+    .click();
+
+  await expect(panel).not.toHaveClass(/is-minimized/);
+  await expect(panel.locator(".people-presence-content")).toBeVisible();
+  expect((await panel.boundingBox())?.width).toBe(expandedBounds?.width);
+  expect((await panel.boundingBox())?.height).toBe(expandedBounds?.height);
+});
+
 test("manual retrieval, filters, range changes, and time scrubbing stay synchronized", async ({
   page,
 }) => {

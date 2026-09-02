@@ -166,6 +166,44 @@ describe("WorldSignal application shell", () => {
     expect(workspace?.style.getPropertyValue("--dossier-width")).toBe("396px");
   });
 
+  it("minimizes and restores the people presence panel without losing its size", async () => {
+    const user = userEvent.setup();
+    render(<WorldSignalApp people={[personFixture]} />);
+
+    const panel = screen.getByLabelText("People presence layer");
+    const widthHandle = screen.getByRole("separator", {
+      name: /resize people panel width/i,
+    });
+    fireEvent.keyDown(widthHandle, { key: "ArrowLeft" });
+    expect(panel.style.getPropertyValue("--people-panel-width")).toBe("254px");
+
+    const minimize = screen.getByRole("button", {
+      name: /minimize people presence panel/i,
+    });
+    await user.click(minimize);
+
+    expect(panel).toHaveClass("is-minimized");
+    expect(
+      screen.getByRole("button", { name: /expand people presence panel/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("button", { name: /avery chen.*london/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: /resize people panel width/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /expand people presence panel/i }),
+    );
+
+    expect(panel).not.toHaveClass("is-minimized");
+    expect(panel.style.getPropertyValue("--people-panel-width")).toBe("254px");
+    expect(
+      screen.getByRole("button", { name: /avery chen.*london/i }),
+    ).toBeInTheDocument();
+  });
+
   it("starts idle and performs no source request until the user asks", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 

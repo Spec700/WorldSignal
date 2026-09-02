@@ -68,6 +68,7 @@ function PeoplePresencePanel({
 }) {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PEOPLE_PANEL_WIDTH);
   const [panelHeight, setPanelHeight] = useState(DEFAULT_PEOPLE_PANEL_HEIGHT);
+  const [isMinimized, setIsMinimized] = useState(false);
   const panelStyle = {
     "--people-panel-height": `${panelHeight}px`,
     "--people-panel-width": `${panelWidth}px`,
@@ -75,27 +76,31 @@ function PeoplePresencePanel({
 
   return (
     <aside
-      className="world-people-presence"
+      className={`world-people-presence${isMinimized ? " is-minimized" : ""}`}
       aria-label="People presence layer"
       style={panelStyle}
     >
-      <ResizeHandle
-        direction={-1}
-        label="Resize people panel width"
-        max={MAX_PEOPLE_PANEL_WIDTH}
-        min={MIN_PEOPLE_PANEL_WIDTH}
-        onResize={setPanelWidth}
-        orientation="vertical"
-        value={panelWidth}
-      />
-      <ResizeHandle
-        label="Resize people panel height"
-        max={MAX_PEOPLE_PANEL_HEIGHT}
-        min={MIN_PEOPLE_PANEL_HEIGHT}
-        onResize={setPanelHeight}
-        orientation="horizontal"
-        value={panelHeight}
-      />
+      {isMinimized ? null : (
+        <>
+          <ResizeHandle
+            direction={-1}
+            label="Resize people panel width"
+            max={MAX_PEOPLE_PANEL_WIDTH}
+            min={MIN_PEOPLE_PANEL_WIDTH}
+            onResize={setPanelWidth}
+            orientation="vertical"
+            value={panelWidth}
+          />
+          <ResizeHandle
+            label="Resize people panel height"
+            max={MAX_PEOPLE_PANEL_HEIGHT}
+            min={MIN_PEOPLE_PANEL_HEIGHT}
+            onResize={setPanelHeight}
+            orientation="horizontal"
+            value={panelHeight}
+          />
+        </>
+      )}
       <header>
         <span>
           <strong>People presence</strong>
@@ -109,33 +114,62 @@ function PeoplePresencePanel({
             )}
           </small>
         </span>
-        <em>{people.length}</em>
+        <div className="people-panel-actions">
+          <em aria-label={`${people.length} people`}>{people.length}</em>
+          <button
+            aria-controls="people-presence-content"
+            aria-expanded={!isMinimized}
+            aria-label={
+              isMinimized
+                ? "Expand people presence panel"
+                : "Minimize people presence panel"
+            }
+            onClick={() => setIsMinimized((current) => !current)}
+            title={
+              isMinimized
+                ? "Expand People presence"
+                : "Minimize People presence"
+            }
+            type="button"
+          >
+            <span aria-hidden="true">{isMinimized ? "+" : "−"}</span>
+          </button>
+        </div>
       </header>
-      {people.length > 0 ? (
-        <ul>
-          {people.map((person) => (
-            <li data-selected={person.id === selectedPersonId} key={person.id}>
-              <button
-                aria-pressed={person.id === selectedPersonId}
-                onClick={() => onSelect(person.id)}
-                type="button"
+      <div
+        className="people-presence-content"
+        hidden={isMinimized}
+        id="people-presence-content"
+      >
+        {people.length > 0 ? (
+          <ul>
+            {people.map((person) => (
+              <li
+                data-selected={person.id === selectedPersonId}
+                key={person.id}
               >
-                <i data-tier={person.tier} aria-hidden="true" />
-                <span>
-                  <strong>{person.displayName}</strong>
-                  <small>{person.locationLabel}</small>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No approved person locations apply at this cursor.</p>
-      )}
-      <footer>
-        <span>Protection tier markers</span>
-        <Link href="/home/globe">Open People globe →</Link>
-      </footer>
+                <button
+                  aria-pressed={person.id === selectedPersonId}
+                  onClick={() => onSelect(person.id)}
+                  type="button"
+                >
+                  <i data-tier={person.tier} aria-hidden="true" />
+                  <span>
+                    <strong>{person.displayName}</strong>
+                    <small>{person.locationLabel}</small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No approved person locations apply at this cursor.</p>
+        )}
+        <footer>
+          <span>Protection tier markers</span>
+          <Link href="/home/globe">Open People globe →</Link>
+        </footer>
+      </div>
     </aside>
   );
 }
