@@ -105,6 +105,52 @@ test("event stream can be expanded without losing access to rail controls", asyn
   await expect(page.locator("[data-event-row]").first()).toBeVisible();
 });
 
+test("workspace panels can be resized from the keyboard", async ({ page }) => {
+  await mockSuccessfulSources(page);
+  await loadFixtureBatch(page);
+
+  const rail = page.getByLabel("Event controls and stream");
+  const timeline = page.getByLabel("Loaded hazard timeline");
+  const peoplePanel = page.getByLabel("People presence layer");
+  const initialRail = await rail.boundingBox();
+  const initialTimeline = await timeline.boundingBox();
+  const initialPeoplePanel = await peoplePanel.boundingBox();
+
+  await page
+    .getByRole("separator", { name: /resize operations rail/i })
+    .press("ArrowRight");
+  await page
+    .getByRole("separator", { name: /resize timeline/i })
+    .press("ArrowUp");
+  await page
+    .getByRole("separator", { name: /resize people panel width/i })
+    .press("ArrowLeft");
+
+  expect((await rail.boundingBox())?.width).toBe(
+    (initialRail?.width ?? 0) + 16,
+  );
+  expect((await timeline.boundingBox())?.height).toBe(
+    (initialTimeline?.height ?? 0) + 16,
+  );
+  expect((await peoplePanel.boundingBox())?.width).toBe(
+    (initialPeoplePanel?.width ?? 0) + 16,
+  );
+
+  await page
+    .getByRole("button", { name: /earthquake: m6\.4 earthquake/i })
+    .click();
+  const dossier = page.locator(".event-dossier");
+  const initialDossier = await dossier.boundingBox();
+
+  await page
+    .getByRole("separator", { name: /resize event dossier/i })
+    .press("ArrowLeft");
+
+  expect((await dossier.boundingBox())?.width).toBe(
+    (initialDossier?.width ?? 0) + 16,
+  );
+});
+
 test("manual retrieval, filters, range changes, and time scrubbing stay synchronized", async ({
   page,
 }) => {

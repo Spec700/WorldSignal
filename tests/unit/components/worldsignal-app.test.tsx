@@ -107,6 +107,65 @@ describe("WorldSignal application shell", () => {
     expect(rail.style.getPropertyValue("--event-stream-height")).toBe("248px");
   });
 
+  it("exposes keyboard-operable splitters for each active workspace panel", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(eventBatchFixture),
+    );
+
+    render(<WorldSignalApp />);
+
+    const railHandle = screen.getByRole("separator", {
+      name: /resize operations rail/i,
+    });
+    const timelineHandle = screen.getByRole("separator", {
+      name: /resize timeline/i,
+    });
+    const peopleWidthHandle = screen.getByRole("separator", {
+      name: /resize people panel width/i,
+    });
+    const peopleHeightHandle = screen.getByRole("separator", {
+      name: /resize people panel height/i,
+    });
+    const workspace = document.querySelector<HTMLElement>(".workspace-grid");
+    const shell = document.querySelector<HTMLElement>(".worldsignal-shell");
+    const peoplePanel = screen.getByLabelText("People presence layer");
+
+    expect(railHandle).toHaveAttribute("aria-orientation", "vertical");
+    expect(timelineHandle).toHaveAttribute("aria-orientation", "horizontal");
+
+    fireEvent.keyDown(railHandle, { key: "ArrowRight" });
+    fireEvent.keyDown(timelineHandle, { key: "ArrowUp" });
+    fireEvent.keyDown(peopleWidthHandle, { key: "ArrowLeft" });
+    fireEvent.keyDown(peopleHeightHandle, { key: "ArrowDown" });
+
+    expect(workspace?.style.getPropertyValue("--operations-rail-width")).toBe(
+      "316px",
+    );
+    expect(shell?.style.getPropertyValue("--timeline-height")).toBe("118px");
+    expect(peoplePanel.style.getPropertyValue("--people-panel-width")).toBe(
+      "254px",
+    );
+    expect(peoplePanel.style.getPropertyValue("--people-panel-height")).toBe(
+      "326px",
+    );
+
+    await user.click(await loadButton());
+    await user.click(
+      await screen.findByRole("button", {
+        name: /earthquake: m6\.4 earthquake/i,
+      }),
+    );
+
+    const dossierHandle = screen.getByRole("separator", {
+      name: /resize event dossier/i,
+    });
+    expect(dossierHandle).toHaveAttribute("aria-orientation", "vertical");
+
+    fireEvent.keyDown(dossierHandle, { key: "ArrowLeft" });
+    expect(workspace?.style.getPropertyValue("--dossier-width")).toBe("396px");
+  });
+
   it("starts idle and performs no source request until the user asks", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 

@@ -1,8 +1,9 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { EventIcon, eventCategoryLabel } from "@/components/event-icon";
+import { ResizeHandle } from "@/components/layout/resize-handle";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import type { PersonGlobePoint } from "@/components/people/person-globe-model";
 import type { WorldEvent } from "@/lib/events/types";
@@ -47,6 +48,13 @@ interface OperationalStageProps {
   timeCursor: string;
 }
 
+const DEFAULT_PEOPLE_PANEL_WIDTH = 238;
+const MIN_PEOPLE_PANEL_WIDTH = 210;
+const MAX_PEOPLE_PANEL_WIDTH = 420;
+const DEFAULT_PEOPLE_PANEL_HEIGHT = 310;
+const MIN_PEOPLE_PANEL_HEIGHT = 170;
+const MAX_PEOPLE_PANEL_HEIGHT = 520;
+
 function PeoplePresencePanel({
   people,
   selectedPersonId,
@@ -58,8 +66,36 @@ function PeoplePresencePanel({
   timeCursor: string;
   onSelect: (personId: string) => void;
 }) {
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PEOPLE_PANEL_WIDTH);
+  const [panelHeight, setPanelHeight] = useState(DEFAULT_PEOPLE_PANEL_HEIGHT);
+  const panelStyle = {
+    "--people-panel-height": `${panelHeight}px`,
+    "--people-panel-width": `${panelWidth}px`,
+  } as CSSProperties;
+
   return (
-    <aside className="world-people-presence" aria-label="People presence layer">
+    <aside
+      className="world-people-presence"
+      aria-label="People presence layer"
+      style={panelStyle}
+    >
+      <ResizeHandle
+        direction={-1}
+        label="Resize people panel width"
+        max={MAX_PEOPLE_PANEL_WIDTH}
+        min={MIN_PEOPLE_PANEL_WIDTH}
+        onResize={setPanelWidth}
+        orientation="vertical"
+        value={panelWidth}
+      />
+      <ResizeHandle
+        label="Resize people panel height"
+        max={MAX_PEOPLE_PANEL_HEIGHT}
+        min={MIN_PEOPLE_PANEL_HEIGHT}
+        onResize={setPanelHeight}
+        orientation="horizontal"
+        value={panelHeight}
+      />
       <header>
         <span>
           <strong>People presence</strong>
