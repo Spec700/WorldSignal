@@ -29,6 +29,13 @@
       "when": 1787185447948,
       "tag": "0003_optimal_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788392129516,
+      "tag": "0004_regular_millenium_guard",
+      "breakpoints": true
     }
   ]
 }

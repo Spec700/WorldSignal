@@ -48,3 +48,16 @@ preserves direct report links and source-native values and does not imply that d
 priority is a provider-issued universal severity scale. SPC storm reports are preliminary and may be
 revised during quality control. CredSignal ships only synthetic demonstration records and does not
 redistribute a third-party breach dataset.
+
+## Flight data
+
+- Live aircraft observations: [ADSB.lol](https://adsb.lol/) under the
+  [Open Database License](https://opendatacommons.org/licenses/odbl/1-0/)
+- Callsign route suggestions and airport metadata:
+  [ADSB.lol VRS Standing Data](https://github.com/adsblol/vrs-standing-data), dedicated to the
+  public domain under CC0
+
+FlightSignal tracks only flights assigned by an operator. ADS-B observations identify an aircraft,
+not a passenger. Person presence is shown only after an operator confirms the assignment and
+aircraft match. Route suggestions are crowdsourced and must be confirmed against the intended leg;
+they are not an authoritative airline schedule, passenger manifest, or guarantee of arrival.
