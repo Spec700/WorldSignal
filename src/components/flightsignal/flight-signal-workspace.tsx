@@ -339,7 +339,8 @@ export function FlightSignalWorkspace({
             <span>{filteredFlights.length} visible</span>
             <span>
               AirLabs · {dashboard.source.automationRequestCount}/
-              {dashboard.source.automationRequestCap} automated
+              {dashboard.source.automationRequestCap} automated ·{" "}
+              {dashboard.source.interactiveRequestCount} analyst
             </span>
           </footer>
         </aside>

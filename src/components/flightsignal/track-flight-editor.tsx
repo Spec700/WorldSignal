@@ -145,8 +145,19 @@ export function TrackFlightEditor({
                   <dt>Aircraft</dt>
                   <dd>
                     {resolvedFlight.aircraftRegistration ??
+                      resolvedFlight.aircraftModel ??
                       resolvedFlight.aircraftType ??
-                      "Assigned closer to departure"}
+                      (resolvedFlight.phase === "active"
+                        ? "Not reported in this response"
+                        : "Assigned closer to departure")}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Live position</dt>
+                  <dd>
+                    {resolvedFlight.observation
+                      ? `${resolvedFlight.observation.latitude.toFixed(3)}, ${resolvedFlight.observation.longitude.toFixed(3)}`
+                      : "Not reported in this response"}
                   </dd>
                 </div>
                 <div>
