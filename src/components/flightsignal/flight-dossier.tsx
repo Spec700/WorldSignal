@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 import {
   cancelFlightAssignmentAction,
   completeTravelerFlightAction,
-  confirmFlightAircraftAction,
   confirmTravelerOnboardAction,
 } from "@/app/flightsignal/actions";
 import { LocalTimestamp } from "@/components/local-timestamp";
@@ -163,42 +162,6 @@ export function FlightDossier({
             represents a person only after “Confirm onboard.”
           </p>
         </section>
-
-        {!flight.aircraftIcaoHex && flight.candidateAircraft.length > 0 ? (
-          <section className={styles.dossierSection}>
-            <h3>Aircraft candidates</h3>
-            <p className={styles.sectionIntro}>
-              Confirm the aircraft independently before enabling travel mode.
-            </p>
-            <ul className={styles.candidateList}>
-              {flight.candidateAircraft.map((candidate) => (
-                <li key={candidate.aircraftIcaoHex}>
-                  <div>
-                    <strong>
-                      {candidate.registration ?? candidate.aircraftIcaoHex}
-                    </strong>
-                    <small>
-                      {candidate.aircraftType ?? "Type unavailable"} · observed{" "}
-                      <LocalTimestamp timestamp={candidate.sourceObservedAt} />
-                    </small>
-                  </div>
-                  <button
-                    disabled={pending}
-                    onClick={() =>
-                      runAction(confirmFlightAircraftAction, {
-                        flightInstanceId: flight.id,
-                        aircraftIcaoHex: candidate.aircraftIcaoHex,
-                      })
-                    }
-                    type="button"
-                  >
-                    Confirm match
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
 
         <section className={styles.dossierSection}>
           <h3>Confirmed itinerary</h3>

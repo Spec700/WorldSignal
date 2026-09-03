@@ -36,6 +36,13 @@
       "when": 1788392129516,
       "tag": "0004_regular_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788445859074,
+      "tag": "0005_bored_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

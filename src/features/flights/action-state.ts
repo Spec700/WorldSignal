@@ -9,18 +9,14 @@ export const initialFlightSignalActionState: FlightSignalActionState = {
   status: "idle",
 };
 
-export interface FlightRouteLookupState {
-  status: "success" | "error";
-  message?: string;
-  passengerFlightNumber?: string;
-  adsbCallsign?: string;
-  airports?: Array<{
-    name: string;
-    icao: string;
-    iata: string;
-    location: string;
-    countryCode: string;
-    latitude: number;
-    longitude: number;
-  }>;
-}
+export type FlightRouteLookupState =
+  | {
+      status: "success";
+      confirmationToken: string;
+      flight: AirLabsResolvedFlight;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+import type { AirLabsResolvedFlight } from "@/features/flights/domain";

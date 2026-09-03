@@ -1,5 +1,5 @@
 import {
-  createFlightTrackingInputSchema,
+  airLabsResolvedFlightSchema,
   parseFlightDesignator,
   resolveAdsbCallsign,
 } from "@/features/flights/domain";
@@ -24,27 +24,34 @@ describe("FlightSignal domain rules", () => {
     );
   });
 
-  it("rejects an impossible itinerary", () => {
-    const result = createFlightTrackingInputSchema.safeParse({
-      personId: "30000000-0000-4000-8000-000000000006",
-      passengerFlightNumber: "UA 2276",
-      originIata: "IAD",
-      originName: "Washington Dulles International Airport",
-      originLatitude: 38.9445,
-      originLongitude: -77.4558,
-      destinationIata: "IAD",
-      destinationName: "Washington Dulles International Airport",
-      destinationLatitude: 38.9445,
-      destinationLongitude: -77.4558,
+  it("rejects coordinates outside globe bounds", () => {
+    const result = airLabsResolvedFlightSchema.safeParse({
+      passengerFlightNumber: "UA2276",
+      origin: {
+        iata: "IAD",
+        icao: "KIAD",
+        name: "Washington Dulles International Airport",
+        city: "Washington",
+        country: "United States",
+        latitude: 138.9445,
+        longitude: -77.4558,
+      },
+      destination: {
+        iata: "LAX",
+        icao: "KLAX",
+        name: "Los Angeles International Airport",
+        city: "Los Angeles",
+        country: "United States",
+        latitude: 33.9425,
+        longitude: -118.408,
+      },
       scheduledDepartureAt: "2026-09-02T18:00:00.000Z",
-      scheduledArrivalAt: "2026-09-02T17:00:00.000Z",
+      providerStatus: "scheduled",
+      phase: "scheduled",
+      retrievedAt: "2026-09-02T16:00:00.000Z",
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.map((issue) => issue.path[0])).toEqual(
-        expect.arrayContaining(["destinationIata", "scheduledArrivalAt"]),
-      );
-    }
+    expect(result.error?.issues[0]?.path).toEqual(["origin", "latitude"]);
   });
 });

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import type {
@@ -10,18 +11,22 @@ import type {
 import {
   createFlightTrackingInputSchema,
   parseFlightDesignator,
-  resolveAdsbCallsign,
 } from "@/features/flights/domain";
+import {
+  fetchAirLabsFlightForWorkspace,
+  AirLabsRequestDeniedError,
+} from "@/features/flights/server/airlabs-source";
+import { sealFlightLookup } from "@/features/flights/server/confirmation-token";
 import {
   cancelFlightAssignment,
   completeTravelerFlight,
-  confirmFlightAircraft,
   confirmTravelerOnboard,
   createTrackedFlight,
   FlightSignalWorkflowError,
 } from "@/features/flights/server/workflows";
-import { SourceFetchError } from "@/lib/sources/errors";
-import { fetchVrsRouteSuggestion } from "@/lib/sources/adsb-lol/adapter";
+import { getDatabase } from "@/lib/db/client";
+import { workspaces } from "@/lib/db/schema";
+import { AirLabsSourceError } from "@/lib/sources/airlabs/errors";
 
 function textValue(formData: FormData, field: string): string {
   const value = formData.get(field);
@@ -58,32 +63,35 @@ function actionError(error: unknown): FlightSignalActionState {
 
 export async function lookupFlightRouteAction(
   passengerFlightNumber: string,
-  adsbCallsignOverride?: string,
 ): Promise<FlightRouteLookupState> {
   try {
     const parsed = parseFlightDesignator(passengerFlightNumber);
-    const adsbCallsign = resolveAdsbCallsign(
-      parsed.passengerFlightNumber,
-      adsbCallsignOverride,
-    );
-    const route = await fetchVrsRouteSuggestion(
-      adsbCallsign,
-      new AbortController().signal,
-    );
+    const database = getDatabase();
+    const workspaceSlug = process.env.CREDSIGNAL_WORKSPACE_SLUG ?? "local";
+    const [workspace] = await database
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.slug, workspaceSlug))
+      .limit(1);
+    if (!workspace) {
+      return {
+        status: "error",
+        message:
+          "Priority Signals has not been initialized. Run the database seed command first.",
+      };
+    }
+    const snapshot = await fetchAirLabsFlightForWorkspace({
+      workspaceId: workspace.id,
+      passengerFlightNumber: parsed.passengerFlightNumber,
+      kind: "interactive",
+      signal: new AbortController().signal,
+    });
+    const lookup = sealFlightLookup(snapshot);
 
     return {
       status: "success",
-      passengerFlightNumber: parsed.passengerFlightNumber,
-      adsbCallsign,
-      airports: route._airports.map((airport) => ({
-        name: airport.name,
-        icao: airport.icao,
-        iata: airport.iata,
-        location: airport.location,
-        countryCode: airport.countryiso2,
-        latitude: airport.lat,
-        longitude: airport.lon,
-      })),
+      confirmationToken: lookup.confirmationToken,
+      flight: lookup.flight,
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -93,20 +101,19 @@ export async function lookupFlightRouteAction(
           error.issues[0]?.message ?? "Enter a valid flight ID to continue.",
       };
     }
-    if (error instanceof SourceFetchError) {
+    if (error instanceof AirLabsRequestDeniedError) {
       return {
         status: "error",
-        message:
-          "No validated route suggestion is available for that callsign. Check the flight ID or ADS-B callsign and try again.",
+        message: error.message,
       };
     }
-    if (error instanceof Error) {
-      return { status: "error", message: error.message };
+    if (error instanceof AirLabsSourceError) {
+      return { status: "error", message: error.safeMessage };
     }
 
     return {
       status: "error",
-      message: "The route suggestion could not be loaded safely.",
+      message: "AirLabs could not resolve that flight safely.",
     };
   }
 }
@@ -118,18 +125,7 @@ export async function createTrackedFlightAction(
   try {
     const input = createFlightTrackingInputSchema.parse({
       personId: textValue(formData, "personId"),
-      passengerFlightNumber: textValue(formData, "passengerFlightNumber"),
-      adsbCallsign: textValue(formData, "adsbCallsign"),
-      originIata: textValue(formData, "originIata"),
-      originName: textValue(formData, "originName"),
-      originLatitude: textValue(formData, "originLatitude"),
-      originLongitude: textValue(formData, "originLongitude"),
-      destinationIata: textValue(formData, "destinationIata"),
-      destinationName: textValue(formData, "destinationName"),
-      destinationLatitude: textValue(formData, "destinationLatitude"),
-      destinationLongitude: textValue(formData, "destinationLongitude"),
-      scheduledDepartureAt: textValue(formData, "scheduledDepartureAt"),
-      scheduledArrivalAt: textValue(formData, "scheduledArrivalAt"),
+      confirmationToken: textValue(formData, "confirmationToken"),
       notes: textValue(formData, "notes"),
     });
     const result = await createTrackedFlight(
@@ -140,29 +136,7 @@ export async function createTrackedFlightAction(
     return {
       status: "success",
       message:
-        "Flight assigned. FlightSignal will look for an aircraft near the departure window.",
-      flightInstanceId: result.flightInstanceId,
-    };
-  } catch (error) {
-    return actionError(error);
-  }
-}
-
-export async function confirmFlightAircraftAction(
-  formData: FormData,
-): Promise<FlightSignalActionState> {
-  try {
-    const result = await confirmFlightAircraft(
-      {
-        flightInstanceId: textValue(formData, "flightInstanceId"),
-        aircraftIcaoHex: textValue(formData, "aircraftIcaoHex"),
-      },
-      textValue(formData, "actorOperatorId") || undefined,
-    );
-    revalidateFlightConsumers();
-    return {
-      status: "success",
-      message: "Aircraft match confirmed. Confirm each traveler onboard next.",
+        "Flight assigned. AirLabs monitoring will begin on the quota-aware schedule.",
       flightInstanceId: result.flightInstanceId,
     };
   } catch (error) {

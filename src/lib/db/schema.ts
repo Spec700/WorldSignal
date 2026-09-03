@@ -314,11 +314,17 @@ export const flightInstances = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     passengerFlightNumber: text("passenger_flight_number").notNull(),
     adsbCallsign: text("adsb_callsign").notNull(),
+    providerFlightIcao: text("provider_flight_icao"),
+    airlineIata: text("airline_iata"),
+    airlineIcao: text("airline_icao"),
+    airlineName: text("airline_name"),
     originIata: text("origin_iata").notNull(),
+    originIcao: text("origin_icao"),
     originName: text("origin_name").notNull(),
     originLatitude: doublePrecision("origin_latitude").notNull(),
     originLongitude: doublePrecision("origin_longitude").notNull(),
     destinationIata: text("destination_iata").notNull(),
+    destinationIcao: text("destination_icao"),
     destinationName: text("destination_name").notNull(),
     destinationLatitude: doublePrecision("destination_latitude").notNull(),
     destinationLongitude: doublePrecision("destination_longitude").notNull(),
@@ -328,12 +334,38 @@ export const flightInstances = pgTable(
     scheduledArrivalAt: timestamp("scheduled_arrival_at", {
       withTimezone: true,
     }),
+    estimatedDepartureAt: timestamp("estimated_departure_at", {
+      withTimezone: true,
+    }),
+    actualDepartureAt: timestamp("actual_departure_at", {
+      withTimezone: true,
+    }),
+    estimatedArrivalAt: timestamp("estimated_arrival_at", {
+      withTimezone: true,
+    }),
+    actualArrivalAt: timestamp("actual_arrival_at", { withTimezone: true }),
+    departureTerminal: text("departure_terminal"),
+    departureGate: text("departure_gate"),
+    destinationTerminal: text("destination_terminal"),
+    destinationGate: text("destination_gate"),
+    destinationBaggage: text("destination_baggage"),
+    departureDelayMinutes: integer("departure_delay_minutes"),
+    arrivalDelayMinutes: integer("arrival_delay_minutes"),
+    durationMinutes: integer("duration_minutes"),
+    progressPercent: doublePrecision("progress_percent"),
+    etaMinutes: integer("eta_minutes"),
+    providerStatus: text("provider_status"),
     trackingStatus: flightTrackingStatusEnum("tracking_status")
       .default("scheduled")
       .notNull(),
     aircraftIcaoHex: text("aircraft_icao_hex"),
     aircraftRegistration: text("aircraft_registration"),
     aircraftType: text("aircraft_type"),
+    aircraftModel: text("aircraft_model"),
+    aircraftManufacturer: text("aircraft_manufacturer"),
+    aircraftResolvedAt: timestamp("aircraft_resolved_at", {
+      withTimezone: true,
+    }),
     aircraftConfirmedByOperatorId: uuid(
       "aircraft_confirmed_by_operator_id",
     ).references(() => operators.id, { onDelete: "set null" }),
@@ -344,6 +376,11 @@ export const flightInstances = pgTable(
     lastSuccessfulPollAt: timestamp("last_successful_poll_at", {
       withTimezone: true,
     }),
+    nextPollAt: timestamp("next_poll_at", { withTimezone: true }),
+    consecutiveSourceErrors: integer("consecutive_source_errors")
+      .default(0)
+      .notNull(),
+    sourceErrorCode: text("source_error_code"),
     lastSourceError: text("last_source_error"),
     notes: text("notes"),
     createdByOperatorId: uuid("created_by_operator_id").references(
@@ -366,6 +403,10 @@ export const flightInstances = pgTable(
       table.scheduledDepartureAt,
     ),
     index("flight_instances_aircraft_idx").on(table.aircraftIcaoHex),
+    index("flight_instances_next_poll_idx").on(
+      table.trackingStatus,
+      table.nextPollAt,
+    ),
     check(
       "flight_instances_origin_latitude_bounds",
       sql`${table.originLatitude} between -90 and 90`,
@@ -451,7 +492,7 @@ export const flightObservations = pgTable(
     flightInstanceId: uuid("flight_instance_id")
       .notNull()
       .references(() => flightInstances.id, { onDelete: "cascade" }),
-    source: text("source").default("adsb.lol").notNull(),
+    source: text("source").default("airlabs").notNull(),
     aircraftIcaoHex: text("aircraft_icao_hex").notNull(),
     callsign: text("callsign"),
     registration: text("registration"),
@@ -488,6 +529,53 @@ export const flightObservations = pgTable(
     check(
       "flight_observations_longitude_bounds",
       sql`${table.longitude} is null or ${table.longitude} between -180 and 180`,
+    ),
+  ],
+);
+
+export const flightSourceStates = pgTable(
+  "flight_source_states",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    providerKeyId: integer("provider_key_id"),
+    planType: text("plan_type"),
+    providerExpiresAt: timestamp("provider_expires_at", {
+      withTimezone: true,
+    }),
+    providerMonthlyLimit: integer("provider_monthly_limit"),
+    providerMonthlyUsed: integer("provider_monthly_used"),
+    providerMonthlyRemaining: integer("provider_monthly_remaining"),
+    cycleStartedAt: timestamp("cycle_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    cycleEndsAt: timestamp("cycle_ends_at", { withTimezone: true }).notNull(),
+    automationRequestCount: integer("automation_request_count")
+      .default(0)
+      .notNull(),
+    interactiveRequestCount: integer("interactive_request_count")
+      .default(0)
+      .notNull(),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    pauseCode: text("pause_code"),
+    pauseReason: text("pause_reason"),
+    lastRequestAt: timestamp("last_request_at", { withTimezone: true }),
+    lastSuccessfulAt: timestamp("last_successful_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("flight_source_states_workspace_provider_unique").on(
+      table.workspaceId,
+      table.provider,
+    ),
+    check(
+      "flight_source_states_request_counts_nonnegative",
+      sql`${table.automationRequestCount} >= 0 and ${table.interactiveRequestCount} >= 0`,
     ),
   ],
 );

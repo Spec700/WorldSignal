@@ -3,12 +3,14 @@ import { z } from "zod";
 
 import {
   changeFlightAssignmentInputSchema,
-  confirmAircraftInputSchema,
   createFlightTrackingInputSchema,
-  parseFlightDesignator,
-  resolveAdsbCallsign,
   type CreateFlightTrackingInput,
 } from "@/features/flights/domain";
+import { nextScheduledPollAt } from "@/features/flights/scheduling";
+import {
+  FlightLookupTokenError,
+  openFlightLookup,
+} from "@/features/flights/server/confirmation-token";
 import { getDatabase } from "@/lib/db/client";
 import {
   activityLog,
@@ -25,7 +27,6 @@ export class FlightSignalConflictError extends FlightSignalWorkflowError {}
 export class FlightSignalNotFoundError extends FlightSignalWorkflowError {}
 
 type FlightDatabase = ReturnType<typeof getDatabase>;
-const AIRCRAFT_CANDIDATE_MAX_AGE_MS = 15 * 60 * 1_000;
 const workspaceSlug = () => process.env.CREDSIGNAL_WORKSPACE_SLUG ?? "local";
 
 async function getLocalWorkspace() {
@@ -158,14 +159,30 @@ export async function createTrackedFlight(
   actorOperatorId?: string,
 ) {
   const input = createFlightTrackingInputSchema.parse(rawInput);
-  const parsedDesignator = parseFlightDesignator(input.passengerFlightNumber);
-  const adsbCallsign = resolveAdsbCallsign(
-    parsedDesignator.passengerFlightNumber,
-    input.adsbCallsign,
-  );
+  let resolvedFlight;
+  try {
+    resolvedFlight = openFlightLookup(input.confirmationToken);
+  } catch (error) {
+    if (error instanceof FlightLookupTokenError) {
+      throw new FlightSignalWorkflowError(error.message);
+    }
+    throw error;
+  }
+  if (
+    resolvedFlight.phase === "landed" ||
+    resolvedFlight.phase === "cancelled"
+  ) {
+    throw new FlightSignalWorkflowError(
+      "This AirLabs flight is already closed and cannot receive a new traveler assignment.",
+    );
+  }
   const { database, workspace } = await getLocalWorkspace();
   const actor = await resolveActor(workspace.id, actorOperatorId);
   const person = await requirePerson(database, workspace.id, input.personId);
+  const scheduledDepartureAt = new Date(resolvedFlight.scheduledDepartureAt);
+  const scheduledArrivalAt = resolvedFlight.scheduledArrivalAt
+    ? new Date(resolvedFlight.scheduledArrivalAt)
+    : undefined;
   const [existingFlight] = await database
     .select()
     .from(flightInstances)
@@ -174,11 +191,11 @@ export async function createTrackedFlight(
         eq(flightInstances.workspaceId, workspace.id),
         eq(
           flightInstances.passengerFlightNumber,
-          parsedDesignator.passengerFlightNumber,
+          resolvedFlight.passengerFlightNumber,
         ),
-        eq(flightInstances.scheduledDepartureAt, input.scheduledDepartureAt),
-        eq(flightInstances.originIata, input.originIata),
-        eq(flightInstances.destinationIata, input.destinationIata),
+        eq(flightInstances.scheduledDepartureAt, scheduledDepartureAt),
+        eq(flightInstances.originIata, resolvedFlight.origin.iata),
+        eq(flightInstances.destinationIata, resolvedFlight.destination.iata),
       ),
     )
     .limit(1);
@@ -211,30 +228,138 @@ export async function createTrackedFlight(
   }
 
   return database.transaction(async (transaction) => {
+    const now = new Date();
+    const estimatedDepartureAt = resolvedFlight.estimatedDepartureAt
+      ? new Date(resolvedFlight.estimatedDepartureAt)
+      : undefined;
+    const estimatedArrivalAt = resolvedFlight.estimatedArrivalAt
+      ? new Date(resolvedFlight.estimatedArrivalAt)
+      : undefined;
+    const nextPollAt = nextScheduledPollAt({
+      now,
+      phase: resolvedFlight.phase,
+      timing: {
+        scheduledDepartureAt,
+        scheduledArrivalAt,
+        estimatedDepartureAt,
+        estimatedArrivalAt,
+        durationMinutes: resolvedFlight.durationMinutes,
+      },
+    });
+    const flightValues = {
+      passengerFlightNumber: resolvedFlight.passengerFlightNumber,
+      adsbCallsign:
+        resolvedFlight.flightIcao ?? resolvedFlight.passengerFlightNumber,
+      providerFlightIcao: resolvedFlight.flightIcao,
+      airlineIata: resolvedFlight.airlineIata,
+      airlineIcao: resolvedFlight.airlineIcao,
+      airlineName: resolvedFlight.airlineName,
+      originIata: resolvedFlight.origin.iata,
+      originIcao: resolvedFlight.origin.icao,
+      originName: resolvedFlight.origin.name,
+      originLatitude: resolvedFlight.origin.latitude,
+      originLongitude: resolvedFlight.origin.longitude,
+      destinationIata: resolvedFlight.destination.iata,
+      destinationIcao: resolvedFlight.destination.icao,
+      destinationName: resolvedFlight.destination.name,
+      destinationLatitude: resolvedFlight.destination.latitude,
+      destinationLongitude: resolvedFlight.destination.longitude,
+      scheduledDepartureAt,
+      scheduledArrivalAt,
+      estimatedDepartureAt,
+      actualDepartureAt: resolvedFlight.actualDepartureAt
+        ? new Date(resolvedFlight.actualDepartureAt)
+        : undefined,
+      estimatedArrivalAt,
+      actualArrivalAt: resolvedFlight.actualArrivalAt
+        ? new Date(resolvedFlight.actualArrivalAt)
+        : undefined,
+      departureTerminal: resolvedFlight.departureTerminal,
+      departureGate: resolvedFlight.departureGate,
+      destinationTerminal: resolvedFlight.destinationTerminal,
+      destinationGate: resolvedFlight.destinationGate,
+      destinationBaggage: resolvedFlight.destinationBaggage,
+      departureDelayMinutes:
+        resolvedFlight.departureDelayMinutes !== undefined
+          ? Math.round(resolvedFlight.departureDelayMinutes)
+          : undefined,
+      arrivalDelayMinutes:
+        resolvedFlight.arrivalDelayMinutes !== undefined
+          ? Math.round(resolvedFlight.arrivalDelayMinutes)
+          : undefined,
+      durationMinutes: resolvedFlight.durationMinutes
+        ? Math.round(resolvedFlight.durationMinutes)
+        : undefined,
+      progressPercent: resolvedFlight.progressPercent,
+      etaMinutes:
+        resolvedFlight.etaMinutes !== undefined
+          ? Math.round(resolvedFlight.etaMinutes)
+          : undefined,
+      providerStatus: resolvedFlight.providerStatus,
+      trackingStatus:
+        resolvedFlight.phase === "active"
+          ? ("tracking" as const)
+          : ("scheduled" as const),
+      aircraftIcaoHex: resolvedFlight.aircraftIcaoHex,
+      aircraftRegistration: resolvedFlight.aircraftRegistration,
+      aircraftType: resolvedFlight.aircraftType,
+      aircraftModel: resolvedFlight.aircraftModel,
+      aircraftManufacturer: resolvedFlight.aircraftManufacturer,
+      aircraftResolvedAt: resolvedFlight.aircraftIcaoHex
+        ? new Date(resolvedFlight.retrievedAt)
+        : undefined,
+      lastPolledAt: new Date(resolvedFlight.retrievedAt),
+      lastSuccessfulPollAt: new Date(resolvedFlight.retrievedAt),
+      nextPollAt,
+      consecutiveSourceErrors: 0,
+      sourceErrorCode: null,
+      lastSourceError: null,
+      notes: input.notes || null,
+      updatedAt: now,
+    };
     const flight = existingFlight
-      ? existingFlight
+      ? (
+          await transaction
+            .update(flightInstances)
+            .set(flightValues)
+            .where(eq(flightInstances.id, existingFlight.id))
+            .returning()
+        )[0]
       : (
           await transaction
             .insert(flightInstances)
             .values({
               workspaceId: workspace.id,
-              passengerFlightNumber: parsedDesignator.passengerFlightNumber,
-              adsbCallsign,
-              originIata: input.originIata,
-              originName: input.originName,
-              originLatitude: input.originLatitude,
-              originLongitude: input.originLongitude,
-              destinationIata: input.destinationIata,
-              destinationName: input.destinationName,
-              destinationLatitude: input.destinationLatitude,
-              destinationLongitude: input.destinationLongitude,
-              scheduledDepartureAt: input.scheduledDepartureAt,
-              scheduledArrivalAt: input.scheduledArrivalAt,
-              notes: input.notes || null,
+              ...flightValues,
               createdByOperatorId: actor?.id,
             })
             .returning()
         )[0];
+
+    if (resolvedFlight.observation) {
+      const sourceObservedAt = new Date(
+        resolvedFlight.observation.sourceObservedAt,
+      );
+      const [latestStored] = await transaction
+        .select({ sourceObservedAt: flightObservations.sourceObservedAt })
+        .from(flightObservations)
+        .where(eq(flightObservations.flightInstanceId, flight.id))
+        .orderBy(desc(flightObservations.sourceObservedAt))
+        .limit(1);
+      if (
+        !latestStored ||
+        latestStored.sourceObservedAt.getTime() < sourceObservedAt.getTime()
+      ) {
+        await transaction.insert(flightObservations).values({
+          flightInstanceId: flight.id,
+          source: "airlabs",
+          ...resolvedFlight.observation,
+          sourceObservedAt,
+          retrievedAt: new Date(resolvedFlight.observation.retrievedAt),
+        });
+      }
+    }
+
     const [assignment] = await transaction
       .insert(flightAssignments)
       .values({
@@ -256,89 +381,14 @@ export async function createTrackedFlight(
       metadata: {
         flightInstanceId: flight.id,
         personId: person.id,
-        adsbCallsign: flight.adsbCallsign,
+        provider: "airlabs",
+        providerFlightIcao: flight.providerFlightIcao,
         scheduledDepartureAt: flight.scheduledDepartureAt.toISOString(),
       },
     });
 
     return { flightInstanceId: flight.id, assignmentId: assignment.id };
   });
-}
-
-export async function confirmFlightAircraft(
-  rawInput: z.input<typeof confirmAircraftInputSchema>,
-  actorOperatorId?: string,
-  now = new Date(),
-) {
-  const input = confirmAircraftInputSchema.parse(rawInput);
-  const { database, workspace } = await getLocalWorkspace();
-  const actor = await resolveActor(workspace.id, actorOperatorId);
-  const flight = await requireFlight(
-    database,
-    workspace.id,
-    input.flightInstanceId,
-  );
-
-  if (["completed", "cancelled"].includes(flight.trackingStatus)) {
-    throw new FlightSignalWorkflowError(
-      "A closed flight cannot receive a new aircraft match.",
-    );
-  }
-
-  const [candidate] = await database
-    .select()
-    .from(flightObservations)
-    .where(
-      and(
-        eq(flightObservations.flightInstanceId, flight.id),
-        eq(flightObservations.aircraftIcaoHex, input.aircraftIcaoHex),
-      ),
-    )
-    .orderBy(desc(flightObservations.sourceObservedAt))
-    .limit(1);
-
-  if (!candidate) {
-    throw new FlightSignalNotFoundError(
-      "That aircraft has not been observed for this flight callsign.",
-    );
-  }
-  if (
-    now.getTime() - candidate.sourceObservedAt.getTime() >
-    AIRCRAFT_CANDIDATE_MAX_AGE_MS
-  ) {
-    throw new FlightSignalWorkflowError(
-      "That aircraft candidate is stale. Wait for a fresh ADS-B observation before confirming it.",
-    );
-  }
-
-  await database.transaction(async (transaction) => {
-    await transaction
-      .update(flightInstances)
-      .set({
-        aircraftIcaoHex: candidate.aircraftIcaoHex,
-        aircraftRegistration: candidate.registration,
-        aircraftType: candidate.aircraftType,
-        aircraftConfirmedByOperatorId: actor?.id,
-        aircraftConfirmedAt: now,
-        trackingStatus: "tracking",
-        updatedAt: now,
-      })
-      .where(eq(flightInstances.id, flight.id));
-    await transaction.insert(activityLog).values({
-      workspaceId: workspace.id,
-      actorOperatorId: actor?.id,
-      action: "flight.aircraft_confirmed",
-      entityType: "flight_instance",
-      entityId: flight.id,
-      summary: `${candidate.registration ?? candidate.aircraftIcaoHex} was confirmed as the aircraft for ${flight.passengerFlightNumber}.`,
-      metadata: {
-        aircraftIcaoHex: candidate.aircraftIcaoHex,
-        candidateObservedAt: candidate.sourceObservedAt.toISOString(),
-      },
-    });
-  });
-
-  return { flightInstanceId: flight.id };
 }
 
 export async function confirmTravelerOnboard(
@@ -369,9 +419,9 @@ export async function confirmTravelerOnboard(
       "Only a planned assignment can be confirmed onboard.",
     );
   }
-  if (!flight.aircraftIcaoHex || !flight.aircraftConfirmedAt) {
+  if (!flight.aircraftIcaoHex || !flight.aircraftResolvedAt) {
     throw new FlightSignalWorkflowError(
-      "Confirm the aircraft match before confirming a person onboard.",
+      "AirLabs has not yet linked this flight to an observed aircraft.",
     );
   }
   if (["completed", "cancelled"].includes(flight.trackingStatus)) {

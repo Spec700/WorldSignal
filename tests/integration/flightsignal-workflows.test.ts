@@ -5,11 +5,10 @@ import { and, eq } from "drizzle-orm";
 import { getFlightSignalDashboard } from "@/features/flights/server/dashboard";
 import {
   completeTravelerFlight,
-  confirmFlightAircraft,
   confirmTravelerOnboard,
   createTrackedFlight,
-  FlightSignalNotFoundError,
 } from "@/features/flights/server/workflows";
+import { sealFlightLookup } from "@/features/flights/server/confirmation-token";
 import { getPeopleDashboard } from "@/features/people/server/dashboard";
 import { createPerson } from "@/features/people/server/workflows";
 import { closeDatabase, getDatabase } from "@/lib/db/client";
@@ -17,7 +16,6 @@ import {
   activityLog,
   flightAssignments,
   flightInstances,
-  flightObservations,
   operators,
   protecteeLocations,
   workspaces,
@@ -33,6 +31,7 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
 
   beforeAll(async () => {
     process.env.CREDSIGNAL_WORKSPACE_SLUG = workspaceSlug;
+    process.env.AIRLABS_API_KEY = "integration-test-airlabs-key";
     const database = getDatabase();
     const [workspace] = await database
       .insert(workspaces)
@@ -83,63 +82,57 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
     const tracked = await createTrackedFlight(
       {
         personId: person.personId,
-        passengerFlightNumber: "UA 2276",
-        originIata: "IAD",
-        originName: "Washington Dulles International Airport",
-        originLatitude: 38.9445,
-        originLongitude: -77.4558,
-        destinationIata: "LAX",
-        destinationName: "Los Angeles International Airport",
-        destinationLatitude: 33.9425,
-        destinationLongitude: -118.408,
-        scheduledDepartureAt: new Date("2026-09-02T18:00:00.000Z"),
-        scheduledArrivalAt: new Date("2026-09-02T23:30:00.000Z"),
+        confirmationToken: sealFlightLookup({
+          passengerFlightNumber: "UA2276",
+          flightIcao: "UAL2276",
+          origin: {
+            iata: "IAD",
+            icao: "KIAD",
+            name: "Washington Dulles International Airport",
+            city: "Washington",
+            country: "United States",
+            latitude: 38.9445,
+            longitude: -77.4558,
+          },
+          destination: {
+            iata: "LAX",
+            icao: "KLAX",
+            name: "Los Angeles International Airport",
+            city: "Los Angeles",
+            country: "United States",
+            latitude: 33.9425,
+            longitude: -118.408,
+          },
+          scheduledDepartureAt: "2026-09-02T18:00:00.000Z",
+          scheduledArrivalAt: "2026-09-02T23:30:00.000Z",
+          durationMinutes: 330,
+          providerStatus: "en-route",
+          phase: "active",
+          aircraftIcaoHex: "aa3ae5",
+          aircraftRegistration: "N00000",
+          aircraftType: "B738",
+          observation: {
+            aircraftIcaoHex: "aa3ae5",
+            callsign: "UAL2276",
+            registration: "N00000",
+            aircraftType: "B738",
+            latitude: 39.1,
+            longitude: -78.2,
+            barometricAltitudeFeet: 12_000,
+            groundSpeedKnots: 310,
+            trackDegrees: 270,
+            onGround: false,
+            sourceObservedAt: "2026-09-02T18:05:00.000Z",
+            retrievedAt: "2026-09-02T18:05:00.000Z",
+          },
+          usage: {},
+          retrievedAt: "2026-09-02T18:05:00.000Z",
+        }).confirmationToken,
       },
       operatorId,
     );
-
-    await expect(
-      confirmFlightAircraft(
-        {
-          flightInstanceId: tracked.flightInstanceId,
-          aircraftIcaoHex: "aa3ae5",
-        },
-        operatorId,
-      ),
-    ).rejects.toBeInstanceOf(FlightSignalNotFoundError);
 
     const observedAt = new Date("2026-09-02T18:05:00.000Z");
-    await database.insert(flightObservations).values({
-      flightInstanceId: tracked.flightInstanceId,
-      aircraftIcaoHex: "aa3ae5",
-      callsign: "UAL2276",
-      registration: "N00000",
-      aircraftType: "B738",
-      latitude: 39.1,
-      longitude: -78.2,
-      barometricAltitudeFeet: 12_000,
-      groundSpeedKnots: 310,
-      trackDegrees: 270,
-      onGround: false,
-      sourceObservedAt: observedAt,
-      retrievedAt: observedAt,
-    });
-    await database
-      .update(flightInstances)
-      .set({
-        trackingStatus: "match_required",
-        lastPolledAt: observedAt,
-        lastSuccessfulPollAt: observedAt,
-      })
-      .where(eq(flightInstances.id, tracked.flightInstanceId));
-    await confirmFlightAircraft(
-      {
-        flightInstanceId: tracked.flightInstanceId,
-        aircraftIcaoHex: "aa3ae5",
-      },
-      operatorId,
-      new Date("2026-09-02T18:06:00.000Z"),
-    );
     await confirmTravelerOnboard(
       { assignmentId: tracked.assignmentId },
       operatorId,
@@ -223,7 +216,6 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
     expect(actions.map((entry) => entry.action)).toEqual(
       expect.arrayContaining([
         "flight.assigned",
-        "flight.aircraft_confirmed",
         "flight.traveler_onboard_confirmed",
         "flight.travel_completed",
       ]),

@@ -1,66 +1,69 @@
-import { shouldPollFlight } from "@/features/flights/server/polling";
+import {
+  activeObservationIntervalMs,
+  nextBackoffPollAt,
+  nextScheduledPollAt,
+} from "@/features/flights/scheduling";
 
-type PollableFlight = Parameters<typeof shouldPollFlight>[0];
-
-function flightAt(
-  departure: string,
-  options: {
-    arrival?: string;
-    status?: PollableFlight["trackingStatus"];
-  } = {},
-): PollableFlight {
-  return {
-    scheduledDepartureAt: new Date(departure),
-    scheduledArrivalAt: options.arrival ? new Date(options.arrival) : null,
-    trackingStatus: options.status ?? "scheduled",
-  } as PollableFlight;
-}
-
-describe("FlightSignal polling window", () => {
+describe("FlightSignal AirLabs polling schedule", () => {
   const now = new Date("2026-09-02T18:00:00.000Z");
 
-  it("starts acquisition six hours before departure", () => {
-    expect(shouldPollFlight(flightAt("2026-09-03T00:00:00.000Z"), now)).toBe(
-      true,
-    );
-    expect(shouldPollFlight(flightAt("2026-09-03T00:00:01.000Z"), now)).toBe(
-      false,
-    );
+  it("waits locally until thirty minutes before departure", () => {
+    expect(
+      nextScheduledPollAt({
+        now,
+        phase: "scheduled",
+        timing: {
+          scheduledDepartureAt: new Date("2026-09-03T00:00:00.000Z"),
+        },
+      }),
+    ).toEqual(new Date("2026-09-02T23:30:00.000Z"));
   });
 
-  it("uses the supplied arrival time to bound post-arrival monitoring", () => {
-    expect(
-      shouldPollFlight(
-        flightAt("2026-09-01T22:00:00.000Z", {
-          arrival: "2026-09-02T12:00:00.000Z",
-          status: "tracking",
-        }),
-        now,
-      ),
-    ).toBe(true);
-    expect(
-      shouldPollFlight(
-        flightAt("2026-09-01T21:59:59.000Z", {
-          arrival: "2026-09-02T11:59:59.000Z",
-          status: "tracking",
-        }),
-        now,
-      ),
-    ).toBe(false);
+  it("checks at T-30, T-15, and departure without overshooting", () => {
+    const departure = new Date("2026-09-02T18:30:00.000Z");
+    const timing = { scheduledDepartureAt: departure };
+    const first = nextScheduledPollAt({ now, phase: "scheduled", timing });
+    const second = nextScheduledPollAt({
+      now: first!,
+      phase: "scheduled",
+      timing,
+    });
+
+    expect(first).toEqual(new Date("2026-09-02T18:15:00.000Z"));
+    expect(second).toEqual(departure);
   });
 
-  it("never polls a completed or cancelled flight", () => {
+  it.each([
+    [120, 1],
+    [360, 3],
+    [720, 6],
+  ])(
+    "targets 120 observations across a %i minute flight",
+    (duration, minutes) => {
+      expect(
+        activeObservationIntervalMs({
+          scheduledDepartureAt: now,
+          durationMinutes: duration,
+        }),
+      ).toBe(minutes * 60_000);
+    },
+  );
+
+  it("stops completely for landed and cancelled flights", () => {
+    const timing = { scheduledDepartureAt: now, durationMinutes: 120 };
+    expect(nextScheduledPollAt({ now, phase: "landed", timing })).toBeNull();
+    expect(nextScheduledPollAt({ now, phase: "cancelled", timing })).toBeNull();
+  });
+
+  it("backs off exponentially after transient source errors", () => {
+    const timing = { scheduledDepartureAt: now, durationMinutes: 120 };
     expect(
-      shouldPollFlight(
-        flightAt("2026-09-02T17:00:00.000Z", { status: "completed" }),
+      nextBackoffPollAt({
         now,
-      ),
-    ).toBe(false);
-    expect(
-      shouldPollFlight(
-        flightAt("2026-09-02T17:00:00.000Z", { status: "cancelled" }),
-        now,
-      ),
-    ).toBe(false);
+        phase: "active",
+        timing,
+        consecutiveErrors: 3,
+      }),
+    ).toEqual(new Date("2026-09-02T18:04:00.000Z"));
   });
 });
