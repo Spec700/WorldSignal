@@ -1,16 +1,21 @@
 # Priority Signals
 
 Priority Signals is an open-source, local-first security operations platform for protecting
-important people from physical and digital threats. The current application contains two modules:
+important people from physical and digital threats. The current application contains four connected
+operational views:
 
+- **Home** — the shared people roster, approved locations, and confirmed travel state.
 - **WorldSignal** — global natural-hazard awareness on an interactive 3D globe.
+- **FlightSignal** — assigned-flight awareness using operator confirmation and ADS-B aircraft
+  observations.
 - **CredSignal** — credential-exposure intelligence, protectee attribution, and response
   coordination backed by local PostgreSQL.
 
 Use the product switcher in the application header to move between modules.
 
-> Priority Signals is not an official emergency-warning service, credential-vault product, breach
-> feed, or notification-delivery service. WorldSignal source data can be delayed or revised.
+> Priority Signals is not an official emergency-warning service, airline operational system,
+> passenger locator, credential-vault product, breach feed, or notification-delivery service.
+> WorldSignal and FlightSignal source data can be delayed or revised.
 > CredSignal currently uses manual intake and has no authentication or authorization enforcement.
 > Do not expose this MVP to an untrusted network or load real sensitive data into it.
 
@@ -41,6 +46,28 @@ Use the product switcher in the application header to move between modules.
 WorldSignal remains its original MVP-A: incident signals, historical source-revision replay, alerts,
 accounts, collaboration, and mobile-native applications are not implemented yet. Browser snapshots
 retain the latest retrieved batch; they are not a historical event archive.
+
+### FlightSignal
+
+- Lets an analyst enter a passenger-facing flight ID, confirm a suggested route leg, provide the
+  dated schedule, and assign the flight to a person.
+- Uses the free ADSB.lol API for aircraft observations and ADSB.lol VRS Standing Data for
+  crowdsourced route suggestions; neither source requires an API key or paid subscription.
+- Polls callsign observations before aircraft confirmation and the aircraft ICAO address afterward
+  from a dedicated worker that runs while the Compose stack is up.
+- Keeps the itinerary, aircraft match, and traveler presence as separate facts. An operator must
+  confirm the observed aircraft and then explicitly confirm that the assigned person is onboard.
+- Shows route, last aircraft position, altitude, ground speed, track, source freshness, scheduled
+  time remaining, and an observed breadcrumb on the adjustable FlightSignal globe.
+- Places a confirmed traveler into **Travel** mode in Home and shows a plane at the aircraft's last
+  valid position. The operator-approved Home location remains unchanged.
+- Marks an aircraft on the ground near the confirmed destination as a possible arrival; an operator
+  must complete the travel assignment.
+
+ADSB.lol observes aircraft, not passengers, and does not provide an authoritative airline schedule,
+gate, delay, cancellation, or passenger manifest. The analyst-supplied itinerary remains explicit in
+the interface, stale/source-error states remain visible, and no flight is tracked until an operator
+assigns one.
 
 ### CredSignal
 
@@ -110,13 +137,14 @@ Compose automatically:
 - creates a persistent CredSignal encryption key on a fresh installation;
 - applies every committed database migration;
 - creates or updates the synthetic demonstration workspace; and
-- starts the production Next.js server only after bootstrap succeeds.
+- starts the production Next.js server and FlightSignal polling worker only after bootstrap succeeds.
 
 No `.env`, `npm install`, `npm run build`, migration command, or seed command is required for a fresh
 Docker installation.
 
-Open [http://localhost:3000](http://localhost:3000). The root route opens WorldSignal;
-[http://localhost:3000/credsignal](http://localhost:3000/credsignal) opens CredSignal directly.
+Open [http://localhost:3000](http://localhost:3000). The root route opens Home;
+[http://localhost:3000/flightsignal](http://localhost:3000/flightsignal) and
+[http://localhost:3000/credsignal](http://localhost:3000/credsignal) open those modules directly.
 
 ### Existing CredSignal installations
 
@@ -184,7 +212,7 @@ deployment hardening, and managed key storage are implemented.
 - Choosing a range before the first load changes the upcoming request but does not contact a source.
 - Choosing a different range after a successful load restores that range's browser snapshot when one
   exists. An uncached range makes one explicit source request and is then stored.
-- Reloading WorldSignal or switching between WorldSignal and CredSignal restores the last-used
+- Reloading WorldSignal or switching between Priority Signals modules restores the last-used
   browser snapshot without a source request.
 - **Refresh** is the only action that replaces a stored snapshot by retrieving that range again.
   There is no timer, polling loop, WebSocket, background worker, cron job, automatic expiration, or
@@ -206,6 +234,23 @@ Keyboard controls:
 Every globe event has an equivalent button in the event stream. Reduced-motion preferences remove
 the retrieval sweep, selection pulse, and animated camera travel.
 
+### FlightSignal operations
+
+- Select **Track flight**, enter the passenger flight ID, and confirm the suggested exact route leg.
+- Supply the scheduled departure and optional arrival. These are analyst-entered schedule values,
+  not live airline status data.
+- Wait for the worker to acquire one or more callsign observations, then independently confirm the
+  matching aircraft in the flight dossier.
+- Select **Confirm onboard** only after verifying the traveler context outside ADS-B. Home enters
+  Travel mode only after this operator action.
+- Treat **Possible arrival** as an aircraft observation, not proof that the traveler arrived. Use
+  **Complete travel** after operational confirmation.
+- Closing or cancelling travel never changes the person's approved Home location.
+
+There are no FlightSignal API keys to add to `.env`. `FLIGHTSIGNAL_POLL_INTERVAL_MS` is optional and
+defaults to 30 seconds; Compose starts the worker automatically. The worker enforces a 10-second
+minimum interval and polls only the operator-assigned flight acquisition window.
+
 ### CredSignal operations
 
 - Add and maintain protectees before attributing findings to them.
@@ -221,6 +266,8 @@ the retrieval sweep, selection pulse, and animated camera travel.
 
 ```text
 Priority Signals
+├── Home
+│   shared people / approved locations / confirmed travel presence
 ├── WorldSignal
 │   browser action
 │       ├── validated Next.js source routes
@@ -229,6 +276,11 @@ Priority Signals
 │       │   └── NOAA SPC preliminary tornado-report adapter
 │       └── client reducer ── globe / stream / filters / dossier
 │               └── validated browser-local range snapshots (IndexedDB)
+├── FlightSignal
+│   server-rendered console + audited Server Actions
+│       ├── analyst-confirmed dated itinerary + person assignment
+│       ├── ADSB.lol callsign / confirmed-aircraft polling worker
+│       └── append-only observations + Home travel projection
 └── CredSignal
     server-rendered dashboard + audited Server Actions
         └── domain validation and transactional workflows
@@ -240,9 +292,11 @@ Priority Signals
 ```
 
 WorldSignal's server boundary constructs approved upstream URLs, enforces timeouts and response-size
-limits, validates raw payloads, and returns canonical application data. CredSignal validates inputs
-at the action boundary and uses database transactions and row locks for multi-record workflow
-changes such as matching, case closure, and task coordination.
+limits, validates raw payloads, and returns canonical application data. FlightSignal applies the
+same bounded-source validation to aircraft and route responses, while its workflow requires explicit
+operator confirmation before aircraft telemetry can represent a person. CredSignal validates inputs
+at the action boundary and uses database transactions and row locks for multi-record workflow changes
+such as matching, case closure, and task coordination.
 
 ## Modules and sources
 
@@ -251,6 +305,8 @@ changes such as matching, case closure, and task coordination.
 | WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                        | None                             |
 | WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated         | None                             |
 | WorldSignal tornadoes                                     | [NOAA Storm Prediction Center](https://www.spc.noaa.gov/climo/reports/)          | U.S. filtered preliminary reports for each 12Z–12Z convective day | None                             |
+| FlightSignal aircraft observations                        | [ADSB.lol](https://adsb.lol/)                                                    | Operator-assigned callsign, then confirmed aircraft ICAO          | None; free service               |
+| FlightSignal route suggestions                            | [ADSB.lol VRS Standing Data](https://github.com/adsblol/vrs-standing-data)       | Crowdsourced callsign route and airport metadata                  | None; public-domain data         |
 | CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator      | Demo operator only; not enforced |
 
 USGS exclusively owns the current WorldSignal earthquake category. WorldSignal does not request
@@ -283,6 +339,13 @@ docker compose run --rm -e RUN_CREDSIGNAL_DB_TESTS=1 bootstrap npm test -- tests
 
 The suite creates a process-scoped workspace, verifies the complete persistence and workflow chain,
 and removes that workspace afterward.
+
+FlightSignal's opt-in PostgreSQL suite verifies assignment, aircraft confirmation, onboard Travel
+mode, Home projection, possible arrival, completion, and preservation of the approved location:
+
+```bash
+docker compose run --rm -e RUN_FLIGHTSIGNAL_DB_TESTS=1 bootstrap npm test -- --run tests/integration/flightsignal-workflows.test.ts
+```
 
 ## Docker operations
 
@@ -347,6 +410,13 @@ is not published to the host and therefore does not occupy host port 5432.
 Read the per-source status in the left rail. Confirm outbound HTTPS access and use the explicit
 **Refresh** action. Repeated schema errors can indicate an upstream contract change.
 
+### A FlightSignal flight has no aircraft position
+
+Confirm the dated itinerary and leave the Compose worker running. Before an aircraft match, the
+worker searches by the normalized ADS-B callsign; an unmapped airline may require the optional
+callsign override. A route suggestion does not prove an aircraft match. Source errors and stale
+observations are shown in the flight dossier rather than replaced with guessed positions.
+
 ### The globe is blank
 
 Enable WebGL or hardware acceleration and verify that local files under `public/textures` and
@@ -360,8 +430,8 @@ Install stable Google Chrome in the platform's normal application location and r
 ## Attribution and license
 
 Visible in-app credits identify NASA Blue Marble imagery, Natural Earth boundaries, USGS earthquake
-data, GDACS disaster data, and NOAA SPC preliminary tornado reports. Fonts and third-party software
-retain their licenses. See
+data, GDACS disaster data, NOAA SPC preliminary tornado reports, and ADSB.lol aircraft data. Fonts
+and third-party software retain their licenses. See
 [NOTICE.md](NOTICE.md) for source links, terms, and bundled-asset details.
 
 Priority Signals source code is available under the [MIT License](LICENSE). Contributions should
