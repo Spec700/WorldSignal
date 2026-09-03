@@ -42,12 +42,20 @@ export function FlightSignalHeader({
       <div className={styles.sourceSummary}>
         <span
           className={styles.sourceDot}
-          data-error={dashboard.metrics.sourceErrors > 0}
+          data-error={
+            dashboard.metrics.sourceErrors > 0 ||
+            !dashboard.source.available ||
+            dashboard.source.paused
+          }
         />
         <span>
           <strong>{dashboard.source.label}</strong>
           <small>
-            {dashboard.source.authentication} · {dashboard.source.license}
+            {dashboard.source.paused
+              ? "Paused"
+              : dashboard.source.available
+                ? `${dashboard.source.planType ?? "API"} · ${dashboard.source.providerMonthlyRemaining ?? "—"} requests left`
+                : "API key required"}
           </small>
         </span>
       </div>

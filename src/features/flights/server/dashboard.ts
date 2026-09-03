@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { deriveFlightDisplayStatus } from "@/features/flights/status";
+import { getAirLabsSourceState } from "@/features/flights/server/airlabs-source";
 import type {
   FlightObservationDto,
   FlightSignalDashboardDto,
@@ -29,9 +30,13 @@ const emptyDashboard: FlightSignalDashboardDto = {
     sourceErrors: 0,
   },
   source: {
-    label: "ADSB.lol",
-    authentication: "No API key",
-    license: "ODbL",
+    label: "AirLabs",
+    authentication: "Server API key",
+    available: false,
+    paused: false,
+    automationRequestCount: 0,
+    automationRequestCap: 800,
+    interactiveRequestCount: 0,
   },
 };
 
@@ -74,28 +79,31 @@ export async function getFlightSignalDashboard(
     return emptyDashboard;
   }
 
-  const [operatorRows, personRows, flightRows] = await Promise.all([
-    database
-      .select()
-      .from(operators)
-      .where(
-        and(
-          eq(operators.workspaceId, workspace.id),
-          eq(operators.status, "active"),
-        ),
-      )
-      .orderBy(asc(operators.displayName)),
-    database
-      .select()
-      .from(protectees)
-      .where(eq(protectees.workspaceId, workspace.id))
-      .orderBy(asc(protectees.displayName)),
-    database
-      .select()
-      .from(flightInstances)
-      .where(eq(flightInstances.workspaceId, workspace.id))
-      .orderBy(desc(flightInstances.scheduledDepartureAt)),
-  ]);
+  const [operatorRows, personRows, flightRows, sourceState] = await Promise.all(
+    [
+      database
+        .select()
+        .from(operators)
+        .where(
+          and(
+            eq(operators.workspaceId, workspace.id),
+            eq(operators.status, "active"),
+          ),
+        )
+        .orderBy(asc(operators.displayName)),
+      database
+        .select()
+        .from(protectees)
+        .where(eq(protectees.workspaceId, workspace.id))
+        .orderBy(asc(protectees.displayName)),
+      database
+        .select()
+        .from(flightInstances)
+        .where(eq(flightInstances.workspaceId, workspace.id))
+        .orderBy(desc(flightInstances.scheduledDepartureAt)),
+      getAirLabsSourceState(workspace.id),
+    ],
+  );
 
   const flightIds = flightRows.map((flight) => flight.id);
   const [assignmentRows, observationRows] = await Promise.all([
@@ -128,14 +136,6 @@ export async function getFlightSignalDashboard(
         )
       : observations;
     const latestObservation = relevantObservations[0];
-    const candidateAircraft = observations.filter(
-      (observation, index) =>
-        observations.findIndex(
-          (candidate) =>
-            candidate.aircraftIcaoHex === observation.aircraftIcaoHex,
-        ) === index,
-    );
-
     const assignments = assignmentRows
       .filter((assignment) => assignment.flightInstanceId === flight.id)
       .flatMap((assignment) => {
@@ -166,21 +166,42 @@ export async function getFlightSignalDashboard(
     return {
       id: flight.id,
       passengerFlightNumber: flight.passengerFlightNumber,
+      providerFlightIcao: flight.providerFlightIcao ?? undefined,
       adsbCallsign: flight.adsbCallsign,
+      airlineIata: flight.airlineIata ?? undefined,
+      airlineIcao: flight.airlineIcao ?? undefined,
+      airlineName: flight.airlineName ?? undefined,
       origin: {
         iata: flight.originIata,
+        icao: flight.originIcao ?? undefined,
         name: flight.originName,
         latitude: flight.originLatitude,
         longitude: flight.originLongitude,
       },
       destination: {
         iata: flight.destinationIata,
+        icao: flight.destinationIcao ?? undefined,
         name: flight.destinationName,
         latitude: flight.destinationLatitude,
         longitude: flight.destinationLongitude,
       },
       scheduledDepartureAt: flight.scheduledDepartureAt.toISOString(),
       scheduledArrivalAt: flight.scheduledArrivalAt?.toISOString(),
+      estimatedDepartureAt: flight.estimatedDepartureAt?.toISOString(),
+      actualDepartureAt: flight.actualDepartureAt?.toISOString(),
+      estimatedArrivalAt: flight.estimatedArrivalAt?.toISOString(),
+      actualArrivalAt: flight.actualArrivalAt?.toISOString(),
+      departureTerminal: flight.departureTerminal ?? undefined,
+      departureGate: flight.departureGate ?? undefined,
+      destinationTerminal: flight.destinationTerminal ?? undefined,
+      destinationGate: flight.destinationGate ?? undefined,
+      destinationBaggage: flight.destinationBaggage ?? undefined,
+      departureDelayMinutes: flight.departureDelayMinutes ?? undefined,
+      arrivalDelayMinutes: flight.arrivalDelayMinutes ?? undefined,
+      durationMinutes: flight.durationMinutes ?? undefined,
+      progressPercent: flight.progressPercent ?? undefined,
+      etaMinutes: flight.etaMinutes ?? undefined,
+      providerStatus: flight.providerStatus ?? undefined,
       trackingStatus: flight.trackingStatus,
       displayStatus: deriveFlightDisplayStatus({
         trackingStatus: flight.trackingStatus,
@@ -194,14 +215,20 @@ export async function getFlightSignalDashboard(
       aircraftIcaoHex: flight.aircraftIcaoHex ?? undefined,
       aircraftRegistration: flight.aircraftRegistration ?? undefined,
       aircraftType: flight.aircraftType ?? undefined,
+      aircraftModel: flight.aircraftModel ?? undefined,
+      aircraftManufacturer: flight.aircraftManufacturer ?? undefined,
+      aircraftResolvedAt: flight.aircraftResolvedAt?.toISOString(),
       aircraftConfirmedAt: flight.aircraftConfirmedAt?.toISOString(),
       lastPolledAt: flight.lastPolledAt?.toISOString(),
       lastSuccessfulPollAt: flight.lastSuccessfulPollAt?.toISOString(),
+      nextPollAt: flight.nextPollAt?.toISOString(),
+      consecutiveSourceErrors: flight.consecutiveSourceErrors,
+      sourceErrorCode: flight.sourceErrorCode ?? undefined,
       lastSourceError: flight.lastSourceError ?? undefined,
       notes: flight.notes ?? undefined,
       assignments,
       latestObservation,
-      candidateAircraft,
+      candidateAircraft: [],
       trail: relevantObservations
         .filter(
           (observation) =>
@@ -260,9 +287,9 @@ export async function getFlightSignalDashboard(
       ).length,
     },
     source: {
-      label: "ADSB.lol",
-      authentication: "No API key",
-      license: "ODbL",
+      label: "AirLabs",
+      authentication: "Server API key",
+      ...sourceState,
     },
   };
 }

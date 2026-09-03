@@ -24,6 +24,7 @@ import {
   createTrackedFlight,
   FlightSignalWorkflowError,
 } from "@/features/flights/server/workflows";
+import { refreshTrackedFlight } from "@/features/flights/server/polling";
 import { getDatabase } from "@/lib/db/client";
 import { workspaces } from "@/lib/db/schema";
 import { AirLabsSourceError } from "@/lib/sources/airlabs/errors";
@@ -137,6 +138,28 @@ export async function createTrackedFlightAction(
       status: "success",
       message:
         "Flight assigned. AirLabs monitoring will begin on the quota-aware schedule.",
+      flightInstanceId: result.flightInstanceId,
+    };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function refreshTrackedFlightAction(
+  formData: FormData,
+): Promise<FlightSignalActionState> {
+  try {
+    const flightInstanceId = z
+      .string()
+      .uuid()
+      .parse(textValue(formData, "flightInstanceId"));
+    const result = await refreshTrackedFlight(flightInstanceId, {
+      signal: new AbortController().signal,
+    });
+    revalidateFlightConsumers();
+    return {
+      status: "success",
+      message: "AirLabs flight data refreshed.",
       flightInstanceId: result.flightInstanceId,
     };
   } catch (error) {

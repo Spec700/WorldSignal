@@ -6,6 +6,7 @@ import {
   cancelFlightAssignmentAction,
   completeTravelerFlightAction,
   confirmTravelerOnboardAction,
+  refreshTrackedFlightAction,
 } from "@/app/flightsignal/actions";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import type { FlightSignalActionState } from "@/features/flights/action-state";
@@ -198,7 +199,24 @@ export function FlightDossier({
         </section>
 
         <section className={styles.dossierSection}>
-          <h3>Aircraft observation</h3>
+          <div className={styles.dossierSectionHeading}>
+            <h3>AirLabs observation</h3>
+            {!(["completed", "cancelled"] as string[]).includes(
+              flight.trackingStatus,
+            ) ? (
+              <button
+                disabled={pending}
+                onClick={() =>
+                  runAction(refreshTrackedFlightAction, {
+                    flightInstanceId: flight.id,
+                  })
+                }
+                type="button"
+              >
+                Refresh now
+              </button>
+            ) : null}
+          </div>
           {observation ? (
             <dl className={styles.factList}>
               <div>
@@ -235,8 +253,8 @@ export function FlightDossier({
             </dl>
           ) : (
             <p className={styles.emptyCopy}>
-              No ADS-B aircraft observation has been stored for this dated
-              flight.
+              No AirLabs position observation has been stored for this dated
+              flight yet.
             </p>
           )}
           {flight.lastSourceError ? (

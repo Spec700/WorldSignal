@@ -20,38 +20,44 @@ const actionMocks = vi.hoisted(() => ({
   })),
   lookupFlightRouteAction: vi.fn(async () => ({
     status: "success" as const,
-    passengerFlightNumber: "UA2276",
-    adsbCallsign: "UAL2276",
-    airports: [
-      {
+    confirmationToken: "signed-flight-confirmation",
+    flight: {
+      passengerFlightNumber: "UA2276",
+      flightIcao: "UAL2276",
+      origin: {
         name: "Washington Dulles International Airport",
         icao: "KIAD",
         iata: "IAD",
-        location: "Washington",
-        countryCode: "US",
+        city: "Washington",
+        country: "United States",
         latitude: 38.9445,
         longitude: -77.4558,
       },
-      {
+      destination: {
         name: "Los Angeles International Airport",
         icao: "KLAX",
         iata: "LAX",
-        location: "Los Angeles",
-        countryCode: "US",
+        city: "Los Angeles",
+        country: "United States",
         latitude: 33.9425,
         longitude: -118.408,
       },
-    ],
+      scheduledDepartureAt: "2026-09-02T18:00:00.000Z",
+      scheduledArrivalAt: "2026-09-02T23:30:00.000Z",
+      providerStatus: "scheduled",
+      phase: "scheduled" as const,
+      retrievedAt: "2026-09-02T16:00:00.000Z",
+    },
   })),
 }));
 
 vi.mock("@/app/flightsignal/actions", () => ({
   cancelFlightAssignmentAction: vi.fn(),
   completeTravelerFlightAction: vi.fn(),
-  confirmFlightAircraftAction: vi.fn(),
   confirmTravelerOnboardAction: vi.fn(),
   createTrackedFlightAction: actionMocks.createTrackedFlightAction,
   lookupFlightRouteAction: actionMocks.lookupFlightRouteAction,
+  refreshTrackedFlightAction: vi.fn(),
 }));
 
 const router = {
@@ -126,6 +132,7 @@ const dashboard: FlightSignalDashboardDto = {
       scheduledArrivalAt: "2026-09-02T23:30:00.000Z",
       trackingStatus: "tracking",
       displayStatus: "live_airborne",
+      consecutiveSourceErrors: 0,
       aircraftIcaoHex: "aa3ae5",
       assignments: [
         {
@@ -161,7 +168,15 @@ const dashboard: FlightSignalDashboardDto = {
     },
   ],
   metrics: { tracked: 1, activeTravelers: 1, attention: 0, sourceErrors: 0 },
-  source: { label: "ADSB.lol", authentication: "No API key", license: "ODbL" },
+  source: {
+    label: "AirLabs",
+    authentication: "Server API key",
+    available: true,
+    paused: false,
+    automationRequestCount: 8,
+    automationRequestCap: 800,
+    interactiveRequestCount: 2,
+  },
 };
 
 beforeEach(() => {
@@ -225,7 +240,7 @@ describe("FlightSignal workspace", () => {
     );
   });
 
-  it("looks up and confirms a route leg before assigning a traveler", async () => {
+  it("looks up and confirms an AirLabs flight before assigning a traveler", async () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
     render(
@@ -242,11 +257,9 @@ describe("FlightSignal workspace", () => {
       "UA 2276",
     );
     await user.click(
-      screen.getByRole("button", { name: "Check route suggestion" }),
+      screen.getByRole("button", { name: "Find current flight" }),
     );
-    expect(
-      await screen.findByRole("combobox", { name: "Intended route leg" }),
-    ).toHaveValue("0");
+    expect(await screen.findByText("AirLabs match · scheduled")).toBeVisible();
     expect(
       screen.getByText(/Washington Dulles.*Los Angeles/i),
     ).toBeInTheDocument();
@@ -255,9 +268,6 @@ describe("FlightSignal workspace", () => {
       screen.getByLabelText(/^Person/),
       dashboard.people[0].id,
     );
-    fireEvent.change(screen.getByLabelText(/Scheduled departure/), {
-      target: { value: "2026-09-02T14:00" },
-    });
     await user.click(screen.getByRole("button", { name: "Assign flight" }));
 
     expect(actionMocks.createTrackedFlightAction).toHaveBeenCalledOnce();

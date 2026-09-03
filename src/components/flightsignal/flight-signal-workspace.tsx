@@ -156,7 +156,9 @@ export function FlightSignalWorkspace({
     return dashboard.flights.filter((flight) => {
       const haystack = [
         flight.passengerFlightNumber,
+        flight.providerFlightIcao,
         flight.adsbCallsign,
+        flight.airlineName,
         flight.origin.iata,
         flight.origin.name,
         flight.destination.iata,

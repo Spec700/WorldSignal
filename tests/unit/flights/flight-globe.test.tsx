@@ -70,6 +70,7 @@ const flight = {
   scheduledDepartureAt: "2026-09-02T18:00:00.000Z",
   trackingStatus: "tracking",
   displayStatus: "live_airborne",
+  consecutiveSourceErrors: 0,
   assignments: [],
   latestObservation: {
     id: "observation-2",

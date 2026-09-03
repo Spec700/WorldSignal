@@ -551,6 +551,28 @@
   text-transform: uppercase;
 }
 
+.dossierSectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+.dossierSectionHeading h3 {
+  margin: 0;
+}
+
+.dossierSectionHeading button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
 .sectionIntro,
 .sourceCaveat,
 .emptyCopy {
