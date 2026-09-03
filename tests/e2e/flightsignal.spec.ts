@@ -44,7 +44,7 @@ test("FlightSignal panels resize and preserve the compact detail overlay", async
     (initialEditor?.width ?? 0) + 16,
   );
   await expect(
-    editor.getByText(/aircraft and traveler still require separate/i),
+    editor.getByText(/travel mode still requires an explicit onboard/i),
   ).toBeVisible();
 
   await page.setViewportSize({ height: 900, width: 1200 });
@@ -69,7 +69,7 @@ test("FlightSignal starts without inventing a tracked flight", async ({
     ).toBeVisible();
   }
 
-  await expect(page.getByText(/ADSB\.lol · ODbL/)).toBeVisible();
+  await expect(page.getByText(/AirLabs · \d+\/800 automated/)).toBeVisible();
   await expect(
     page.getByText(/person presence requires operator confirmation/i),
   ).toBeVisible();

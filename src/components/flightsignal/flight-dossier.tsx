@@ -15,9 +15,9 @@ import type { TrackedFlightDto } from "@/features/flights/types";
 import styles from "@/app/flightsignal/flightsignal.module.css";
 
 export const flightStatusLabels = {
-  scheduled: "Scheduled by analyst",
-  awaiting_signal: "Awaiting ADS-B signal",
-  match_required: "Aircraft match required",
+  scheduled: "Scheduled",
+  awaiting_signal: "Awaiting AirLabs update",
+  match_required: "Legacy match required",
   live_airborne: "Live · airborne",
   live_ground: "Live · on ground",
   signal_stale: "Signal stale",
@@ -88,8 +88,9 @@ export function FlightDossier({
         </span>
         <h2>{flight.passengerFlightNumber}</h2>
         <p>
-          {flight.origin.iata} → {flight.destination.iata} · ADS-B callsign{" "}
-          {flight.adsbCallsign}
+          {flight.origin.iata} → {flight.destination.iata}
+          {flight.airlineName ? ` · ${flight.airlineName}` : ""}
+          {flight.providerFlightIcao ? ` · ${flight.providerFlightIcao}` : ""}
         </p>
       </header>
 
@@ -159,8 +160,8 @@ export function FlightDossier({
             ))}
           </ul>
           <p className={styles.sourceCaveat}>
-            ADS-B identifies an aircraft, not a passenger. Aircraft position
-            represents a person only after “Confirm onboard.”
+            AirLabs identifies a flight and aircraft, not a passenger. Aircraft
+            position represents a person only after “Confirm onboard.”
           </p>
         </section>
 
@@ -176,34 +177,71 @@ export function FlightDossier({
               <dd>{flight.destination.name}</dd>
             </div>
             <div>
-              <dt>Departure</dt>
+              <dt>Scheduled</dt>
               <dd>
                 <LocalTimestamp timestamp={flight.scheduledDepartureAt} />
               </dd>
             </div>
             <div>
+              <dt>Actual depart</dt>
+              <dd>
+                {flight.actualDepartureAt ? (
+                  <LocalTimestamp timestamp={flight.actualDepartureAt} />
+                ) : flight.estimatedDepartureAt ? (
+                  <>
+                    Est.{" "}
+                    <LocalTimestamp timestamp={flight.estimatedDepartureAt} />
+                  </>
+                ) : (
+                  "Not reported"
+                )}
+              </dd>
+            </div>
+            <div>
               <dt>Arrival</dt>
               <dd>
-                {flight.scheduledArrivalAt ? (
+                {flight.actualArrivalAt ? (
+                  <LocalTimestamp timestamp={flight.actualArrivalAt} />
+                ) : flight.estimatedArrivalAt ? (
+                  <>
+                    Est.{" "}
+                    <LocalTimestamp timestamp={flight.estimatedArrivalAt} />
+                  </>
+                ) : flight.scheduledArrivalAt ? (
                   <LocalTimestamp timestamp={flight.scheduledArrivalAt} />
                 ) : (
                   "Not supplied"
                 )}
               </dd>
             </div>
+            <div>
+              <dt>Terminals</dt>
+              <dd>
+                {flight.departureTerminal ?? "—"} →{" "}
+                {flight.destinationTerminal ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>Gates</dt>
+              <dd>
+                {flight.departureGate ?? "—"} → {flight.destinationGate ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>AirLabs status</dt>
+              <dd>{flight.providerStatus ?? "Unavailable"}</dd>
+            </div>
           </dl>
           <p className={styles.sourceCaveat}>
-            Schedule values are analyst supplied. They are not live airline
-            operational data.
+            Schedule, estimate, terminal, and gate values come from the latest
+            stored AirLabs response.
           </p>
         </section>
 
         <section className={styles.dossierSection}>
           <div className={styles.dossierSectionHeading}>
             <h3>AirLabs observation</h3>
-            {!(["completed", "cancelled"] as string[]).includes(
-              flight.trackingStatus,
-            ) ? (
+            {!["completed", "cancelled"].includes(flight.trackingStatus) ? (
               <button
                 disabled={pending}
                 onClick={() =>
@@ -223,9 +261,11 @@ export function FlightDossier({
                 <dt>Aircraft</dt>
                 <dd>
                   {observation.registration ?? observation.aircraftIcaoHex}
-                  {observation.aircraftType
-                    ? ` · ${observation.aircraftType}`
-                    : ""}
+                  {flight.aircraftModel
+                    ? ` · ${flight.aircraftModel}`
+                    : observation.aircraftType
+                      ? ` · ${observation.aircraftType}`
+                      : ""}
                 </dd>
               </div>
               <div>
@@ -248,6 +288,16 @@ export function FlightDossier({
                 <dt>Observed</dt>
                 <dd>
                   <LocalTimestamp timestamp={observation.sourceObservedAt} />
+                </dd>
+              </div>
+              <div>
+                <dt>Next check</dt>
+                <dd>
+                  {flight.nextPollAt ? (
+                    <LocalTimestamp timestamp={flight.nextPollAt} />
+                  ) : (
+                    "Monitoring stopped"
+                  )}
                 </dd>
               </div>
             </dl>

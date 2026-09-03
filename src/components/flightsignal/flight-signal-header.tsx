@@ -54,7 +54,9 @@ export function FlightSignalHeader({
             {dashboard.source.paused
               ? "Paused"
               : dashboard.source.available
-                ? `${dashboard.source.planType ?? "API"} · ${dashboard.source.providerMonthlyRemaining ?? "—"} requests left`
+                ? dashboard.source.providerMonthlyRemaining !== undefined
+                  ? `${dashboard.source.planType ?? "API"} · ${dashboard.source.providerMonthlyRemaining} requests left`
+                  : `${dashboard.source.automationRequestCount}/${dashboard.source.automationRequestCap} automated`
                 : "API key required"}
           </small>
         </span>

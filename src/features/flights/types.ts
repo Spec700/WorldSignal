@@ -69,7 +69,6 @@ export interface TrackedFlightDto {
   id: string;
   passengerFlightNumber: string;
   providerFlightIcao?: string;
-  adsbCallsign: string;
   airlineIata?: string;
   airlineIcao?: string;
   airlineName?: string;

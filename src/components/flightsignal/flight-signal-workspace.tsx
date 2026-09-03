@@ -74,7 +74,7 @@ function matchesStatus(status: FlightDisplayStatus, filter: StatusFilter) {
 
 function formatRemaining(arrival: string | undefined, nowMs: number | null) {
   if (!arrival || nowMs === null) {
-    return "Schedule remaining unavailable";
+    return "Arrival estimate unavailable";
   }
   const remainingMinutes = Math.ceil((Date.parse(arrival) - nowMs) / 60_000);
   if (remainingMinutes <= 0) {
@@ -82,7 +82,7 @@ function formatRemaining(arrival: string | undefined, nowMs: number | null) {
   }
   const hours = Math.floor(remainingMinutes / 60);
   const minutes = remainingMinutes % 60;
-  return `Scheduled ${hours}h ${minutes}m remaining`;
+  return `${hours}h ${minutes}m remaining`;
 }
 
 export function FlightSignalWorkspace({
@@ -157,7 +157,6 @@ export function FlightSignalWorkspace({
       const haystack = [
         flight.passengerFlightNumber,
         flight.providerFlightIcao,
-        flight.adsbCallsign,
         flight.airlineName,
         flight.origin.iata,
         flight.origin.name,
@@ -338,7 +337,10 @@ export function FlightSignalWorkspace({
           ) : null}
           <footer className={styles.queueFooter}>
             <span>{filteredFlights.length} visible</span>
-            <span>ADSB.lol · ODbL</span>
+            <span>
+              AirLabs · {dashboard.source.automationRequestCount}/
+              {dashboard.source.automationRequestCap} automated
+            </span>
           </footer>
         </aside>
 
@@ -353,6 +355,15 @@ export function FlightSignalWorkspace({
 
         <section className={styles.flightStage} id="flight-stage">
           <FlightGlobe flight={selectedFlight} />
+          {!dashboard.source.available || dashboard.source.paused ? (
+            <div className={styles.stageSourceAlert} role="status">
+              <strong>AirLabs paused</strong>
+              <span>
+                {dashboard.source.pauseReason ??
+                  "Add a valid AIRLABS_API_KEY to restore flight lookups and observations."}
+              </span>
+            </div>
+          ) : null}
           <div className={styles.stageHeading}>
             <span className={styles.eyebrow}>Observed aircraft</span>
             <strong>
@@ -376,19 +387,23 @@ export function FlightSignalWorkspace({
                   .join(", ")}
               </p>
               <strong>
-                {formatRemaining(selectedFlight.scheduledArrivalAt, nowMs)}
+                {formatRemaining(
+                  selectedFlight.estimatedArrivalAt ??
+                    selectedFlight.scheduledArrivalAt,
+                  nowMs,
+                )}
               </strong>
               <small>
                 {selectedFlight.latestObservation
-                  ? "Aircraft position from ADSB.lol"
-                  : "Route shown from analyst-confirmed itinerary"}
+                  ? `AirLabs position · ${selectedFlight.trail.length} stored trail point${selectedFlight.trail.length === 1 ? "" : "s"}`
+                  : "AirLabs itinerary · awaiting a position observation"}
               </small>
             </article>
           ) : null}
           <footer className={styles.stageFooter}>
             <span>NASA imagery · Natural Earth boundaries</span>
             <span>
-              Aircraft telemetry: ADSB.lol · person presence requires operator
+              Aircraft telemetry: AirLabs · person presence requires operator
               confirmation
             </span>
           </footer>
@@ -443,17 +458,33 @@ export function FlightSignalWorkspace({
           <strong>
             {selectedFlight?.passengerFlightNumber ?? "No flight selected"}
           </strong>
-          <small>Schedule is analyst supplied · observations are ADS-B</small>
+          <small>Schedule and observations are stored from AirLabs</small>
         </header>
         {selectedFlight ? (
           <ol>
             <li data-kind="schedule">
               <span />
-              <small>Scheduled departure</small>
+              <small>
+                {selectedFlight.actualDepartureAt
+                  ? "Actual departure"
+                  : selectedFlight.estimatedDepartureAt
+                    ? "Estimated departure"
+                    : "Scheduled departure"}
+              </small>
               <strong>{selectedFlight.origin.iata}</strong>
-              <time dateTime={selectedFlight.scheduledDepartureAt}>
+              <time
+                dateTime={
+                  selectedFlight.actualDepartureAt ??
+                  selectedFlight.estimatedDepartureAt ??
+                  selectedFlight.scheduledDepartureAt
+                }
+              >
                 <LocalTimestamp
-                  timestamp={selectedFlight.scheduledDepartureAt}
+                  timestamp={
+                    selectedFlight.actualDepartureAt ??
+                    selectedFlight.estimatedDepartureAt ??
+                    selectedFlight.scheduledDepartureAt
+                  }
                 />
               </time>
             </li>
@@ -479,12 +510,30 @@ export function FlightSignalWorkspace({
             ) : null}
             <li data-kind="schedule">
               <span />
-              <small>Scheduled arrival</small>
+              <small>
+                {selectedFlight.actualArrivalAt
+                  ? "Actual arrival"
+                  : selectedFlight.estimatedArrivalAt
+                    ? "Estimated arrival"
+                    : "Scheduled arrival"}
+              </small>
               <strong>{selectedFlight.destination.iata}</strong>
-              {selectedFlight.scheduledArrivalAt ? (
-                <time dateTime={selectedFlight.scheduledArrivalAt}>
+              {(selectedFlight.actualArrivalAt ??
+              selectedFlight.estimatedArrivalAt ??
+              selectedFlight.scheduledArrivalAt) ? (
+                <time
+                  dateTime={
+                    selectedFlight.actualArrivalAt ??
+                    selectedFlight.estimatedArrivalAt ??
+                    selectedFlight.scheduledArrivalAt
+                  }
+                >
                   <LocalTimestamp
-                    timestamp={selectedFlight.scheduledArrivalAt}
+                    timestamp={
+                      selectedFlight.actualArrivalAt ??
+                      selectedFlight.estimatedArrivalAt ??
+                      selectedFlight.scheduledArrivalAt!
+                    }
                   />
                 </time>
               ) : (

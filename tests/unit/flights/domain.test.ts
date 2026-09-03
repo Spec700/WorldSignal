@@ -1,27 +1,15 @@
 import {
   airLabsResolvedFlightSchema,
   parseFlightDesignator,
-  resolveAdsbCallsign,
 } from "@/features/flights/domain";
 
 describe("FlightSignal domain rules", () => {
-  it("normalizes a passenger flight number and resolves a known ADS-B callsign", () => {
+  it("normalizes a passenger flight number", () => {
     expect(parseFlightDesignator(" ua 2276 ")).toEqual({
       passengerFlightNumber: "UA2276",
       airlineCode: "UA",
       flightNumber: "2276",
     });
-    expect(resolveAdsbCallsign("UA 2276")).toBe("UAL2276");
-  });
-
-  it("accepts an explicit ADS-B callsign for an unmapped carrier", () => {
-    expect(resolveAdsbCallsign("ZZ 42", "TST42")).toBe("TST42");
-  });
-
-  it("requires an explicit ADS-B callsign for an unmapped carrier", () => {
-    expect(() => resolveAdsbCallsign("ZZ 42")).toThrow(
-      "ZZ is not in the local airline mapping",
-    );
   });
 
   it("rejects coordinates outside globe bounds", () => {

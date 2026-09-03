@@ -188,20 +188,20 @@ export function FlightGlobe({ flight }: { flight?: TrackedFlightDto }) {
         : [],
     [flight],
   );
-  const arcs = useMemo<FlightArc[]>(
-    () =>
-      flight
-        ? [
-            {
-              startLatitude: flight.origin.latitude,
-              startLongitude: flight.origin.longitude,
-              endLatitude: flight.destination.latitude,
-              endLongitude: flight.destination.longitude,
-            },
-          ]
-        : [],
-    [flight],
-  );
+  const arcs = useMemo<FlightArc[]>(() => {
+    if (!flight) {
+      return [];
+    }
+    const current = flight.latestObservation;
+    return [
+      {
+        startLatitude: current?.latitude ?? flight.origin.latitude,
+        startLongitude: current?.longitude ?? flight.origin.longitude,
+        endLatitude: flight.destination.latitude,
+        endLongitude: flight.destination.longitude,
+      },
+    ];
+  }, [flight]);
   const paths = useMemo<FlightPath[]>(
     () =>
       flight && flight.trail.length > 1
@@ -291,7 +291,7 @@ export function FlightGlobe({ flight }: { flight?: TrackedFlightDto }) {
         <Globe
           animateIn={false}
           arcAltitude={0.16}
-          arcColor={() => "rgba(100, 217, 226, 0.62)"}
+          arcColor={() => "rgba(241, 183, 77, 0.78)"}
           arcDashAnimateTime={reducedMotion ? 0 : 2_400}
           arcDashGap={0.55}
           arcDashInitialGap={0.15}
@@ -326,7 +326,7 @@ export function FlightGlobe({ flight }: { flight?: TrackedFlightDto }) {
           pathPointLat={(value) => (value as FlightPathPoint).latitude}
           pathPointLng={(value) => (value as FlightPathPoint).longitude}
           pathPoints={(value) => (value as FlightPath).points}
-          pathStroke={1.2}
+          pathStroke={1.7}
           pathsData={paths}
           pathTransitionDuration={reducedMotion ? 0 : 250}
           pointAltitude={0.014}

@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
+import { activeObservationIntervalMs } from "@/features/flights/scheduling";
 import { FLIGHT_SIGNAL_STALE_AFTER_MS } from "@/features/flights/status";
 import { currentPersonLocation } from "@/features/people/location-model";
 import type {
@@ -88,7 +89,9 @@ export async function getPeopleDashboard(
             protecteeId: flightAssignments.protecteeId,
             flightInstanceId: flightInstances.id,
             passengerFlightNumber: flightInstances.passengerFlightNumber,
-            adsbCallsign: flightInstances.adsbCallsign,
+            providerFlightIcao: flightInstances.providerFlightIcao,
+            airlineName: flightInstances.airlineName,
+            providerStatus: flightInstances.providerStatus,
             originIata: flightInstances.originIata,
             originName: flightInstances.originName,
             originLatitude: flightInstances.originLatitude,
@@ -99,6 +102,8 @@ export async function getPeopleDashboard(
             destinationLongitude: flightInstances.destinationLongitude,
             scheduledDepartureAt: flightInstances.scheduledDepartureAt,
             scheduledArrivalAt: flightInstances.scheduledArrivalAt,
+            estimatedArrivalAt: flightInstances.estimatedArrivalAt,
+            durationMinutes: flightInstances.durationMinutes,
             aircraftIcaoHex: flightInstances.aircraftIcaoHex,
             aircraftRegistration: flightInstances.aircraftRegistration,
             aircraftType: flightInstances.aircraftType,
@@ -177,7 +182,15 @@ export async function getPeopleDashboard(
               retrievedAt: observation.retrievedAt.toISOString(),
               isStale:
                 now.getTime() - observation.sourceObservedAt.getTime() >
-                FLIGHT_SIGNAL_STALE_AFTER_MS,
+                Math.max(
+                  FLIGHT_SIGNAL_STALE_AFTER_MS,
+                  activeObservationIntervalMs({
+                    scheduledDepartureAt: travel.scheduledDepartureAt,
+                    scheduledArrivalAt: travel.scheduledArrivalAt,
+                    estimatedArrivalAt: travel.estimatedArrivalAt,
+                    durationMinutes: travel.durationMinutes,
+                  }) * 2.5,
+                ),
             }
           : undefined;
 
@@ -187,7 +200,9 @@ export async function getPeopleDashboard(
           assignmentId: travel.assignmentId,
           flightInstanceId: travel.flightInstanceId,
           passengerFlightNumber: travel.passengerFlightNumber,
-          adsbCallsign: travel.adsbCallsign,
+          providerFlightIcao: travel.providerFlightIcao ?? undefined,
+          airlineName: travel.airlineName ?? undefined,
+          providerStatus: travel.providerStatus ?? undefined,
           origin: {
             iata: travel.originIata,
             name: travel.originName,
@@ -202,6 +217,7 @@ export async function getPeopleDashboard(
           },
           scheduledDepartureAt: travel.scheduledDepartureAt.toISOString(),
           scheduledArrivalAt: travel.scheduledArrivalAt?.toISOString(),
+          estimatedArrivalAt: travel.estimatedArrivalAt?.toISOString(),
           aircraft: {
             icaoHex: travel.aircraftIcaoHex ?? undefined,
             registration: travel.aircraftRegistration ?? undefined,

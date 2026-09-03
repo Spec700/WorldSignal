@@ -54,7 +54,6 @@ class TestResizeObserver {
 const flight = {
   id: "flight-1",
   passengerFlightNumber: "UA2276",
-  adsbCallsign: "UAL2276",
   origin: {
     iata: "IAD",
     name: "Washington Dulles International Airport",
@@ -146,6 +145,14 @@ describe("FlightSignal globe", () => {
 
     await screen.findByText("Mock flight globe");
     await waitFor(() => expect(globeHarness.props.arcsData).toHaveLength(1));
+    expect(globeHarness.props.arcsData).toEqual([
+      expect.objectContaining({
+        startLatitude: 39.1,
+        startLongitude: -82.8,
+        endLatitude: 33.9425,
+        endLongitude: -118.408,
+      }),
+    ]);
     expect(globeHarness.props.pathsData).toHaveLength(1);
     expect(globeHarness.props.pointsData).toHaveLength(2);
     expect(globeHarness.props.objectsData).toHaveLength(1);

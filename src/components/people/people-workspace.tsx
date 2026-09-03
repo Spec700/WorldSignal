@@ -65,7 +65,7 @@ function matchesPerson(person: PersonDto, query: string) {
     person.organization,
     person.location?.label,
     person.activeTravel?.passengerFlightNumber,
-    person.activeTravel?.adsbCallsign,
+    person.activeTravel?.providerFlightIcao,
     person.activeTravel?.origin.iata,
     person.activeTravel?.destination.iata,
     ...person.identities.map((identity) => identity.displayValue),
@@ -163,7 +163,7 @@ function PersonDossier({
                 <dd>
                   {person.activeTravel.position
                     ? `${person.activeTravel.position.latitude.toFixed(4)}, ${person.activeTravel.position.longitude.toFixed(4)}`
-                    : "Awaiting ADS-B position"}
+                    : "Awaiting AirLabs position"}
                 </dd>
               </div>
               <div>
@@ -192,8 +192,9 @@ function PersonDossier({
               </div>
             </dl>
             <p className={styles.travelCaveat}>
-              This is inferred presence: ADS-B observes the confirmed aircraft,
-              while the operator confirmation establishes the traveler context.
+              This is inferred presence: AirLabs observes the assigned flight
+              and aircraft, while the operator confirmation establishes the
+              traveler context.
             </p>
           </section>
         ) : null}

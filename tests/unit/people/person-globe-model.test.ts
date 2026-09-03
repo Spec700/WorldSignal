@@ -91,7 +91,6 @@ describe("person globe model", () => {
         assignmentId: "assignment-1",
         flightInstanceId: "flight-1",
         passengerFlightNumber: "UA2276",
-        adsbCallsign: "UAL2276",
         origin: {
           iata: "IAD",
           name: "Washington Dulles International Airport",

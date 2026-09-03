@@ -3,9 +3,10 @@ import type {
   FlightObservationDto,
   FlightTrackingStatus,
 } from "./types";
+import { activeObservationIntervalMs } from "./scheduling";
 
 export const FLIGHT_SIGNAL_STALE_AFTER_MS = 2 * 60 * 1_000;
-export const FLIGHT_SIGNAL_ACQUISITION_WINDOW_MS = 6 * 60 * 60 * 1_000;
+export const FLIGHT_SIGNAL_ACQUISITION_WINDOW_MS = 30 * 60 * 1_000;
 
 export function deriveFlightDisplayStatus(input: {
   trackingStatus: FlightTrackingStatus;
@@ -17,6 +18,7 @@ export function deriveFlightDisplayStatus(input: {
   lastPolledAt?: string;
   lastSuccessfulPollAt?: string;
   lastSourceError?: string;
+  durationMinutes?: number;
   now: Date;
 }): FlightDisplayStatus {
   if (input.trackingStatus === "completed") {
@@ -51,9 +53,17 @@ export function deriveFlightDisplayStatus(input: {
       : "scheduled";
   }
 
+  const expectedInterval = activeObservationIntervalMs({
+    scheduledDepartureAt: new Date(input.scheduledDepartureAt),
+    durationMinutes: input.durationMinutes,
+  });
+  const staleAfterMs = Math.max(
+    FLIGHT_SIGNAL_STALE_AFTER_MS,
+    expectedInterval * 2.5,
+  );
   if (
     input.now.getTime() - Date.parse(input.latestObservation.sourceObservedAt) >
-    FLIGHT_SIGNAL_STALE_AFTER_MS
+    staleAfterMs
   ) {
     return "signal_stale";
   }

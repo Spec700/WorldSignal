@@ -298,7 +298,7 @@ export function PeopleGlobeWorkspace({
 
           <footer className={styles.globeStageFooter}>
             <span>
-              Approved locations · confirmed travel uses ADS-B aircraft
+              Approved locations · confirmed travel uses AirLabs aircraft
               positions
             </span>
             <span>Synthetic demonstration data only</span>

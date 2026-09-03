@@ -115,7 +115,6 @@ const dashboard: FlightSignalDashboardDto = {
     {
       id: "flight-1",
       passengerFlightNumber: "UA2276",
-      adsbCallsign: "UAL2276",
       origin: {
         iata: "IAD",
         name: "Washington Dulles International Airport",
@@ -211,7 +210,7 @@ describe("FlightSignal workspace", () => {
     expect(screen.getAllByText("Live · airborne").length).toBeGreaterThan(0);
     expect(screen.getByTestId("flight-globe")).toHaveTextContent("flight-1");
     expect(
-      screen.getByText(/ADS-B identifies an aircraft, not a passenger/i),
+      screen.getByText(/AirLabs identifies a flight and aircraft/i),
     ).toBeInTheDocument();
 
     const streamHandle = screen.getByRole("separator", {

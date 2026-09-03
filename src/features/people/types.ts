@@ -37,7 +37,9 @@ export interface PersonActiveTravelDto {
   assignmentId: string;
   flightInstanceId: string;
   passengerFlightNumber: string;
-  adsbCallsign: string;
+  providerFlightIcao?: string;
+  airlineName?: string;
+  providerStatus?: string;
   origin: {
     iata: string;
     name: string;
@@ -52,6 +54,7 @@ export interface PersonActiveTravelDto {
   };
   scheduledDepartureAt: string;
   scheduledArrivalAt?: string;
+  estimatedArrivalAt?: string;
   aircraft: {
     icaoHex?: string;
     registration?: string;

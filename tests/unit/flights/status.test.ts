@@ -51,7 +51,7 @@ describe("FlightSignal display status", () => {
         },
         lastPolledAt: "2026-09-02T17:59:50.000Z",
         lastSuccessfulPollAt: "2026-09-02T17:58:00.000Z",
-        lastSourceError: "ADSB.lol could not be reached.",
+        lastSourceError: "AirLabs could not be reached.",
       }),
     ).toBe("source_error");
   });
@@ -81,8 +81,21 @@ describe("FlightSignal display status", () => {
       deriveFlightDisplayStatus({
         ...base,
         trackingStatus: "scheduled",
-        scheduledDepartureAt: "2026-09-02T20:00:00.000Z",
+        scheduledDepartureAt: "2026-09-02T18:20:00.000Z",
       }),
     ).toBe("awaiting_signal");
+  });
+
+  it("allows the planned interval for a long-haul flight before marking data stale", () => {
+    expect(
+      deriveFlightDisplayStatus({
+        ...base,
+        durationMinutes: 720,
+        latestObservation: {
+          onGround: false,
+          sourceObservedAt: "2026-09-02T17:50:00.000Z",
+        },
+      }),
+    ).toBe("live_airborne");
   });
 });

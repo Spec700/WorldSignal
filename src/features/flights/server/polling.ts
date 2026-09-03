@@ -453,7 +453,7 @@ export async function refreshTrackedFlight(
   }
   if (!flight.providerStatus) {
     throw new FlightSignalWorkflowError(
-      "This legacy ADS-B assignment must be recreated through AirLabs before it can be refreshed.",
+      "This pre-AirLabs assignment must be recreated before it can be refreshed.",
     );
   }
   if (

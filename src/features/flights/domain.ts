@@ -1,33 +1,5 @@
 import { z } from "zod";
 
-const airlineIcaoByIata: Readonly<Record<string, string>> = {
-  "6E": "IGO",
-  AA: "AAL",
-  AC: "ACA",
-  AF: "AFR",
-  AS: "ASA",
-  B6: "JBU",
-  BA: "BAW",
-  CX: "CPA",
-  DL: "DAL",
-  EK: "UAE",
-  F9: "FFT",
-  FR: "RYR",
-  JL: "JAL",
-  KL: "KLM",
-  LH: "DLH",
-  NH: "ANA",
-  NK: "NKS",
-  QF: "QFA",
-  QR: "QTR",
-  SQ: "SIA",
-  TK: "THY",
-  U2: "EZY",
-  UA: "UAL",
-  VS: "VIR",
-  WN: "SWA",
-};
-
 const flightDesignatorSchema = z
   .string()
   .trim()
@@ -39,20 +11,6 @@ const flightDesignatorSchema = z
       .regex(
         /^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/,
         "Enter an airline code and flight number, such as UA 2276.",
-      ),
-  );
-
-const providerCallsignSchema = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .transform((value) => value.replace(/\s+/g, ""))
-  .pipe(
-    z
-      .string()
-      .regex(
-        /^[A-Z0-9]{3,8}$/,
-        "The ADS-B callsign must contain 3 to 8 letters or numbers.",
       ),
   );
 
@@ -160,38 +118,6 @@ export function parseFlightDesignator(value: string): ParsedFlightDesignator {
     flightNumber,
   };
 }
-
-export function resolveAdsbCallsign(
-  passengerFlightNumber: string,
-  override?: string,
-): string {
-  if (override) {
-    return providerCallsignSchema.parse(override);
-  }
-
-  const parsed = parseFlightDesignator(passengerFlightNumber);
-  if (parsed.airlineCode.length === 3) {
-    return `${parsed.airlineCode}${parsed.flightNumber}`;
-  }
-
-  const icaoCode = airlineIcaoByIata[parsed.airlineCode];
-  if (!icaoCode) {
-    throw new Error(
-      `${parsed.airlineCode} is not in the local airline mapping. Enter the flight's ADS-B callsign to continue.`,
-    );
-  }
-
-  return `${icaoCode}${parsed.flightNumber}`;
-}
-
-export const confirmAircraftInputSchema = z.object({
-  flightInstanceId: z.string().uuid(),
-  aircraftIcaoHex: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[0-9a-f]{6}$/, "Enter a six-character ICAO aircraft address."),
-});
 
 export const changeFlightAssignmentInputSchema = z.object({
   assignmentId: z.string().uuid(),

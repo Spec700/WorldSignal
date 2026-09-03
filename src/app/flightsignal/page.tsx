@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "FlightSignal",
   description:
-    "Assigned flight awareness with operator-confirmed traveler context and ADS-B aircraft observations.",
+    "Assigned flight awareness with operator-confirmed traveler context and AirLabs aircraft observations.",
 };
 
 interface FlightSignalPageProps {
