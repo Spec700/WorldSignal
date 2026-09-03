@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-export type PrioritySignalsProduct = "home" | "worldsignal" | "credsignal";
+export type PrioritySignalsProduct =
+  "home" | "worldsignal" | "flightsignal" | "credsignal";
 
 const products: Array<{
   id: PrioritySignalsProduct;
@@ -22,6 +23,13 @@ const products: Array<{
     description: "Physical threat awareness",
     href: "/worldsignal",
     symbol: "W",
+  },
+  {
+    id: "flightsignal",
+    name: "FlightSignal",
+    description: "Assigned travel awareness",
+    href: "/flightsignal",
+    symbol: "F",
   },
   {
     id: "credsignal",

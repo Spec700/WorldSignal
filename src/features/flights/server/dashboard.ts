@@ -18,6 +18,7 @@ import {
 
 const emptyDashboard: FlightSignalDashboardDto = {
   setupRequired: true,
+  generatedAt: new Date(0).toISOString(),
   operators: [],
   people: [],
   flights: [],
@@ -216,6 +217,7 @@ export async function getFlightSignalDashboard(
 
   return {
     setupRequired: false,
+    generatedAt: now.toISOString(),
     workspace: {
       id: workspace.id,
       name: workspace.name,

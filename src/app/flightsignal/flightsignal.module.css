@@ -1,0 +1,1087 @@
+.shell {
+  display: grid;
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  grid-template-rows:
+    64px minmax(0, 1fr) 8px
+    var(--flight-timeline-height, 122px);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.commandBar {
+  z-index: 20;
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+  box-shadow: 0 8px 28px oklch(0.06 0.01 238 / 0.36);
+}
+
+.commandModule,
+.operatorControl,
+.sourceSummary {
+  display: flex;
+  min-width: max-content;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px;
+  border-right: 1px solid var(--color-line);
+  font-size: 0.76rem;
+}
+
+.commandLabel,
+.eyebrow,
+.formSectionLabel {
+  color: var(--color-text-faint);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.commandMetrics {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+}
+
+.commandMetrics > div {
+  display: grid;
+  min-width: 82px;
+  align-content: center;
+  justify-items: center;
+  padding: 0 13px;
+  border-right: 1px solid var(--color-line);
+}
+
+.commandMetrics dt,
+.commandMetrics dd {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+}
+
+.commandMetrics dt {
+  color: var(--color-text-faint);
+  font-size: 0.57rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.commandMetrics dd {
+  margin-top: 2px;
+  color: var(--color-accent-strong);
+  font-size: 1.02rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.commandMetrics div[data-attention="true"] dd {
+  color: var(--color-warning);
+}
+
+.sourceSummary {
+  width: 168px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.sourceSummary strong,
+.sourceSummary small {
+  display: block;
+}
+
+.sourceSummary strong {
+  font-size: 0.7rem;
+}
+
+.sourceSummary small {
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+}
+
+.sourceDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+.sourceDot[data-error="true"] {
+  background: var(--color-danger);
+}
+
+.operatorControl {
+  width: 188px;
+  gap: 3px;
+}
+
+.operatorControl select {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.71rem;
+}
+
+.primaryAction {
+  display: flex;
+  min-width: 148px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.primaryAction:hover {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+}
+
+.workspace {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns:
+    var(--flight-queue-width, 320px) 8px
+    minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.workspace.hasDetail {
+  grid-template-columns:
+    var(--flight-queue-width, 320px) 8px
+    minmax(0, 1fr) 8px var(--flight-dossier-width, 390px);
+}
+
+.flightQueue,
+.dossier,
+.editor {
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-surface);
+}
+
+.flightQueue {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.queueHeader {
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.queueHeader h1 {
+  margin: 4px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+
+.queueHeader p,
+.panelHeader p {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.queueControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 94px;
+  gap: 7px;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.searchControl,
+.filterControl {
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  align-items: center;
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+}
+
+.searchControl {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 0 9px;
+  color: var(--color-text-faint);
+}
+
+.searchControl input,
+.filterControl select {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.66rem;
+}
+
+.filterControl {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px;
+  padding: 0 7px;
+}
+
+.filterControl > span {
+  color: var(--color-text-faint);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.54rem;
+  text-transform: uppercase;
+}
+
+.flightList {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.flightList li {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.flightList li[data-selected="true"] {
+  background: var(--color-surface-raised);
+  box-shadow: inset 3px 0 0 var(--color-accent-strong);
+}
+
+.flightList button {
+  display: grid;
+  width: 100%;
+  min-height: 106px;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.flightList button:hover {
+  background: var(--color-surface-raised);
+}
+
+.flightListTopline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.flightListTopline strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.03rem;
+  letter-spacing: 0.02em;
+}
+
+.flightListTopline > span,
+.flightStatus {
+  padding: 3px 5px;
+  border: 1px solid var(--color-line);
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.flightListTopline > span[data-status="live_airborne"],
+.flightListTopline > span[data-status="live_ground"],
+.flightStatus[data-status="live_airborne"],
+.flightStatus[data-status="live_ground"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.flightListTopline > span[data-status="match_required"],
+.flightListTopline > span[data-status="possible_arrival"],
+.flightStatus[data-status="match_required"],
+.flightStatus[data-status="possible_arrival"] {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.flightListTopline > span[data-status="signal_stale"],
+.flightListTopline > span[data-status="source_error"],
+.flightStatus[data-status="signal_stale"],
+.flightStatus[data-status="source_error"] {
+  border-color: var(--color-danger);
+  color: oklch(0.83 0.11 28);
+}
+
+.routeCode {
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.routeCode i {
+  color: var(--color-text-faint);
+  font-style: normal;
+}
+
+.flightList button > small,
+.flightList button > time {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flightList button > time {
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.emptyQueue {
+  position: absolute;
+  top: 195px;
+  left: 0;
+  width: var(--flight-queue-width, 320px);
+  padding: 36px 24px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.emptyQueue strong {
+  color: var(--color-text);
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+}
+
+.emptyQueue p {
+  margin: 5px auto 14px;
+  font-size: 0.67rem;
+  line-height: 1.4;
+}
+
+.emptyQueue button,
+.secondaryAction,
+.candidateList button,
+.assignmentActions button {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.queueFooter,
+.stageFooter {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-text-faint);
+  font-size: 0.55rem;
+}
+
+.flightStage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: oklch(0.1 0.012 238);
+}
+
+.stageHeading,
+.flightOverlay,
+.stageFooter {
+  position: absolute;
+  z-index: 3;
+}
+
+.stageHeading {
+  top: 14px;
+  left: 16px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--color-accent);
+  background: oklch(0.12 0.016 238 / 0.86);
+}
+
+.stageHeading span,
+.stageHeading strong {
+  display: block;
+}
+
+.stageHeading strong {
+  margin-top: 2px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.8rem;
+}
+
+.flightOverlay {
+  bottom: 42px;
+  left: 20px;
+  width: min(400px, calc(100% - 40px));
+  padding: 13px 15px;
+  border: 1px solid var(--color-accent);
+  background: oklch(0.13 0.017 238 / 0.92);
+  box-shadow: 0 14px 36px oklch(0.04 0.01 238 / 0.42);
+}
+
+.flightOverlay h2 {
+  margin: 7px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.35rem;
+}
+
+.flightOverlay p {
+  margin: 2px 0 10px;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+}
+
+.flightOverlay > strong,
+.flightOverlay > small {
+  display: block;
+}
+
+.flightOverlay > strong {
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.86rem;
+}
+
+.flightOverlay > small {
+  margin-top: 3px;
+  color: var(--color-text-faint);
+  font-size: 0.58rem;
+}
+
+.stageFooter {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: oklch(0.12 0.016 238 / 0.9);
+}
+
+.dossier,
+.editor {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--color-line-strong);
+}
+
+.panelHeader {
+  position: relative;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.panelHeader > button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.panelHeader > .flightStatus {
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.panelHeader h2 {
+  margin: 7px 42px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.55rem;
+  font-weight: 600;
+}
+
+.dossierBody,
+.editorForm {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.dossierSection,
+.formSection {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.dossierSection h3 {
+  margin: 0 0 11px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.69rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.sectionIntro,
+.sourceCaveat,
+.emptyCopy {
+  color: var(--color-text-muted);
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.sourceCaveat {
+  margin: 12px 0 0;
+  padding: 9px 10px;
+  border-left: 2px solid var(--color-warning);
+  background: var(--color-bg);
+}
+
+.assignmentList,
+.candidateList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assignmentList li,
+.candidateList li {
+  padding: 10px;
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+}
+
+.assignmentList strong,
+.assignmentList small,
+.candidateList strong,
+.candidateList small {
+  display: block;
+}
+
+.assignmentList strong,
+.candidateList strong {
+  font-size: 0.7rem;
+}
+
+.assignmentList small,
+.candidateList small {
+  margin-top: 2px;
+  color: var(--color-text-faint);
+  font-size: 0.58rem;
+}
+
+.assignmentList li > span {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.assignmentList li > span[data-status="onboard_confirmed"] {
+  color: var(--color-accent-strong);
+}
+
+.assignmentActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.assignmentActions .dangerAction {
+  border-color: var(--color-danger);
+  color: oklch(0.83 0.11 28);
+}
+
+.candidateList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.factList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.factList div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.factList dt,
+.factList dd {
+  margin: 0;
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.factList dt {
+  color: var(--color-text-faint);
+}
+
+.factList dd {
+  color: var(--color-text-muted);
+}
+
+.formSection {
+  display: grid;
+  gap: 12px;
+}
+
+.formSectionLabel {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--color-accent-strong);
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+}
+
+.field > span {
+  color: var(--color-text-muted);
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0;
+  outline: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.68rem;
+}
+
+.field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--color-accent);
+}
+
+.field small {
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+  line-height: 1.35;
+}
+
+.secondaryAction {
+  justify-self: start;
+}
+
+.routeConfirmation {
+  padding: 10px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-bg);
+}
+
+.routeConfirmation > span {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.routeConfirmation p {
+  margin: 10px 0 2px;
+  color: var(--color-text);
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.routeConfirmation > small {
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+  line-height: 1.35;
+}
+
+.formError,
+.actionMessage {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--color-danger);
+  background: oklch(0.18 0.035 28);
+  color: oklch(0.87 0.08 30);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.actionMessage[data-status="success"] {
+  border-color: var(--color-ok);
+  background: oklch(0.18 0.03 158);
+  color: oklch(0.86 0.08 158);
+}
+
+.editorForm > .actionMessage,
+.dossierBody > .actionMessage {
+  margin: 12px 18px;
+}
+
+.editorFooter {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.cancelAction,
+.primaryFormAction {
+  min-height: 40px;
+  padding: 0 13px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.cancelAction {
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.primaryFormAction {
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.primaryFormAction:disabled,
+.secondaryAction:disabled,
+.assignmentActions button:disabled,
+.candidateList button:disabled {
+  opacity: 0.48;
+}
+
+.timeline {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: 250px minmax(0, 1fr);
+  overflow: hidden;
+  border-top: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.timeline > header {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 18px;
+  border-right: 1px solid var(--color-line);
+}
+
+.timeline > header strong {
+  margin-top: 3px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+}
+
+.timeline > header small {
+  margin-top: 3px;
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+}
+
+.timeline ol {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.timeline li {
+  position: relative;
+  display: grid;
+  min-width: 230px;
+  align-content: center;
+  gap: 3px;
+  padding: 14px 18px 14px 30px;
+  border-right: 1px solid var(--color-line);
+}
+
+.timeline li > span {
+  position: absolute;
+  top: 19px;
+  left: 13px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-faint);
+}
+
+.timeline li[data-kind="observation"] > span {
+  background: var(--color-accent-strong);
+}
+
+.timeline li small,
+.timeline li time {
+  color: var(--color-text-faint);
+  font-size: 0.56rem;
+}
+
+.timeline li strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.85rem;
+}
+
+.timeline > p {
+  align-self: center;
+  margin: 0;
+  padding: 0 20px;
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+}
+
+.setupShell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: 64px minmax(0, 1fr);
+  background: var(--color-bg);
+}
+
+.setupHeader {
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.setupState {
+  display: grid;
+  max-width: 520px;
+  align-self: center;
+  justify-self: center;
+  justify-items: start;
+  padding: 28px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+}
+
+.setupMark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 18px;
+  place-content: center;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-strong);
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+}
+
+.setupState h1 {
+  margin: 5px 0 0;
+  font-family: var(--font-display), sans-serif;
+}
+
+.setupState p {
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+}
+
+.setupState pre {
+  width: 100%;
+  padding: 12px;
+  background: var(--color-bg);
+  color: var(--color-accent-strong);
+  font-size: 0.7rem;
+}
+
+@media (max-width: 1100px) {
+  .sourceSummary {
+    display: none;
+  }
+
+  .commandMetrics > div {
+    min-width: 70px;
+  }
+}
+
+@media (max-width: 1260px) {
+  .workspace.hasDetail {
+    grid-template-columns:
+      var(--flight-queue-width, 320px) 8px
+      minmax(0, 1fr);
+  }
+
+  .workspace.hasDetail > :global(.resize-handle--vertical):last-of-type {
+    display: none;
+  }
+
+  .dossier,
+  .editor {
+    position: absolute;
+    z-index: 12;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(var(--flight-dossier-width, 390px), 100%);
+    box-shadow: -18px 0 42px oklch(0.06 0.01 238 / 0.5);
+  }
+}
+
+@media (max-width: 900px) {
+  .commandModule,
+  .commandMetrics,
+  .operatorControl,
+  .sourceSummary {
+    display: none;
+  }
+
+  .primaryAction {
+    min-width: 122px;
+    margin-left: auto;
+  }
+
+  .workspace,
+  .workspace.hasDetail {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .workspace > :global(.resize-handle--vertical) {
+    display: none;
+  }
+
+  .stageFooter span:last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .shell {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-rows: auto auto auto;
+    overflow: visible;
+  }
+
+  .commandBar {
+    position: sticky;
+    top: 0;
+    min-height: 64px;
+  }
+
+  .commandBar :global(.product-switcher) {
+    width: min(250px, calc(100vw - 132px));
+    flex-basis: min(250px, calc(100vw - 132px));
+  }
+
+  .primaryAction {
+    min-width: 116px;
+    padding: 0 8px;
+  }
+
+  .workspace,
+  .workspace.hasDetail {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(360px, 45dvh) minmax(520px, 65dvh);
+    overflow: visible;
+  }
+
+  .flightQueue {
+    grid-row: 1;
+  }
+
+  .flightStage {
+    grid-row: 2;
+  }
+
+  .shell > :global(.resize-handle--horizontal),
+  .workspace > :global(.resize-handle--vertical) {
+    display: none;
+  }
+
+  .dossier,
+  .editor {
+    position: fixed;
+    z-index: 30;
+    top: 64px;
+    width: min(410px, 100%);
+  }
+
+  .timeline {
+    min-height: 170px;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .timeline > header {
+    min-height: 86px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .timeline ol {
+    min-height: 110px;
+  }
+
+  .stageHeading {
+    max-width: calc(100% - 32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flightList button,
+  .primaryAction,
+  .secondaryAction {
+    transition: none;
+  }
+}

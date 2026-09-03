@@ -103,6 +103,7 @@ export interface TrackedFlightDto {
 
 export interface FlightSignalDashboardDto {
   setupRequired: boolean;
+  generatedAt: string;
   workspace?: {
     id: string;
     name: string;
