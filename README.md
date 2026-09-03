@@ -6,8 +6,8 @@ operational views:
 
 - **Home** — the shared people roster, approved locations, and confirmed travel state.
 - **WorldSignal** — global natural-hazard awareness on an interactive 3D globe.
-- **FlightSignal** — assigned-flight awareness using operator confirmation and ADS-B aircraft
-  observations.
+- **FlightSignal** — assigned-flight awareness using AirLabs itinerary and aircraft observations
+  with explicit operator confirmation of traveler presence.
 - **CredSignal** — credential-exposure intelligence, protectee attribution, and response
   coordination backed by local PostgreSQL.
 
@@ -49,25 +49,29 @@ retain the latest retrieved batch; they are not a historical event archive.
 
 ### FlightSignal
 
-- Lets an analyst enter a passenger-facing flight ID, confirm a suggested route leg, provide the
-  dated schedule, and assign the flight to a person.
-- Uses the free ADSB.lol API for aircraft observations and ADSB.lol VRS Standing Data for
-  crowdsourced route suggestions; neither source requires an API key or paid subscription.
-- Polls callsign observations before aircraft confirmation and the aircraft ICAO address afterward
-  from a dedicated worker that runs while the Compose stack is up.
-- Keeps the itinerary, aircraft match, and traveler presence as separate facts. An operator must
-  confirm the observed aircraft and then explicitly confirm that the assigned person is onboard.
-- Shows route, last aircraft position, altitude, ground speed, track, source freshness, scheduled
-  time remaining, and an observed breadcrumb on the adjustable FlightSignal globe.
+- Lets an analyst enter a passenger-facing flight ID, review the current dated AirLabs match, and
+  assign it to a person. Assignment reuses a signed 15-minute lookup result and does not make a
+  second provider request.
+- Stores AirLabs schedule, estimate, status, terminal, gate, aircraft, and position fields in local
+  PostgreSQL. Browsers read the database and never call AirLabs directly.
+- Runs a quota-aware worker while the Compose stack is up: no polling before T-30, checks at T-30
+  and T-15, then targets about 120 position observations over the scheduled flight duration.
+- Stops after the provider reports a terminal landed or cancelled state, backs off after transient
+  source failures, and pauses globally after authentication, expiration, or quota failures.
+- Keeps flight identity, aircraft observations, and traveler presence as separate facts. An operator
+  must explicitly confirm that the assigned person is onboard.
+- Shows the live plane at the latest stored position, heading, altitude, ground speed, freshness,
+  observed breadcrumb, and a distinct remaining route on the adjustable FlightSignal globe.
 - Places a confirmed traveler into **Travel** mode in Home and shows a plane at the aircraft's last
   valid position. The operator-approved Home location remains unchanged.
-- Marks an aircraft on the ground near the confirmed destination as a possible arrival; an operator
-  must complete the travel assignment.
+- Treats an AirLabs landed state as a possible arrival; an operator must complete the travel
+  assignment.
 
-ADSB.lol observes aircraft, not passengers, and does not provide an authoritative airline schedule,
-gate, delay, cancellation, or passenger manifest. The analyst-supplied itinerary remains explicit in
-the interface, stale/source-error states remain visible, and no flight is tracked until an operator
-assigns one.
+AirLabs identifies flights and aircraft, not passengers, and does not provide a passenger manifest.
+The interface preserves this boundary: a plane represents a person only after **Confirm onboard**.
+AirLabs does not provide a historical trail through this integration, so FlightSignal accumulates a
+breadcrumb only from observations collected after assignment while the worker is running. Stale and
+source-error states remain visible, and no flight is tracked until an operator assigns one.
 
 ### CredSignal
 
@@ -124,7 +128,24 @@ git clone https://github.com/Spec700/WorldSignal.git
 cd WorldSignal
 ```
 
-### 2. Build and start Priority Signals
+### 2. Configure AirLabs for FlightSignal
+
+Create `.env` from `.env.example` and add the AirLabs server key. Keep this file local; Git ignores
+it, and the key is passed only to the Next.js server and FlightSignal worker.
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+AIRLABS_API_KEY=replace-with-your-airlabs-key
+```
+
+An AirLabs key is optional for Home, WorldSignal, and CredSignal, but FlightSignal lookup and live
+monitoring remain paused without it. The implementation is designed around the AirLabs free plan;
+plan allowances and expiry are provider-controlled and should be checked in the AirLabs dashboard.
+
+### 3. Build and start Priority Signals
 
 ```bash
 docker compose up --build
@@ -139,8 +160,9 @@ Compose automatically:
 - creates or updates the synthetic demonstration workspace; and
 - starts the production Next.js server and FlightSignal polling worker only after bootstrap succeeds.
 
-No `.env`, `npm install`, `npm run build`, migration command, or seed command is required for a fresh
-Docker installation.
+No host `npm install`, `npm run build`, migration command, or seed command is required for a fresh
+Docker installation. `.env` is needed only when enabling FlightSignal or importing an existing
+CredSignal encryption key.
 
 Open [http://localhost:3000](http://localhost:3000). The root route opens Home;
 [http://localhost:3000/flightsignal](http://localhost:3000/flightsignal) and
@@ -236,20 +258,30 @@ the retrieval sweep, selection pulse, and animated camera travel.
 
 ### FlightSignal operations
 
-- Select **Track flight**, enter the passenger flight ID, and confirm the suggested exact route leg.
-- Supply the scheduled departure and optional arrival. These are analyst-entered schedule values,
-  not live airline status data.
-- Wait for the worker to acquire one or more callsign observations, then independently confirm the
-  matching aircraft in the flight dossier.
-- Select **Confirm onboard** only after verifying the traveler context outside ADS-B. Home enters
+- Select **Track flight**, enter the passenger flight ID, and review the dated AirLabs match. The
+  lookup consumes one interactive request; assigning the signed match consumes none.
+- Select **Confirm onboard** only after verifying the traveler context independently. Home enters
   Travel mode only after this operator action.
 - Treat **Possible arrival** as an aircraft observation, not proof that the traveler arrived. Use
   **Complete travel** after operational confirmation.
 - Closing or cancelling travel never changes the person's approved Home location.
 
-There are no FlightSignal API keys to add to `.env`. `FLIGHTSIGNAL_POLL_INTERVAL_MS` is optional and
-defaults to 30 seconds; Compose starts the worker automatically. The worker enforces a 10-second
-minimum interval and polls only the operator-assigned flight acquisition window.
+`AIRLABS_API_KEY` is required for FlightSignal. The app records request use in PostgreSQL, limits
+automatic polling to 800 requests per UTC calendar month, and reserves the remaining 200 of the
+assumed 1,000-request allowance for analyst lookups and manual refreshes. AirLabs-reported quota
+values are shown when present. `FLIGHTSIGNAL_POLL_INTERVAL_MS` defaults to 30 seconds and controls
+only how often the worker checks local due times; it is not the AirLabs request cadence. Manual
+refresh has a one-minute cooldown.
+
+Automatic request timing:
+
+- More than 30 minutes before departure: no provider polling.
+- From T-30 to departure: one request every 15 minutes without overshooting departure.
+- In flight: `ceil(flight duration / 120)` rounded to whole minutes, with a one-minute minimum and
+  ten-minute maximum (for example, 2h → 1m, 6h → 3m, 12h → 6m).
+- Landed or cancelled: the detecting request is final and the schedule is cleared.
+- Transient errors: exponential backoff; authentication, expiry, and quota errors pause AirLabs
+  globally until the key/account is corrected or the quota cycle resets.
 
 ### CredSignal operations
 
@@ -278,8 +310,8 @@ Priority Signals
 │               └── validated browser-local range snapshots (IndexedDB)
 ├── FlightSignal
 │   server-rendered console + audited Server Actions
-│       ├── analyst-confirmed dated itinerary + person assignment
-│       ├── ADSB.lol callsign / confirmed-aircraft polling worker
+│       ├── AirLabs-resolved dated itinerary + signed assignment confirmation
+│       ├── persistent quota accounting + due-time polling worker
 │       └── append-only observations + Home travel projection
 └── CredSignal
     server-rendered dashboard + audited Server Actions
@@ -293,10 +325,10 @@ Priority Signals
 
 WorldSignal's server boundary constructs approved upstream URLs, enforces timeouts and response-size
 limits, validates raw payloads, and returns canonical application data. FlightSignal applies the
-same bounded-source validation to aircraft and route responses, while its workflow requires explicit
-operator confirmation before aircraft telemetry can represent a person. CredSignal validates inputs
-at the action boundary and uses database transactions and row locks for multi-record workflow changes
-such as matching, case closure, and task coordination.
+same bounded-source validation to AirLabs responses, persists quota and polling state, and requires
+explicit operator confirmation before aircraft telemetry can represent a person. CredSignal
+validates inputs at the action boundary and uses database transactions and row locks for multi-record
+workflow changes such as matching, case closure, and task coordination.
 
 ## Modules and sources
 
@@ -305,8 +337,8 @@ such as matching, case closure, and task coordination.
 | WorldSignal earthquakes                                   | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/) | M4.5+ rolling 24H, 7D, or 30D GeoJSON feed                        | None                             |
 | WorldSignal cyclone, flood, drought, volcano, forest fire | [GDACS](https://www.gdacs.org/gdacsapi/swagger/index.html)                       | `TC`, `FL`, `DR`, `VO`, `WF`; all alert levels; paginated         | None                             |
 | WorldSignal tornadoes                                     | [NOAA Storm Prediction Center](https://www.spc.noaa.gov/climo/reports/)          | U.S. filtered preliminary reports for each 12Z–12Z convective day | None                             |
-| FlightSignal aircraft observations                        | [ADSB.lol](https://adsb.lol/)                                                    | Operator-assigned callsign, then confirmed aircraft ICAO          | None; free service               |
-| FlightSignal route suggestions                            | [ADSB.lol VRS Standing Data](https://github.com/adsblol/vrs-standing-data)       | Crowdsourced callsign route and airport metadata                  | None; public-domain data         |
+| FlightSignal itinerary and aircraft observations          | [AirLabs Flight API](https://airlabs.co/docs/)                                   | One assigned flight ID; schedule, status, aircraft, and position  | Server API key; free tier limits |
+| FlightSignal airport coordinates                          | [`airport-data`](https://www.npmjs.com/package/airport-data)                     | Local IATA lookup; no runtime network request                     | None; Unlicense                  |
 | CredSignal credential findings                            | Manual operator intake                                                           | Synthetic or locally obtained records entered by an operator      | Demo operator only; not enforced |
 
 USGS exclusively owns the current WorldSignal earthquake category. WorldSignal does not request
@@ -340,8 +372,9 @@ docker compose run --rm -e RUN_CREDSIGNAL_DB_TESTS=1 bootstrap npm test -- tests
 The suite creates a process-scoped workspace, verifies the complete persistence and workflow chain,
 and removes that workspace afterward.
 
-FlightSignal's opt-in PostgreSQL suite verifies assignment, aircraft confirmation, onboard Travel
-mode, Home projection, possible arrival, completion, and preservation of the approved location:
+FlightSignal's opt-in PostgreSQL suite verifies assignment without a duplicate provider lookup,
+quota accounting, due polling, observation persistence, onboard Travel mode, Home projection,
+completion, and preservation of the approved location:
 
 ```bash
 docker compose run --rm -e RUN_FLIGHTSIGNAL_DB_TESTS=1 bootstrap npm test -- --run tests/integration/flightsignal-workflows.test.ts
@@ -412,10 +445,18 @@ Read the per-source status in the left rail. Confirm outbound HTTPS access and u
 
 ### A FlightSignal flight has no aircraft position
 
-Confirm the dated itinerary and leave the Compose worker running. Before an aircraft match, the
-worker searches by the normalized ADS-B callsign; an unmapped airline may require the optional
-callsign override. A route suggestion does not prove an aircraft match. Source errors and stale
-observations are shown in the flight dossier rather than replaced with guessed positions.
+Confirm the dated AirLabs match and leave the Compose worker running. A scheduled flight may not
+have an aircraft or position yet, and FlightSignal intentionally does not invent either. Check the
+AirLabs status, next-check time, quota summary, and source error in the dossier. More than 30 minutes
+before departure, the worker waits locally without making provider requests. The visible breadcrumb
+contains only observations stored after assignment.
+
+### AirLabs is paused
+
+Check that `AIRLABS_API_KEY` is present in `.env`, then recreate the app and worker containers so
+they receive the environment change. Authentication, key-expiry, and provider-quota errors pause all
+AirLabs calls. Replacing the key clears that pause on the next lookup; a local quota pause clears at
+the next UTC calendar month. The UI never exposes the key.
 
 ### The globe is blank
 
@@ -430,8 +471,8 @@ Install stable Google Chrome in the platform's normal application location and r
 ## Attribution and license
 
 Visible in-app credits identify NASA Blue Marble imagery, Natural Earth boundaries, USGS earthquake
-data, GDACS disaster data, NOAA SPC preliminary tornado reports, and ADSB.lol aircraft data. Fonts
-and third-party software retain their licenses. See
+data, GDACS disaster data, NOAA SPC preliminary tornado reports, and AirLabs flight data. Fonts and
+third-party software retain their licenses. See
 [NOTICE.md](NOTICE.md) for source links, terms, and bundled-asset details.
 
 Priority Signals source code is available under the [MIT License](LICENSE). Contributions should
