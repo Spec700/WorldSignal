@@ -15,6 +15,7 @@ breach-feed, or notification-delivery service.
 - [Turf bbox](https://github.com/Turfjs/turf) — MIT License
 - [Drizzle ORM](https://github.com/drizzle-team/drizzle-orm) — Apache License 2.0
 - [node-postgres](https://github.com/brianc/node-postgres) — MIT License
+- [airport-data](https://github.com/valeriangalliat/fetch-airport-data) — Unlicense; local JSON build of the OpenFlights airport directory
 
 The complete dependency graph and exact versions are recorded in `package-lock.json`.
 
@@ -51,13 +52,11 @@ redistribute a third-party breach dataset.
 
 ## Flight data
 
-- Live aircraft observations: [ADSB.lol](https://adsb.lol/) under the
-  [Open Database License](https://opendatacommons.org/licenses/odbl/1-0/)
-- Callsign route suggestions and airport metadata:
-  [ADSB.lol VRS Standing Data](https://github.com/adsblol/vrs-standing-data), dedicated to the
-  public domain under CC0
+- Flight schedules, operational status, and aircraft observations:
+  [AirLabs](https://airlabs.co/) under the account plan and provider terms configured by the operator
+- Airport coordinates: [OpenFlights airport data](https://openflights.org/data.php), distributed in
+  this project through the Unlicensed `airport-data` package
 
-FlightSignal tracks only flights assigned by an operator. ADS-B observations identify an aircraft,
-not a passenger. Person presence is shown only after an operator confirms the assignment and
-aircraft match. Route suggestions are crowdsourced and must be confirmed against the intended leg;
-they are not an authoritative airline schedule, passenger manifest, or guarantee of arrival.
+FlightSignal tracks only flights assigned by an operator. AirLabs identifies a flight and aircraft,
+not a passenger. Person presence is shown only after an operator explicitly confirms the traveler
+onboard. Provider data is observational and is not a passenger manifest or guarantee of arrival.

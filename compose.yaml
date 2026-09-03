@@ -5,6 +5,7 @@ x-runtime-environment: &runtime-environment
   CREDSIGNAL_DATA_KEY_FILE: /run/priority-signals-secrets/credsignal-data-key
   CREDSIGNAL_KEY_VERSION: ${CREDSIGNAL_KEY_VERSION:-docker-local-v1}
   CREDSIGNAL_WORKSPACE_SLUG: ${CREDSIGNAL_WORKSPACE_SLUG:-local}
+  AIRLABS_API_KEY: ${AIRLABS_API_KEY:-}
   FLIGHTSIGNAL_POLL_INTERVAL_MS: ${FLIGHTSIGNAL_POLL_INTERVAL_MS:-30000}
 
 services:
