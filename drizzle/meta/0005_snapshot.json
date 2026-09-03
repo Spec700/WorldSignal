@@ -114,12 +114,8 @@
           "name": "activity_log_workspace_id_workspaces_id_fk",
           "tableFrom": "activity_log",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -127,12 +123,8 @@
           "name": "activity_log_actor_operator_id_operators_id_fk",
           "tableFrom": "activity_log",
           "tableTo": "operators",
-          "columnsFrom": [
-            "actor_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -179,12 +171,8 @@
           "name": "case_exposures_case_id_response_cases_id_fk",
           "tableFrom": "case_exposures",
           "tableTo": "response_cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -192,12 +180,8 @@
           "name": "case_exposures_exposure_id_credential_exposures_id_fk",
           "tableFrom": "case_exposures",
           "tableTo": "credential_exposures",
-          "columnsFrom": [
-            "exposure_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exposure_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -205,12 +189,8 @@
           "name": "case_exposures_attached_by_operator_id_operators_id_fk",
           "tableFrom": "case_exposures",
           "tableTo": "operators",
-          "columnsFrom": [
-            "attached_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["attached_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -218,10 +198,7 @@
       "compositePrimaryKeys": {
         "case_exposures_case_id_exposure_id_pk": {
           "name": "case_exposures_case_id_exposure_id_pk",
-          "columns": [
-            "case_id",
-            "exposure_id"
-          ]
+          "columns": ["case_id", "exposure_id"]
         }
       },
       "uniqueConstraints": {},
@@ -334,12 +311,8 @@
           "name": "case_tasks_case_id_response_cases_id_fk",
           "tableFrom": "case_tasks",
           "tableTo": "response_cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -347,12 +320,8 @@
           "name": "case_tasks_assignee_operator_id_operators_id_fk",
           "tableFrom": "case_tasks",
           "tableTo": "operators",
-          "columnsFrom": [
-            "assignee_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignee_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -474,12 +443,8 @@
           "name": "communications_case_id_response_cases_id_fk",
           "tableFrom": "communications",
           "tableTo": "response_cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -487,12 +452,8 @@
           "name": "communications_created_by_operator_id_operators_id_fk",
           "tableFrom": "communications",
           "tableTo": "operators",
-          "columnsFrom": [
-            "created_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -674,12 +635,8 @@
           "name": "credential_assets_workspace_id_workspaces_id_fk",
           "tableFrom": "credential_assets",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -687,12 +644,8 @@
           "name": "credential_assets_protectee_id_protectees_id_fk",
           "tableFrom": "credential_assets",
           "tableTo": "protectees",
-          "columnsFrom": [
-            "protectee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["protectee_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -700,12 +653,8 @@
           "name": "credential_assets_identity_id_protectee_identities_id_fk",
           "tableFrom": "credential_assets",
           "tableTo": "protectee_identities",
-          "columnsFrom": [
-            "identity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["identity_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -713,12 +662,8 @@
           "name": "credential_assets_created_by_operator_id_operators_id_fk",
           "tableFrom": "credential_assets",
           "tableTo": "operators",
-          "columnsFrom": [
-            "created_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -983,12 +928,8 @@
           "name": "credential_exposures_workspace_id_workspaces_id_fk",
           "tableFrom": "credential_exposures",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -996,12 +937,8 @@
           "name": "credential_exposures_source_id_exposure_sources_id_fk",
           "tableFrom": "credential_exposures",
           "tableTo": "exposure_sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1009,12 +946,8 @@
           "name": "credential_exposures_created_by_operator_id_operators_id_fk",
           "tableFrom": "credential_exposures",
           "tableTo": "operators",
-          "columnsFrom": [
-            "created_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1196,12 +1129,8 @@
           "name": "credential_versions_credential_id_credential_assets_id_fk",
           "tableFrom": "credential_versions",
           "tableTo": "credential_assets",
-          "columnsFrom": [
-            "credential_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["credential_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1209,12 +1138,8 @@
           "name": "credential_versions_created_by_operator_id_operators_id_fk",
           "tableFrom": "credential_versions",
           "tableTo": "operators",
-          "columnsFrom": [
-            "created_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1340,12 +1265,8 @@
           "name": "exposure_matches_exposure_id_credential_exposures_id_fk",
           "tableFrom": "exposure_matches",
           "tableTo": "credential_exposures",
-          "columnsFrom": [
-            "exposure_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exposure_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1353,12 +1274,8 @@
           "name": "exposure_matches_protectee_id_protectees_id_fk",
           "tableFrom": "exposure_matches",
           "tableTo": "protectees",
-          "columnsFrom": [
-            "protectee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["protectee_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1366,12 +1283,8 @@
           "name": "exposure_matches_identity_id_protectee_identities_id_fk",
           "tableFrom": "exposure_matches",
           "tableTo": "protectee_identities",
-          "columnsFrom": [
-            "identity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["identity_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1379,12 +1292,8 @@
           "name": "exposure_matches_credential_id_credential_assets_id_fk",
           "tableFrom": "exposure_matches",
           "tableTo": "credential_assets",
-          "columnsFrom": [
-            "credential_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["credential_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1392,12 +1301,8 @@
           "name": "exposure_matches_confirmed_by_operator_id_operators_id_fk",
           "tableFrom": "exposure_matches",
           "tableTo": "operators",
-          "columnsFrom": [
-            "confirmed_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["confirmed_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1532,12 +1437,8 @@
           "name": "exposure_sources_workspace_id_workspaces_id_fk",
           "tableFrom": "exposure_sources",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1545,12 +1446,8 @@
           "name": "exposure_sources_created_by_operator_id_operators_id_fk",
           "tableFrom": "exposure_sources",
           "tableTo": "operators",
-          "columnsFrom": [
-            "created_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1736,12 +1633,8 @@
           "name": "flight_assignments_workspace_id_workspaces_id_fk",
           "tableFrom": "flight_assignments",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1749,12 +1642,8 @@
           "name": "flight_assignments_flight_instance_id_flight_instances_id_fk",
           "tableFrom": "flight_assignments",
           "tableTo": "flight_instances",
-          "columnsFrom": [
-            "flight_instance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["flight_instance_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1762,12 +1651,8 @@
           "name": "flight_assignments_protectee_id_protectees_id_fk",
           "tableFrom": "flight_assignments",
           "tableTo": "protectees",
-          "columnsFrom": [
-            "protectee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["protectee_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1775,12 +1660,8 @@
           "name": "flight_assignments_assigned_by_operator_id_operators_id_fk",
           "tableFrom": "flight_assignments",
           "tableTo": "operators",
-          "columnsFrom": [
-            "assigned_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1788,12 +1669,8 @@
           "name": "flight_assignments_onboard_confirmed_by_operator_id_operators_id_fk",
           "tableFrom": "flight_assignments",
           "tableTo": "operators",
-          "columnsFrom": [
-            "onboard_confirmed_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["onboard_confirmed_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1801,12 +1678,8 @@
           "name": "flight_assignments_completed_by_operator_id_operators_id_fk",
           "tableFrom": "flight_assignments",
           "tableTo": "operators",
-          "columnsFrom": [
-            "completed_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["completed_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2261,12 +2134,8 @@
           "name": "flight_instances_workspace_id_workspaces_id_fk",
           "tableFrom": "flight_instances",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2274,12 +2143,8 @@
           "name": "flight_instances_aircraft_confirmed_by_operator_id_operators_id_fk",
           "tableFrom": "flight_instances",
           "tableTo": "operators",
-          "columnsFrom": [
-            "aircraft_confirmed_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["aircraft_confirmed_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2287,12 +2152,8 @@
           "name": "flight_instances_created_by_operator_id_operators_id_fk",
           "tableFrom": "flight_instances",
           "tableTo": "operators",
-          "columnsFrom": [
-            "created_by_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2494,12 +2355,8 @@
           "name": "flight_observations_flight_instance_id_flight_instances_id_fk",
           "tableFrom": "flight_observations",
           "tableTo": "flight_instances",
-          "columnsFrom": [
-            "flight_instance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["flight_instance_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2689,12 +2546,8 @@
           "name": "flight_source_states_workspace_id_workspaces_id_fk",
           "tableFrom": "flight_source_states",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2740,12 +2593,8 @@
           "name": "operator_roles_operator_id_operators_id_fk",
           "tableFrom": "operator_roles",
           "tableTo": "operators",
-          "columnsFrom": [
-            "operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2753,12 +2602,8 @@
           "name": "operator_roles_role_id_roles_id_fk",
           "tableFrom": "operator_roles",
           "tableTo": "roles",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2766,10 +2611,7 @@
       "compositePrimaryKeys": {
         "operator_roles_operator_id_role_id_pk": {
           "name": "operator_roles_operator_id_role_id_pk",
-          "columns": [
-            "operator_id",
-            "role_id"
-          ]
+          "columns": ["operator_id", "role_id"]
         }
       },
       "uniqueConstraints": {},
@@ -2878,12 +2720,8 @@
           "name": "operators_workspace_id_workspaces_id_fk",
           "tableFrom": "operators",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3020,12 +2858,8 @@
           "name": "protectee_identities_workspace_id_workspaces_id_fk",
           "tableFrom": "protectee_identities",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3033,12 +2867,8 @@
           "name": "protectee_identities_protectee_id_protectees_id_fk",
           "tableFrom": "protectee_identities",
           "tableTo": "protectees",
-          "columnsFrom": [
-            "protectee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["protectee_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3161,12 +2991,8 @@
           "name": "protectee_locations_protectee_id_protectees_id_fk",
           "tableFrom": "protectee_locations",
           "tableTo": "protectees",
-          "columnsFrom": [
-            "protectee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["protectee_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3298,12 +3124,8 @@
           "name": "protectees_workspace_id_workspaces_id_fk",
           "tableFrom": "protectees",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3453,12 +3275,8 @@
           "name": "response_cases_workspace_id_workspaces_id_fk",
           "tableFrom": "response_cases",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3466,12 +3284,8 @@
           "name": "response_cases_protectee_id_protectees_id_fk",
           "tableFrom": "response_cases",
           "tableTo": "protectees",
-          "columnsFrom": [
-            "protectee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["protectee_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -3479,12 +3293,8 @@
           "name": "response_cases_assignee_operator_id_operators_id_fk",
           "tableFrom": "response_cases",
           "tableTo": "operators",
-          "columnsFrom": [
-            "assignee_operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignee_operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -3573,12 +3383,8 @@
           "name": "roles_workspace_id_workspaces_id_fk",
           "tableFrom": "roles",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3634,9 +3440,7 @@
         "workspaces_slug_unique": {
           "name": "workspaces_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -3661,44 +3465,22 @@
     "public.communication_channel": {
       "name": "communication_channel",
       "schema": "public",
-      "values": [
-        "email",
-        "phone",
-        "chat",
-        "in_person",
-        "other"
-      ]
+      "values": ["email", "phone", "chat", "in_person", "other"]
     },
     "public.communication_status": {
       "name": "communication_status",
       "schema": "public",
-      "values": [
-        "draft",
-        "planned",
-        "sent",
-        "acknowledged",
-        "failed"
-      ]
+      "values": ["draft", "planned", "sent", "acknowledged", "failed"]
     },
     "public.confidence": {
       "name": "confidence",
       "schema": "public",
-      "values": [
-        "low",
-        "medium",
-        "high",
-        "confirmed"
-      ]
+      "values": ["low", "medium", "high", "confirmed"]
     },
     "public.credential_asset_status": {
       "name": "credential_asset_status",
       "schema": "public",
-      "values": [
-        "active",
-        "rotating",
-        "revoked",
-        "retired"
-      ]
+      "values": ["active", "rotating", "revoked", "retired"]
     },
     "public.credential_kind": {
       "name": "credential_kind",
@@ -3715,11 +3497,7 @@
     "public.credential_version_status": {
       "name": "credential_version_status",
       "schema": "public",
-      "values": [
-        "active",
-        "superseded",
-        "revoked"
-      ]
+      "values": ["active", "superseded", "revoked"]
     },
     "public.exposure_source_type": {
       "name": "exposure_source_type",
@@ -3737,32 +3515,17 @@
     "public.exposure_status": {
       "name": "exposure_status",
       "schema": "public",
-      "values": [
-        "new",
-        "triaged",
-        "in_case",
-        "remediated",
-        "dismissed"
-      ]
+      "values": ["new", "triaged", "in_case", "remediated", "dismissed"]
     },
     "public.exposure_verification": {
       "name": "exposure_verification",
       "schema": "public",
-      "values": [
-        "unverified",
-        "confirmed",
-        "false_positive"
-      ]
+      "values": ["unverified", "confirmed", "false_positive"]
     },
     "public.flight_assignment_status": {
       "name": "flight_assignment_status",
       "schema": "public",
-      "values": [
-        "planned",
-        "onboard_confirmed",
-        "completed",
-        "cancelled"
-      ]
+      "values": ["planned", "onboard_confirmed", "completed", "cancelled"]
     },
     "public.flight_tracking_status": {
       "name": "flight_tracking_status",
@@ -3791,66 +3554,37 @@
     "public.location_precision": {
       "name": "location_precision",
       "schema": "public",
-      "values": [
-        "exact",
-        "city",
-        "region",
-        "country"
-      ]
+      "values": ["exact", "city", "region", "country"]
     },
     "public.match_method": {
       "name": "match_method",
       "schema": "public",
-      "values": [
-        "exact",
-        "manual"
-      ]
+      "values": ["exact", "manual"]
     },
     "public.operator_status": {
       "name": "operator_status",
       "schema": "public",
-      "values": [
-        "active",
-        "inactive"
-      ]
+      "values": ["active", "inactive"]
     },
     "public.priority": {
       "name": "priority",
       "schema": "public",
-      "values": [
-        "low",
-        "medium",
-        "high",
-        "critical"
-      ]
+      "values": ["low", "medium", "high", "critical"]
     },
     "public.protectee_status": {
       "name": "protectee_status",
       "schema": "public",
-      "values": [
-        "active",
-        "paused",
-        "archived"
-      ]
+      "values": ["active", "paused", "archived"]
     },
     "public.protectee_tier": {
       "name": "protectee_tier",
       "schema": "public",
-      "values": [
-        "standard",
-        "high",
-        "critical"
-      ]
+      "values": ["standard", "high", "critical"]
     },
     "public.task_status": {
       "name": "task_status",
       "schema": "public",
-      "values": [
-        "todo",
-        "in_progress",
-        "completed",
-        "cancelled"
-      ]
+      "values": ["todo", "in_progress", "completed", "cancelled"]
     },
     "public.task_type": {
       "name": "task_type",
