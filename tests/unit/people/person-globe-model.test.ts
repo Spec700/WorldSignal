@@ -84,6 +84,68 @@ describe("person globe model", () => {
     );
   });
 
+  it("uses a confirmed aircraft position only when live travel is requested", () => {
+    const traveler: PersonDto = {
+      ...person,
+      activeTravel: {
+        assignmentId: "assignment-1",
+        flightInstanceId: "flight-1",
+        passengerFlightNumber: "UA2276",
+        origin: {
+          iata: "IAD",
+          name: "Washington Dulles International Airport",
+          latitude: 38.9445,
+          longitude: -77.4558,
+        },
+        destination: {
+          iata: "LAX",
+          name: "Los Angeles International Airport",
+          latitude: 33.9425,
+          longitude: -118.408,
+        },
+        scheduledDepartureAt: "2026-09-02T18:00:00.000Z",
+        aircraft: { icaoHex: "aa3ae5" },
+        position: {
+          latitude: 39.1,
+          longitude: -78.2,
+          trackDegrees: 270,
+          onGround: false,
+          observedAt: "2026-09-02T18:05:00.000Z",
+          retrievedAt: "2026-09-02T18:05:01.000Z",
+          isStale: false,
+        },
+      },
+    };
+
+    expect(toPersonGlobePoints([traveler])[0]).toMatchObject({
+      markerType: "point",
+      positionMode: "approved_location",
+      latitude: 51.5072,
+      longitude: -0.1276,
+    });
+    expect(toPersonGlobePoints([traveler], undefined, true)[0]).toMatchObject({
+      markerType: "aircraft",
+      positionMode: "inferred_aircraft",
+      latitude: 39.1,
+      longitude: -78.2,
+      locationLabel: "UA2276 · IAD → LAX",
+      trackDegrees: 270,
+    });
+
+    const travelerWithoutPosition = {
+      ...traveler,
+      activeTravel: { ...traveler.activeTravel!, position: undefined },
+    };
+    expect(
+      toPersonGlobePoints([travelerWithoutPosition], undefined, true)[0],
+    ).toMatchObject({
+      markerType: "point",
+      positionMode: "approved_location",
+      latitude: 51.5072,
+      longitude: -0.1276,
+    });
+  });
+
   it("escapes operator-managed values in globe tooltips", () => {
     const [point] = toPersonGlobePoints([person]);
     const tooltip = personPointTooltip(point!);

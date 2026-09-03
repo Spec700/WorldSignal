@@ -44,6 +44,10 @@ export function HomeHeader({
             <dt>Active</dt>
             <dd>{metrics.active}</dd>
           </div>
+          <div data-traveling={metrics.traveling > 0}>
+            <dt>Traveling</dt>
+            <dd>{metrics.traveling}</dd>
+          </div>
           <div>
             <dt>Located</dt>
             <dd>{metrics.located}</dd>

@@ -22,6 +22,7 @@
     "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed-credsignal.ts",
     "db:studio": "drizzle-kit studio",
     "docker:bootstrap": "node --import tsx scripts/bootstrap-docker.ts",
+    "flights:worker": "node --env-file-if-exists=.env --import tsx scripts/flight-worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run",
     "test:coverage": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --coverage",
@@ -30,6 +31,7 @@
   },
   "dependencies": {
     "@turf/bbox": "7.4.0",
+    "airport-data": "^1.0.1",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.1",
     "pg": "^8.23.0",

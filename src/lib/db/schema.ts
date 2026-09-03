@@ -135,6 +135,20 @@ export const communicationStatusEnum = pgEnum("communication_status", [
   "acknowledged",
   "failed",
 ]);
+export const flightTrackingStatusEnum = pgEnum("flight_tracking_status", [
+  "scheduled",
+  "match_required",
+  "tracking",
+  "possible_arrival",
+  "completed",
+  "cancelled",
+]);
+export const flightAssignmentStatusEnum = pgEnum("flight_assignment_status", [
+  "planned",
+  "onboard_confirmed",
+  "completed",
+  "cancelled",
+]);
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -287,6 +301,281 @@ export const protecteeLocations = pgTable(
     index("protectee_locations_active_idx").on(
       table.protecteeId,
       table.isActive,
+    ),
+  ],
+);
+
+export const flightInstances = pgTable(
+  "flight_instances",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    passengerFlightNumber: text("passenger_flight_number").notNull(),
+    adsbCallsign: text("adsb_callsign").notNull(),
+    providerFlightIcao: text("provider_flight_icao"),
+    airlineIata: text("airline_iata"),
+    airlineIcao: text("airline_icao"),
+    airlineName: text("airline_name"),
+    originIata: text("origin_iata").notNull(),
+    originIcao: text("origin_icao"),
+    originName: text("origin_name").notNull(),
+    originLatitude: doublePrecision("origin_latitude").notNull(),
+    originLongitude: doublePrecision("origin_longitude").notNull(),
+    destinationIata: text("destination_iata").notNull(),
+    destinationIcao: text("destination_icao"),
+    destinationName: text("destination_name").notNull(),
+    destinationLatitude: doublePrecision("destination_latitude").notNull(),
+    destinationLongitude: doublePrecision("destination_longitude").notNull(),
+    scheduledDepartureAt: timestamp("scheduled_departure_at", {
+      withTimezone: true,
+    }).notNull(),
+    scheduledArrivalAt: timestamp("scheduled_arrival_at", {
+      withTimezone: true,
+    }),
+    estimatedDepartureAt: timestamp("estimated_departure_at", {
+      withTimezone: true,
+    }),
+    actualDepartureAt: timestamp("actual_departure_at", {
+      withTimezone: true,
+    }),
+    estimatedArrivalAt: timestamp("estimated_arrival_at", {
+      withTimezone: true,
+    }),
+    actualArrivalAt: timestamp("actual_arrival_at", { withTimezone: true }),
+    departureTerminal: text("departure_terminal"),
+    departureGate: text("departure_gate"),
+    destinationTerminal: text("destination_terminal"),
+    destinationGate: text("destination_gate"),
+    destinationBaggage: text("destination_baggage"),
+    departureDelayMinutes: integer("departure_delay_minutes"),
+    arrivalDelayMinutes: integer("arrival_delay_minutes"),
+    durationMinutes: integer("duration_minutes"),
+    progressPercent: doublePrecision("progress_percent"),
+    etaMinutes: integer("eta_minutes"),
+    providerStatus: text("provider_status"),
+    trackingStatus: flightTrackingStatusEnum("tracking_status")
+      .default("scheduled")
+      .notNull(),
+    aircraftIcaoHex: text("aircraft_icao_hex"),
+    aircraftRegistration: text("aircraft_registration"),
+    aircraftType: text("aircraft_type"),
+    aircraftModel: text("aircraft_model"),
+    aircraftManufacturer: text("aircraft_manufacturer"),
+    aircraftResolvedAt: timestamp("aircraft_resolved_at", {
+      withTimezone: true,
+    }),
+    aircraftConfirmedByOperatorId: uuid(
+      "aircraft_confirmed_by_operator_id",
+    ).references(() => operators.id, { onDelete: "set null" }),
+    aircraftConfirmedAt: timestamp("aircraft_confirmed_at", {
+      withTimezone: true,
+    }),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    lastSuccessfulPollAt: timestamp("last_successful_poll_at", {
+      withTimezone: true,
+    }),
+    nextPollAt: timestamp("next_poll_at", { withTimezone: true }),
+    consecutiveSourceErrors: integer("consecutive_source_errors")
+      .default(0)
+      .notNull(),
+    sourceErrorCode: text("source_error_code"),
+    lastSourceError: text("last_source_error"),
+    notes: text("notes"),
+    createdByOperatorId: uuid("created_by_operator_id").references(
+      () => operators.id,
+      { onDelete: "set null" },
+    ),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("flight_instances_workspace_flight_departure_unique").on(
+      table.workspaceId,
+      table.passengerFlightNumber,
+      table.scheduledDepartureAt,
+      table.originIata,
+      table.destinationIata,
+    ),
+    index("flight_instances_workspace_status_departure_idx").on(
+      table.workspaceId,
+      table.trackingStatus,
+      table.scheduledDepartureAt,
+    ),
+    index("flight_instances_aircraft_idx").on(table.aircraftIcaoHex),
+    index("flight_instances_next_poll_idx").on(
+      table.trackingStatus,
+      table.nextPollAt,
+    ),
+    check(
+      "flight_instances_origin_latitude_bounds",
+      sql`${table.originLatitude} between -90 and 90`,
+    ),
+    check(
+      "flight_instances_origin_longitude_bounds",
+      sql`${table.originLongitude} between -180 and 180`,
+    ),
+    check(
+      "flight_instances_destination_latitude_bounds",
+      sql`${table.destinationLatitude} between -90 and 90`,
+    ),
+    check(
+      "flight_instances_destination_longitude_bounds",
+      sql`${table.destinationLongitude} between -180 and 180`,
+    ),
+    check(
+      "flight_instances_distinct_airports",
+      sql`${table.originIata} <> ${table.destinationIata}`,
+    ),
+    check(
+      "flight_instances_arrival_after_departure",
+      sql`${table.scheduledArrivalAt} is null or ${table.scheduledArrivalAt} > ${table.scheduledDepartureAt}`,
+    ),
+  ],
+);
+
+export const flightAssignments = pgTable(
+  "flight_assignments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    flightInstanceId: uuid("flight_instance_id")
+      .notNull()
+      .references(() => flightInstances.id, { onDelete: "cascade" }),
+    protecteeId: uuid("protectee_id")
+      .notNull()
+      .references(() => protectees.id, { onDelete: "restrict" }),
+    status: flightAssignmentStatusEnum("status").default("planned").notNull(),
+    assignedByOperatorId: uuid("assigned_by_operator_id").references(
+      () => operators.id,
+      { onDelete: "set null" },
+    ),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    onboardConfirmedByOperatorId: uuid(
+      "onboard_confirmed_by_operator_id",
+    ).references(() => operators.id, { onDelete: "set null" }),
+    onboardConfirmedAt: timestamp("onboard_confirmed_at", {
+      withTimezone: true,
+    }),
+    completedByOperatorId: uuid("completed_by_operator_id").references(
+      () => operators.id,
+      { onDelete: "set null" },
+    ),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("flight_assignments_flight_person_unique").on(
+      table.flightInstanceId,
+      table.protecteeId,
+    ),
+    uniqueIndex("flight_assignments_one_active_travel_per_person_unique")
+      .on(table.protecteeId)
+      .where(sql`${table.status} = 'onboard_confirmed'`),
+    index("flight_assignments_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+    ),
+    index("flight_assignments_person_idx").on(table.protecteeId),
+  ],
+);
+
+export const flightObservations = pgTable(
+  "flight_observations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    flightInstanceId: uuid("flight_instance_id")
+      .notNull()
+      .references(() => flightInstances.id, { onDelete: "cascade" }),
+    source: text("source").default("airlabs").notNull(),
+    aircraftIcaoHex: text("aircraft_icao_hex").notNull(),
+    callsign: text("callsign"),
+    registration: text("registration"),
+    aircraftType: text("aircraft_type"),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    barometricAltitudeFeet: doublePrecision("barometric_altitude_feet"),
+    geometricAltitudeFeet: doublePrecision("geometric_altitude_feet"),
+    groundSpeedKnots: doublePrecision("ground_speed_knots"),
+    trackDegrees: doublePrecision("track_degrees"),
+    verticalRateFeetPerMinute: doublePrecision("vertical_rate_feet_per_minute"),
+    squawk: text("squawk"),
+    onGround: boolean("on_ground").default(false).notNull(),
+    sourceObservedAt: timestamp("source_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    retrievedAt: timestamp("retrieved_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("flight_observations_flight_observed_idx").on(
+      table.flightInstanceId,
+      table.sourceObservedAt,
+    ),
+    index("flight_observations_aircraft_observed_idx").on(
+      table.aircraftIcaoHex,
+      table.sourceObservedAt,
+    ),
+    check(
+      "flight_observations_latitude_bounds",
+      sql`${table.latitude} is null or ${table.latitude} between -90 and 90`,
+    ),
+    check(
+      "flight_observations_longitude_bounds",
+      sql`${table.longitude} is null or ${table.longitude} between -180 and 180`,
+    ),
+  ],
+);
+
+export const flightSourceStates = pgTable(
+  "flight_source_states",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    providerKeyId: integer("provider_key_id"),
+    planType: text("plan_type"),
+    providerExpiresAt: timestamp("provider_expires_at", {
+      withTimezone: true,
+    }),
+    providerMonthlyLimit: integer("provider_monthly_limit"),
+    providerMonthlyUsed: integer("provider_monthly_used"),
+    providerMonthlyRemaining: integer("provider_monthly_remaining"),
+    cycleStartedAt: timestamp("cycle_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    cycleEndsAt: timestamp("cycle_ends_at", { withTimezone: true }).notNull(),
+    automationRequestCount: integer("automation_request_count")
+      .default(0)
+      .notNull(),
+    interactiveRequestCount: integer("interactive_request_count")
+      .default(0)
+      .notNull(),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    pauseCode: text("pause_code"),
+    pauseReason: text("pause_reason"),
+    lastRequestAt: timestamp("last_request_at", { withTimezone: true }),
+    lastSuccessfulAt: timestamp("last_successful_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("flight_source_states_workspace_provider_unique").on(
+      table.workspaceId,
+      table.provider,
+    ),
+    check(
+      "flight_source_states_request_counts_nonnegative",
+      sql`${table.automationRequestCount} >= 0 and ${table.interactiveRequestCount} >= 0`,
     ),
   ],
 );
@@ -642,6 +931,9 @@ export type Operator = typeof operators.$inferSelect;
 export type Protectee = typeof protectees.$inferSelect;
 export type ProtecteeIdentity = typeof protecteeIdentities.$inferSelect;
 export type ProtecteeLocation = typeof protecteeLocations.$inferSelect;
+export type FlightInstance = typeof flightInstances.$inferSelect;
+export type FlightAssignment = typeof flightAssignments.$inferSelect;
+export type FlightObservation = typeof flightObservations.$inferSelect;
 export type CredentialAsset = typeof credentialAssets.$inferSelect;
 export type CredentialVersion = typeof credentialVersions.$inferSelect;
 export type CredentialExposure = typeof credentialExposures.$inferSelect;

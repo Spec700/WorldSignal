@@ -5,6 +5,8 @@ x-runtime-environment: &runtime-environment
   CREDSIGNAL_DATA_KEY_FILE: /run/priority-signals-secrets/credsignal-data-key
   CREDSIGNAL_KEY_VERSION: ${CREDSIGNAL_KEY_VERSION:-docker-local-v1}
   CREDSIGNAL_WORKSPACE_SLUG: ${CREDSIGNAL_WORKSPACE_SLUG:-local}
+  AIRLABS_API_KEY: ${AIRLABS_API_KEY:-}
+  FLIGHTSIGNAL_POLL_INTERVAL_MS: ${FLIGHTSIGNAL_POLL_INTERVAL_MS:-30000}
 
 services:
   postgres:
@@ -68,6 +70,21 @@ services:
     restart: unless-stopped
     volumes:
       - priority-signals-secrets:/run/priority-signals-secrets:ro
+
+  flight-worker:
+    build:
+      context: .
+      target: tooling
+    command: ["npm", "run", "flights:worker"]
+    environment:
+      <<: *runtime-environment
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
 
 volumes:
   priority-signals-postgres:

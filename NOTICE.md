@@ -15,6 +15,7 @@ breach-feed, or notification-delivery service.
 - [Turf bbox](https://github.com/Turfjs/turf) — MIT License
 - [Drizzle ORM](https://github.com/drizzle-team/drizzle-orm) — Apache License 2.0
 - [node-postgres](https://github.com/brianc/node-postgres) — MIT License
+- [airport-data](https://github.com/valeriangalliat/fetch-airport-data) — Unlicense; local JSON build of the OpenFlights airport directory
 
 The complete dependency graph and exact versions are recorded in `package-lock.json`.
 
@@ -48,3 +49,14 @@ preserves direct report links and source-native values and does not imply that d
 priority is a provider-issued universal severity scale. SPC storm reports are preliminary and may be
 revised during quality control. CredSignal ships only synthetic demonstration records and does not
 redistribute a third-party breach dataset.
+
+## Flight data
+
+- Flight schedules, operational status, and aircraft observations:
+  [AirLabs](https://airlabs.co/) under the account plan and provider terms configured by the operator
+- Airport coordinates: [OpenFlights airport data](https://openflights.org/data.php), distributed in
+  this project through the Unlicensed `airport-data` package
+
+FlightSignal tracks only flights assigned by an operator. AirLabs identifies a flight and aircraft,
+not a passenger. Person presence is shown only after an operator explicitly confirms the traveler
+onboard. Provider data is observational and is not a passenger manifest or guarantee of arrival.

@@ -19,7 +19,13 @@ const dashboard: PeopleDashboardDto = {
       email: "lena@example.test",
     },
   ],
-  metrics: { total: 2, active: 2, located: 2, highAttention: 1 },
+  metrics: {
+    total: 2,
+    active: 2,
+    traveling: 0,
+    located: 2,
+    highAttention: 1,
+  },
   people: [
     {
       id: "person-1",
@@ -113,7 +119,7 @@ describe("People workspace", () => {
     render(<PeopleWorkspace dashboard={dashboard} />);
 
     expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
-    expect(screen.getByText("New York, NY")).toBeInTheDocument();
+    expect(screen.getAllByText("New York, NY").length).toBeGreaterThan(0);
     expect(screen.getByText("Singapore")).toBeInTheDocument();
 
     await user.type(
@@ -176,5 +182,68 @@ describe("People workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Northstar Labs")).toBeInTheDocument();
+  });
+
+  it("shows confirmed travel without replacing the approved location", async () => {
+    const user = userEvent.setup();
+    const travelDashboard: PeopleDashboardDto = {
+      ...dashboard,
+      metrics: { ...dashboard.metrics, traveling: 1 },
+      people: [
+        {
+          ...dashboard.people[0],
+          activeTravel: {
+            assignmentId: "assignment-1",
+            flightInstanceId: "flight-1",
+            passengerFlightNumber: "UA2276",
+            origin: {
+              iata: "IAD",
+              name: "Washington Dulles International Airport",
+              latitude: 38.9445,
+              longitude: -77.4558,
+            },
+            destination: {
+              iata: "LAX",
+              name: "Los Angeles International Airport",
+              latitude: 33.9425,
+              longitude: -118.408,
+            },
+            scheduledDepartureAt: "2026-09-02T18:00:00.000Z",
+            scheduledArrivalAt: "2026-09-02T23:30:00.000Z",
+            aircraft: { icaoHex: "aa3ae5", registration: "N00000" },
+            position: {
+              latitude: 39.1,
+              longitude: -78.2,
+              groundSpeedKnots: 310,
+              trackDegrees: 270,
+              onGround: false,
+              observedAt: "2026-09-02T18:05:00.000Z",
+              retrievedAt: "2026-09-02T18:05:01.000Z",
+              isStale: false,
+            },
+          },
+        },
+        dashboard.people[1],
+      ],
+    };
+
+    render(<PeopleWorkspace dashboard={travelDashboard} />);
+
+    expect(screen.getByText("UA2276 · IAD → LAX")).toBeInTheDocument();
+    expect(
+      screen.getByText("Inferred from confirmed aircraft"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View Avery Chen" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Active travel mode" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Travel mode does not overwrite/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("New York, NY").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", { name: "Open flight dossier →" }),
+    ).toHaveAttribute("href", "/flightsignal?flight=flight-1");
   });
 });
