@@ -162,6 +162,7 @@ async function fetchBoundedSourceBody(
     throw new SourceFetchError(
       "http",
       `${sourceLabel} returned HTTP ${response.status}.`,
+      { httpStatus: response.status },
     );
   }
 

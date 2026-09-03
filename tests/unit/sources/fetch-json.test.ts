@@ -92,7 +92,7 @@ describe("bounded source JSON retrieval", () => {
         sourceUrl,
         options(async () => new Response(null, { status: 503 })),
       ),
-    ).rejects.toMatchObject({ code: "http" });
+    ).rejects.toMatchObject({ code: "http", httpStatus: 503 });
 
     await expect(
       fetchJson(

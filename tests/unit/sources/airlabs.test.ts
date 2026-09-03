@@ -154,6 +154,25 @@ describe("AirLabs source adapter", () => {
     } satisfies Partial<AirLabsSourceError>);
   });
 
+  it("pauses globally for HTTP quota responses", async () => {
+    const adapter = new AirLabsAdapter({
+      configuration: {
+        apiKey: "test-secret",
+        keyFingerprint: "fingerprint",
+      },
+      fetchImplementation: vi.fn(async () =>
+        Promise.resolve(new Response(null, { status: 429 })),
+      ),
+    });
+
+    await expect(
+      adapter.fetchFlight("AA333", new AbortController().signal),
+    ).rejects.toMatchObject({
+      directive: "pause",
+      providerCode: "HTTP_429",
+    } satisfies Partial<AirLabsSourceError>);
+  });
+
   it("normalizes terminal provider states", () => {
     expect(normalizeAirLabsPhase("landed")).toBe("landed");
     expect(normalizeAirLabsPhase("cancelled")).toBe("cancelled");

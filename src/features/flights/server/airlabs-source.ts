@@ -223,6 +223,9 @@ async function recordAirLabsFailure(
   now: Date,
 ) {
   const database = getDatabase();
+  const pauseCode = /quota|limit|http_429/i.test(error.providerCode ?? "")
+    ? "quota"
+    : (error.providerCode ?? "provider_rejected");
   await database
     .update(flightSourceStates)
     .set({
@@ -230,7 +233,7 @@ async function recordAirLabsFailure(
       ...(error.directive === "pause"
         ? {
             pausedAt: now,
-            pauseCode: error.providerCode ?? "provider_rejected",
+            pauseCode,
             pauseReason: error.safeMessage,
           }
         : {}),

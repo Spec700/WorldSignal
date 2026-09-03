@@ -375,12 +375,21 @@ export class AirLabsAdapter {
         throw error;
       }
       if (error instanceof SourceFetchError) {
-        const directive = error.code === "http" ? "backoff" : "backoff";
+        const providerCode = error.httpStatus
+          ? `HTTP_${error.httpStatus}`
+          : undefined;
+        const directive =
+          error.code === "http" &&
+          [401, 402, 403, 429].includes(error.httpStatus ?? 0)
+            ? "pause"
+            : "backoff";
         throw new AirLabsSourceError(
           error.code,
-          error.safeMessage,
+          directive === "pause"
+            ? "AirLabs is paused because the provider rejected the account, key, or quota."
+            : error.safeMessage,
           directive,
-          undefined,
+          providerCode,
           { cause: error },
         );
       }

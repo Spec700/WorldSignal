@@ -226,7 +226,7 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
     );
   });
 
-  it("polls one due flight, stores an observation, and schedules the next sample", async () => {
+  it("polls a due flight, stores its trail, and stops after the terminal observation", async () => {
     const database = getDatabase();
     const person = await createPerson(
       {
@@ -360,5 +360,62 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
       automationRequestCount: 1,
       providerMonthlyRemaining: 990,
     });
+
+    const landingNow = new Date("2026-09-03T17:02:00.000Z");
+    await database
+      .update(flightInstances)
+      .set({ nextPollAt: landingNow })
+      .where(eq(flightInstances.id, tracked.flightInstanceId));
+    fetchImplementation.mockImplementationOnce(async () =>
+      Response.json({
+        request: {
+          key: {
+            id: 99,
+            type: "free",
+            limits_by_month: 1000,
+            usage_by_month: 11,
+          },
+        },
+        response: {
+          flight_icao: "AAL101",
+          flight_iata: "AA101",
+          dep_iata: "IAD",
+          dep_name: "Washington Dulles International Airport",
+          dep_time_ts: Date.parse(scheduledDepartureAt) / 1_000,
+          arr_iata: "LAX",
+          arr_name: "Los Angeles International Airport",
+          arr_time_ts: Date.parse(scheduledArrivalAt) / 1_000,
+          arr_actual_ts: landingNow.getTime() / 1_000,
+          duration: 120,
+          updated: landingNow.getTime() / 1_000,
+          status: "landed",
+          percent: 100,
+        },
+      }),
+    );
+
+    const landingSummary = await pollTrackedFlights({
+      signal: new AbortController().signal,
+      now: landingNow,
+      adapter,
+    });
+    expect(landingSummary).toMatchObject({ attempted: 1, successful: 1 });
+    const [landedFlight] = await database
+      .select()
+      .from(flightInstances)
+      .where(eq(flightInstances.id, tracked.flightInstanceId));
+    expect(landedFlight).toMatchObject({
+      trackingStatus: "possible_arrival",
+      providerStatus: "landed",
+      nextPollAt: null,
+    });
+
+    const stoppedSummary = await pollTrackedFlights({
+      signal: new AbortController().signal,
+      now: new Date("2026-09-03T17:30:00.000Z"),
+      adapter,
+    });
+    expect(stoppedSummary).toMatchObject({ eligible: 0, attempted: 0 });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
 });
