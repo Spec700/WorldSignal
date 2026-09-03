@@ -108,6 +108,7 @@ function useReducedMotion() {
 export function FlightGlobe({ flight }: { flight?: TrackedFlightDto }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
+  const focusedFlightIdRef = useRef<string | undefined>(undefined);
   const [countries, setCountries] = useState<CountryFeature[]>([]);
   const [boundaryError, setBoundaryError] = useState(false);
   const [globeReady, setGlobeReady] = useState(false);
@@ -265,9 +266,17 @@ export function FlightGlobe({ flight }: { flight?: TrackedFlightDto }) {
   }, [reducedMotion]);
 
   useEffect(() => {
-    if (!globeReady || !flight) {
+    if (!globeReady) {
       return;
     }
+    if (!flight) {
+      focusedFlightIdRef.current = undefined;
+      return;
+    }
+    if (focusedFlightIdRef.current === flight.id) {
+      return;
+    }
+    focusedFlightIdRef.current = flight.id;
     const observation = flight.latestObservation;
     globeRef.current?.pointOfView(
       {

@@ -239,6 +239,28 @@ describe("FlightSignal workspace", () => {
     );
   });
 
+  it("collapses the map summary to the selected flight number", async () => {
+    const user = userEvent.setup();
+    render(<FlightSignalWorkspace dashboard={dashboard} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Minimize UA2276 flight summary" }),
+    );
+
+    const expandButton = screen.getByRole("button", {
+      name: "Expand UA2276 flight summary",
+    });
+    const overlay = expandButton.closest("article");
+    expect(overlay).toHaveAttribute("data-minimized", "true");
+    expect(overlay).toHaveTextContent("UA2276");
+    expect(overlay).not.toHaveTextContent("AirLabs position");
+
+    await user.click(expandButton);
+    expect(
+      screen.getByRole("button", { name: "Minimize UA2276 flight summary" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("looks up and confirms an AirLabs flight before assigning a traveler", async () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();

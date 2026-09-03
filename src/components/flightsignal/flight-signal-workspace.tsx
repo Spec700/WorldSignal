@@ -113,6 +113,7 @@ export function FlightSignalWorkspace({
       dashboard.flights[0]?.id,
   );
   const [editorOpen, setEditorOpen] = useState(false);
+  const [overlayMinimized, setOverlayMinimized] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [activeOperatorId, setActiveOperatorId] = useState(
@@ -374,31 +375,55 @@ export function FlightSignalWorkspace({
             </strong>
           </div>
           {selectedFlight ? (
-            <article className={styles.flightOverlay}>
-              <span
-                className={styles.flightStatus}
-                data-status={selectedFlight.displayStatus}
-              >
-                {flightStatusLabels[selectedFlight.displayStatus]}
-              </span>
-              <h2>{selectedFlight.passengerFlightNumber}</h2>
-              <p>
-                {selectedFlight.assignments
-                  .map((assignment) => assignment.person.displayName)
-                  .join(", ")}
-              </p>
-              <strong>
-                {formatRemaining(
-                  selectedFlight.estimatedArrivalAt ??
-                    selectedFlight.scheduledArrivalAt,
-                  nowMs,
+            <article
+              className={styles.flightOverlay}
+              data-minimized={overlayMinimized}
+            >
+              <div className={styles.overlayHeader}>
+                {overlayMinimized ? (
+                  <strong className={styles.overlayCompactCode}>
+                    {selectedFlight.passengerFlightNumber}
+                  </strong>
+                ) : (
+                  <span
+                    className={styles.flightStatus}
+                    data-status={selectedFlight.displayStatus}
+                  >
+                    {flightStatusLabels[selectedFlight.displayStatus]}
+                  </span>
                 )}
-              </strong>
-              <small>
-                {selectedFlight.latestObservation
-                  ? `AirLabs position · ${selectedFlight.trail.length} stored trail point${selectedFlight.trail.length === 1 ? "" : "s"}`
-                  : "AirLabs itinerary · awaiting a position observation"}
-              </small>
+                <button
+                  aria-expanded={!overlayMinimized}
+                  aria-label={`${overlayMinimized ? "Expand" : "Minimize"} ${selectedFlight.passengerFlightNumber} flight summary`}
+                  className={styles.overlayToggle}
+                  onClick={() => setOverlayMinimized((value) => !value)}
+                  type="button"
+                >
+                  <span aria-hidden="true">{overlayMinimized ? "+" : "−"}</span>
+                </button>
+              </div>
+              {!overlayMinimized ? (
+                <>
+                  <h2>{selectedFlight.passengerFlightNumber}</h2>
+                  <p>
+                    {selectedFlight.assignments
+                      .map((assignment) => assignment.person.displayName)
+                      .join(", ")}
+                  </p>
+                  <strong>
+                    {formatRemaining(
+                      selectedFlight.estimatedArrivalAt ??
+                        selectedFlight.scheduledArrivalAt,
+                      nowMs,
+                    )}
+                  </strong>
+                  <small>
+                    {selectedFlight.latestObservation
+                      ? `AirLabs position · ${selectedFlight.trail.length} stored trail point${selectedFlight.trail.length === 1 ? "" : "s"}`
+                      : "AirLabs itinerary · awaiting a position observation"}
+                  </small>
+                </>
+              ) : null}
             </article>
           ) : null}
           <footer className={styles.stageFooter}>

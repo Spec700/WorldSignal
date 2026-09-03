@@ -107,6 +107,7 @@ const flight = {
 } satisfies TrackedFlightDto;
 
 beforeEach(() => {
+  globeHarness.pointOfView.mockClear();
   vi.stubGlobal("ResizeObserver", TestResizeObserver);
   vi.stubGlobal(
     "matchMedia",
@@ -165,6 +166,41 @@ describe("FlightSignal globe", () => {
     expect(globeHarness.pointOfView).toHaveBeenCalledWith(
       { lat: 18, lng: 8, altitude: 2.25 },
       800,
+    );
+  });
+
+  it("preserves an operator's camera view while the selected flight refreshes", async () => {
+    const { rerender } = render(<FlightGlobe flight={flight} />);
+
+    await waitFor(() =>
+      expect(globeHarness.pointOfView).toHaveBeenCalledWith(
+        { lat: 39.1, lng: -82.8, altitude: 1.45 },
+        850,
+      ),
+    );
+    globeHarness.pointOfView.mockClear();
+
+    rerender(
+      <FlightGlobe
+        flight={{
+          ...flight,
+          latestObservation: {
+            ...flight.latestObservation,
+            latitude: 40,
+            longitude: -90,
+          },
+          updatedAt: "2026-09-02T18:03:01.000Z",
+        }}
+      />,
+    );
+    expect(globeHarness.pointOfView).not.toHaveBeenCalled();
+
+    rerender(<FlightGlobe flight={{ ...flight, id: "flight-2" }} />);
+    await waitFor(() =>
+      expect(globeHarness.pointOfView).toHaveBeenCalledWith(
+        { lat: 39.1, lng: -82.8, altitude: 1.45 },
+        850,
+      ),
     );
   });
 });
