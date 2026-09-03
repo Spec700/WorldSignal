@@ -13,7 +13,7 @@ const products: Array<{
   {
     id: "home",
     name: "Home",
-    description: "People and approved locations",
+    description: "People, locations, and travel",
     href: "/home",
     symbol: "H",
   },

@@ -40,7 +40,9 @@ test("Home globe roster resizes and returns to its compact split", async ({
     page.getByRole("heading", { name: "People globe" }),
   ).toBeVisible();
 
-  const roster = page.getByLabel("People with current approved locations");
+  const roster = page.getByLabel(
+    "People with approved locations and confirmed travel",
+  );
   const rosterHandle = page.getByRole("separator", {
     name: "Resize people globe roster",
   });

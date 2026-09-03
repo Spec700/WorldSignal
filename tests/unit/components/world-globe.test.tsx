@@ -26,6 +26,7 @@ const globeHarness = vi.hoisted(() => ({
 
 const personPoint: PersonGlobePoint = {
   kind: "person",
+  markerType: "point",
   id: "person-1",
   latitude: 40.7128,
   longitude: -74.006,
@@ -36,6 +37,7 @@ const personPoint: PersonGlobePoint = {
   organization: "Northstar Labs",
   locationLabel: "New York, NY",
   locationPrecision: "city",
+  positionMode: "approved_location",
   tier: "critical",
 };
 

@@ -22,11 +22,14 @@ export function PeopleGlobe({
   onSelect,
   onClearSelection,
 }: PeopleGlobeProps) {
-  const points = useMemo(() => toPersonGlobePoints(people), [people]);
+  const points = useMemo(
+    () => toPersonGlobePoints(people, undefined, true),
+    [people],
+  );
 
   return (
     <MarkerGlobe
-      ariaLabel="Interactive 3D Earth showing current approved locations for priority people."
+      ariaLabel="Interactive 3D Earth showing approved locations and operator-confirmed traveler positions."
       emptyLabel="No current person locations to map"
       loadingLabel="Preparing people map…"
       onClearSelection={onClearSelection}

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import { ResizeHandle } from "@/components/layout/resize-handle";
 import { HomeHeader } from "@/components/people/home-header";
@@ -55,7 +55,7 @@ export function PeopleGlobeWorkspace({
   );
   const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId);
   const points = useMemo(
-    () => toPersonGlobePoints(dashboard.people),
+    () => toPersonGlobePoints(dashboard.people, undefined, true),
     [dashboard.people],
   );
   const mappedPeople = useMemo(() => {
@@ -81,6 +81,14 @@ export function PeopleGlobeWorkspace({
   const workspaceStyle = {
     "--globe-roster-width": `${rosterWidth}px`,
   } as CSSProperties;
+
+  useEffect(() => {
+    if (dashboard.metrics.traveling === 0) {
+      return;
+    }
+    const refreshInterval = window.setInterval(() => router.refresh(), 15_000);
+    return () => window.clearInterval(refreshInterval);
+  }, [dashboard.metrics.traveling, router]);
 
   if (dashboard.setupRequired) {
     return (
@@ -127,13 +135,16 @@ export function PeopleGlobeWorkspace({
         style={workspaceStyle}
       >
         <aside
-          aria-label="People with current approved locations"
+          aria-label="People with approved locations and confirmed travel"
           className={styles.globeRoster}
         >
           <header>
-            <span className={styles.eyebrow}>Current approved locations</span>
+            <span className={styles.eyebrow}>Approved + confirmed travel</span>
             <h1>People globe</h1>
-            <p>A shared presence layer for every operational signal module.</p>
+            <p>
+              Approved locations stay intact while confirmed travelers follow
+              their observed aircraft.
+            </p>
           </header>
 
           <div className={styles.globeRosterSummary}>
@@ -152,12 +163,28 @@ export function PeopleGlobeWorkspace({
                   onClick={() => setSelectedPersonId(person.id)}
                   type="button"
                 >
-                  <span className={styles.mapMarker} data-tier={person.tier} />
+                  <span
+                    className={styles.mapMarker}
+                    data-tier={person.tier}
+                    data-stale={Boolean(
+                      person.activeTravel?.sourceError ||
+                      person.activeTravel?.position?.isStale,
+                    )}
+                    data-traveling={Boolean(person.activeTravel)}
+                  >
+                    {person.activeTravel ? "✈" : null}
+                  </span>
                   <span>
                     <strong>{person.displayName}</strong>
-                    <small>{point.locationLabel}</small>
+                    <small>
+                      {person.activeTravel
+                        ? person.activeTravel.position
+                          ? `${person.activeTravel.passengerFlightNumber} · ${person.activeTravel.origin.iata} → ${person.activeTravel.destination.iata}${person.activeTravel.sourceError ? " · source unavailable" : person.activeTravel.position.isStale ? " · stale position" : ""}`
+                          : `${person.activeTravel.passengerFlightNumber} · awaiting aircraft position`
+                        : point.locationLabel}
+                    </small>
                   </span>
-                  <em>{person.tier}</em>
+                  <em>{person.activeTravel ? "Travel" : person.tier}</em>
                 </button>
               </li>
             ))}
@@ -178,7 +205,9 @@ export function PeopleGlobeWorkspace({
               <i data-tier="critical" /> Critical
             </p>
           </section>
-          <footer>Operator-maintained locations · not live tracking</footer>
+          <footer>
+            Aircraft presence is inferred only after onboard confirmation
+          </footer>
         </aside>
 
         <ResizeHandle
@@ -203,7 +232,10 @@ export function PeopleGlobeWorkspace({
 
           <div className={styles.globeStageLabel}>
             <span className={styles.eyebrow}>Global presence</span>
-            <strong>{mappedPeople.length} located people</strong>
+            <strong>
+              {mappedPeople.length} mapped · {dashboard.metrics.traveling}{" "}
+              traveling
+            </strong>
           </div>
 
           {selectedEntry ? (
@@ -218,11 +250,19 @@ export function PeopleGlobeWorkspace({
               >
                 ×
               </button>
-              <span className={styles.eyebrow}>Selected person</span>
+              <span className={styles.eyebrow}>
+                {selectedEntry.person.activeTravel
+                  ? "Selected traveler"
+                  : "Selected person"}
+              </span>
               <h2>{selectedEntry.person.displayName}</h2>
               <p>
                 {selectedEntry.person.organization ?? "Independent"} ·{" "}
-                {selectedEntry.point.locationLabel}
+                {selectedEntry.person.activeTravel
+                  ? selectedEntry.person.activeTravel.position
+                    ? `${selectedEntry.person.activeTravel.passengerFlightNumber} aircraft position`
+                    : `${selectedEntry.person.activeTravel.passengerFlightNumber} · position pending`
+                  : selectedEntry.point.locationLabel}
               </p>
               <dl>
                 <div>
@@ -230,10 +270,26 @@ export function PeopleGlobeWorkspace({
                   <dd>{selectedEntry.person.tier}</dd>
                 </div>
                 <div>
-                  <dt>Precision</dt>
-                  <dd>{selectedEntry.point.locationPrecision}</dd>
+                  <dt>Mode</dt>
+                  <dd>
+                    {selectedEntry.person.activeTravel
+                      ? selectedEntry.person.activeTravel.sourceError
+                        ? "Travel · source error"
+                        : selectedEntry.person.activeTravel.position?.isStale
+                          ? "Travel · stale"
+                          : "Travel · current"
+                      : selectedEntry.point.locationPrecision}
+                  </dd>
                 </div>
               </dl>
+              {selectedEntry.person.activeTravel ? (
+                <Link
+                  href={`/flightsignal?flight=${selectedEntry.person.activeTravel.flightInstanceId}`}
+                >
+                  Open {selectedEntry.person.activeTravel.passengerFlightNumber}{" "}
+                  →
+                </Link>
+              ) : null}
               <Link href={`/home?person=${selectedEntry.person.id}`}>
                 Open person dossier →
               </Link>
@@ -241,7 +297,10 @@ export function PeopleGlobeWorkspace({
           ) : null}
 
           <footer className={styles.globeStageFooter}>
-            <span>Current approved location view</span>
+            <span>
+              Approved locations · confirmed travel uses ADS-B aircraft
+              positions
+            </span>
             <span>Synthetic demonstration data only</span>
           </footer>
         </section>

@@ -33,6 +33,44 @@ export interface PersonLocationDto {
   effectiveTo?: string;
 }
 
+export interface PersonActiveTravelDto {
+  assignmentId: string;
+  flightInstanceId: string;
+  passengerFlightNumber: string;
+  adsbCallsign: string;
+  origin: {
+    iata: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+  };
+  destination: {
+    iata: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+  };
+  scheduledDepartureAt: string;
+  scheduledArrivalAt?: string;
+  aircraft: {
+    icaoHex?: string;
+    registration?: string;
+    type?: string;
+  };
+  sourceError?: string;
+  position?: {
+    latitude: number;
+    longitude: number;
+    barometricAltitudeFeet?: number;
+    groundSpeedKnots?: number;
+    trackDegrees?: number;
+    onGround: boolean;
+    observedAt: string;
+    retrievedAt: string;
+    isStale: boolean;
+  };
+}
+
 export interface PersonDto {
   id: string;
   displayName: string;
@@ -44,6 +82,7 @@ export interface PersonDto {
   identities: PersonIdentityDto[];
   location?: PersonLocationDto;
   locationHistory: PersonLocationDto[];
+  activeTravel?: PersonActiveTravelDto;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +99,7 @@ export interface PeopleDashboardDto {
   metrics: {
     total: number;
     active: number;
+    traveling: number;
     located: number;
     highAttention: number;
   };

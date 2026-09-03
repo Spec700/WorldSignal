@@ -10,6 +10,7 @@ import {
   createTrackedFlight,
   FlightSignalNotFoundError,
 } from "@/features/flights/server/workflows";
+import { getPeopleDashboard } from "@/features/people/server/dashboard";
 import { createPerson } from "@/features/people/server/workflows";
 import { closeDatabase, getDatabase } from "@/lib/db/client";
 import {
@@ -153,6 +154,25 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
       aircraftIcaoHex: "aa3ae5",
       assignments: [{ status: "onboard_confirmed" }],
     });
+    const activePeopleDashboard = await getPeopleDashboard();
+    const activeTraveler = activePeopleDashboard.people.find(
+      (candidate) => candidate.id === person.personId,
+    );
+    expect(activePeopleDashboard.metrics.traveling).toBe(1);
+    expect(activeTraveler).toMatchObject({
+      location: { label: "Approved Home Location" },
+      activeTravel: {
+        flightInstanceId: tracked.flightInstanceId,
+        passengerFlightNumber: "UA2276",
+        origin: { iata: "IAD" },
+        destination: { iata: "LAX" },
+        position: {
+          latitude: 39.1,
+          longitude: -78.2,
+          observedAt: observedAt.toISOString(),
+        },
+      },
+    });
 
     const [approvedLocationBefore] = await database
       .select()
@@ -178,6 +198,13 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
       displayStatus: "completed",
       assignments: [{ status: "completed" }],
     });
+    const completedPeopleDashboard = await getPeopleDashboard();
+    const completedTraveler = completedPeopleDashboard.people.find(
+      (candidate) => candidate.id === person.personId,
+    );
+    expect(completedPeopleDashboard.metrics.traveling).toBe(0);
+    expect(completedTraveler?.activeTravel).toBeUndefined();
+    expect(completedTraveler?.location?.label).toBe("Approved Home Location");
     const [approvedLocationAfter] = await database
       .select()
       .from(protecteeLocations)

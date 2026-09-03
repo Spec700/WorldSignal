@@ -1,5 +1,6 @@
 import { personLocationAt } from "@/features/people/location-model";
 import type {
+  PersonActiveTravelDto,
   PersonLocationDto,
   PersonStatus,
   PersonTier,
@@ -20,6 +21,7 @@ export interface PersonLocationSubject {
   status: PersonStatus;
   location?: PersonLocationDto;
   locationHistory: PersonLocationDto[];
+  activeTravel?: PersonActiveTravelDto;
 }
 
 const tierColor: Record<PersonTier, string> = {
@@ -36,6 +38,7 @@ const tierRadius: Record<PersonTier, number> = {
 
 export interface PersonGlobePoint {
   kind: "person";
+  markerType: "point" | "aircraft";
   id: string;
   latitude: number;
   longitude: number;
@@ -46,6 +49,9 @@ export interface PersonGlobePoint {
   organization?: string;
   locationLabel: string;
   locationPrecision: string;
+  positionMode: "approved_location" | "inferred_aircraft";
+  activeTravelFlightNumber?: string;
+  trackDegrees?: number;
   tier: PersonTier;
 }
 
@@ -57,32 +63,59 @@ export interface PersonEventProximity {
 export function toPersonGlobePoints(
   people: PersonLocationSubject[],
   atTimestamp?: string,
+  includeActiveTravel = false,
 ): PersonGlobePoint[] {
   return people.flatMap((person) => {
     if (person.status !== "active") {
       return [];
     }
-    const location = atTimestamp
+    const approvedLocation = atTimestamp
       ? personLocationAt(person.locationHistory, atTimestamp)
       : person.location;
+    const travelPosition = includeActiveTravel
+      ? person.activeTravel?.position
+      : undefined;
 
-    if (!location) {
+    if (!approvedLocation && !travelPosition) {
       return [];
     }
+
+    const usesAircraftPosition = Boolean(travelPosition);
+    const latitude = travelPosition?.latitude ?? approvedLocation!.latitude;
+    const longitude = travelPosition?.longitude ?? approvedLocation!.longitude;
+    const locationLabel = usesAircraftPosition
+      ? `${person.activeTravel!.passengerFlightNumber} · ${person.activeTravel!.origin.iata} → ${person.activeTravel!.destination.iata}`
+      : approvedLocation!.label;
 
     return [
       {
         kind: "person" as const,
+        markerType: usesAircraftPosition
+          ? ("aircraft" as const)
+          : ("point" as const),
         id: person.id,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        color: tierColor[person.tier],
+        latitude,
+        longitude,
+        color:
+          usesAircraftPosition &&
+          (travelPosition!.isStale || person.activeTravel?.sourceError)
+            ? "#789398"
+            : tierColor[person.tier],
         radius: tierRadius[person.tier],
-        altitude: 0.014,
+        altitude: usesAircraftPosition ? 0.045 : 0.014,
         displayName: person.displayName,
         organization: person.organization,
-        locationLabel: location.label,
-        locationPrecision: location.precision,
+        locationLabel,
+        locationPrecision: usesAircraftPosition
+          ? travelPosition!.isStale
+            ? "stale inferred aircraft position"
+            : "current inferred aircraft position"
+          : approvedLocation!.precision,
+        positionMode: usesAircraftPosition
+          ? ("inferred_aircraft" as const)
+          : ("approved_location" as const),
+        activeTravelFlightNumber: person.activeTravel?.passengerFlightNumber,
+        trackDegrees: travelPosition?.trackDegrees,
         tier: person.tier,
       },
     ];
@@ -161,5 +194,10 @@ export function personPointTooltip(point: PersonGlobePoint): string {
     ? ` · ${escapeHtml(point.organization)}`
     : "";
 
-  return `<div class="globe-tooltip"><span>Person · ${tier} protection tier</span><strong>${name}</strong><small>${location}${organization}</small></div>`;
+  const positionSource =
+    point.positionMode === "inferred_aircraft"
+      ? `Travel mode · ${escapeHtml(point.locationPrecision)}`
+      : `Person · ${tier} protection tier`;
+
+  return `<div class="globe-tooltip"><span>${positionSource}</span><strong>${name}</strong><small>${location}${organization}</small></div>`;
 }

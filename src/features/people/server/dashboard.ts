@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
+import { FLIGHT_SIGNAL_STALE_AFTER_MS } from "@/features/flights/status";
 import { currentPersonLocation } from "@/features/people/location-model";
 import type {
   PeopleDashboardDto,
@@ -8,6 +9,9 @@ import type {
 } from "@/features/people/types";
 import { getDatabase } from "@/lib/db/client";
 import {
+  flightAssignments,
+  flightInstances,
+  flightObservations,
   operators,
   protecteeIdentities,
   protecteeLocations,
@@ -22,12 +26,15 @@ const emptyDashboard: PeopleDashboardDto = {
   metrics: {
     total: 0,
     active: 0,
+    traveling: 0,
     located: 0,
     highAttention: 0,
   },
 };
 
-export async function getPeopleDashboard(): Promise<PeopleDashboardDto> {
+export async function getPeopleDashboard(
+  now = new Date(),
+): Promise<PeopleDashboardDto> {
   const database = getDatabase();
   const workspaceSlug = process.env.CREDSIGNAL_WORKSPACE_SLUG ?? "local";
   const [workspace] = await database
@@ -59,7 +66,7 @@ export async function getPeopleDashboard(): Promise<PeopleDashboardDto> {
   ]);
 
   const personIds = personRows.map((person) => person.id);
-  const [identityRows, locationRows] = await Promise.all([
+  const [identityRows, locationRows, activeTravelRows] = await Promise.all([
     personIds.length > 0
       ? database
           .select()
@@ -74,7 +81,138 @@ export async function getPeopleDashboard(): Promise<PeopleDashboardDto> {
           .where(inArray(protecteeLocations.protecteeId, personIds))
           .orderBy(desc(protecteeLocations.effectiveFrom))
       : [],
+    personIds.length > 0
+      ? database
+          .select({
+            assignmentId: flightAssignments.id,
+            protecteeId: flightAssignments.protecteeId,
+            flightInstanceId: flightInstances.id,
+            passengerFlightNumber: flightInstances.passengerFlightNumber,
+            adsbCallsign: flightInstances.adsbCallsign,
+            originIata: flightInstances.originIata,
+            originName: flightInstances.originName,
+            originLatitude: flightInstances.originLatitude,
+            originLongitude: flightInstances.originLongitude,
+            destinationIata: flightInstances.destinationIata,
+            destinationName: flightInstances.destinationName,
+            destinationLatitude: flightInstances.destinationLatitude,
+            destinationLongitude: flightInstances.destinationLongitude,
+            scheduledDepartureAt: flightInstances.scheduledDepartureAt,
+            scheduledArrivalAt: flightInstances.scheduledArrivalAt,
+            aircraftIcaoHex: flightInstances.aircraftIcaoHex,
+            aircraftRegistration: flightInstances.aircraftRegistration,
+            aircraftType: flightInstances.aircraftType,
+            lastSourceError: flightInstances.lastSourceError,
+          })
+          .from(flightAssignments)
+          .innerJoin(
+            flightInstances,
+            eq(flightInstances.id, flightAssignments.flightInstanceId),
+          )
+          .where(
+            and(
+              eq(flightAssignments.workspaceId, workspace.id),
+              eq(flightAssignments.status, "onboard_confirmed"),
+            ),
+          )
+      : [],
   ]);
+
+  const activeTravelFlightIds = activeTravelRows.map(
+    (travel) => travel.flightInstanceId,
+  );
+  const travelObservationRows =
+    activeTravelFlightIds.length > 0
+      ? await database
+          .selectDistinctOn([flightObservations.flightInstanceId], {
+            flightInstanceId: flightObservations.flightInstanceId,
+            aircraftIcaoHex: flightObservations.aircraftIcaoHex,
+            latitude: flightObservations.latitude,
+            longitude: flightObservations.longitude,
+            barometricAltitudeFeet: flightObservations.barometricAltitudeFeet,
+            groundSpeedKnots: flightObservations.groundSpeedKnots,
+            trackDegrees: flightObservations.trackDegrees,
+            onGround: flightObservations.onGround,
+            sourceObservedAt: flightObservations.sourceObservedAt,
+            retrievedAt: flightObservations.retrievedAt,
+          })
+          .from(flightObservations)
+          .innerJoin(
+            flightInstances,
+            and(
+              eq(flightInstances.id, flightObservations.flightInstanceId),
+              eq(
+                flightInstances.aircraftIcaoHex,
+                flightObservations.aircraftIcaoHex,
+              ),
+            ),
+          )
+          .where(
+            inArray(flightObservations.flightInstanceId, activeTravelFlightIds),
+          )
+          .orderBy(
+            flightObservations.flightInstanceId,
+            desc(flightObservations.sourceObservedAt),
+          )
+      : [];
+  const activeTravelByPersonId = new Map(
+    activeTravelRows.map((travel) => {
+      const observation = travelObservationRows.find(
+        (candidate) => candidate.flightInstanceId === travel.flightInstanceId,
+      );
+      const position =
+        observation?.latitude !== null &&
+        observation?.latitude !== undefined &&
+        observation.longitude !== null &&
+        observation.longitude !== undefined
+          ? {
+              latitude: observation.latitude,
+              longitude: observation.longitude,
+              barometricAltitudeFeet:
+                observation.barometricAltitudeFeet ?? undefined,
+              groundSpeedKnots: observation.groundSpeedKnots ?? undefined,
+              trackDegrees: observation.trackDegrees ?? undefined,
+              onGround: observation.onGround,
+              observedAt: observation.sourceObservedAt.toISOString(),
+              retrievedAt: observation.retrievedAt.toISOString(),
+              isStale:
+                now.getTime() - observation.sourceObservedAt.getTime() >
+                FLIGHT_SIGNAL_STALE_AFTER_MS,
+            }
+          : undefined;
+
+      return [
+        travel.protecteeId,
+        {
+          assignmentId: travel.assignmentId,
+          flightInstanceId: travel.flightInstanceId,
+          passengerFlightNumber: travel.passengerFlightNumber,
+          adsbCallsign: travel.adsbCallsign,
+          origin: {
+            iata: travel.originIata,
+            name: travel.originName,
+            latitude: travel.originLatitude,
+            longitude: travel.originLongitude,
+          },
+          destination: {
+            iata: travel.destinationIata,
+            name: travel.destinationName,
+            latitude: travel.destinationLatitude,
+            longitude: travel.destinationLongitude,
+          },
+          scheduledDepartureAt: travel.scheduledDepartureAt.toISOString(),
+          scheduledArrivalAt: travel.scheduledArrivalAt?.toISOString(),
+          aircraft: {
+            icaoHex: travel.aircraftIcaoHex ?? undefined,
+            registration: travel.aircraftRegistration ?? undefined,
+            type: travel.aircraftType ?? undefined,
+          },
+          sourceError: travel.lastSourceError ?? undefined,
+          position,
+        },
+      ] as const;
+    }),
+  );
 
   const people = personRows.map((person) => {
     const identities = identityRows
@@ -111,6 +249,7 @@ export async function getPeopleDashboard(): Promise<PeopleDashboardDto> {
       identities,
       location: currentPersonLocation(locationHistory),
       locationHistory,
+      activeTravel: activeTravelByPersonId.get(person.id),
       createdAt: person.createdAt.toISOString(),
       updatedAt: person.updatedAt.toISOString(),
     };
@@ -134,6 +273,7 @@ export async function getPeopleDashboard(): Promise<PeopleDashboardDto> {
     metrics: {
       total: people.length,
       active: activePeople.length,
+      traveling: activePeople.filter((person) => person.activeTravel).length,
       located: activePeople.filter((person) => person.location).length,
       highAttention: activePeople.filter(
         (person) => person.tier === "high" || person.tier === "critical",

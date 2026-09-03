@@ -87,7 +87,7 @@ function createAircraftObject() {
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.2, 0.04), material);
   tail.position.x = -0.16;
   group.add(fuselage, wings, tail);
-  group.scale.setScalar(0.72);
+  group.scale.setScalar(4);
   return group;
 }
 

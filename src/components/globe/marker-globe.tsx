@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
+import * as THREE from "three";
 
 type CountryFeature = Feature<Polygon | MultiPolygon, { ADMIN?: string }>;
 
@@ -31,6 +32,8 @@ export interface MarkerGlobePoint {
   radius: number;
   altitude: number;
   displayName: string;
+  markerType?: "point" | "aircraft";
+  trackDegrees?: number;
 }
 
 const globalView = { lat: 18, lng: 8, altitude: 2.25 } as const;
@@ -60,6 +63,25 @@ function useReducedMotion() {
   }, []);
 
   return reducedMotion;
+}
+
+function createAircraftObject(point: MarkerGlobePoint) {
+  const material = new THREE.MeshBasicMaterial({ color: point.color });
+  const group = new THREE.Group();
+  const fuselage = new THREE.Mesh(
+    new THREE.BoxGeometry(0.42, 0.09, 0.08),
+    material,
+  );
+  const wings = new THREE.Mesh(
+    new THREE.BoxGeometry(0.11, 0.48, 0.045),
+    material,
+  );
+  wings.position.x = -0.03;
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.2, 0.04), material);
+  tail.position.x = -0.16;
+  group.add(fuselage, wings, tail);
+  group.scale.setScalar(4);
+  return group;
 }
 
 function useElementSize(elementRef: React.RefObject<HTMLElement | null>) {
@@ -115,6 +137,14 @@ export function MarkerGlobe<Point extends MarkerGlobePoint>({
   const reducedMotion = useReducedMotion();
   const size = useElementSize(containerRef);
   const selectedPoint = points.find((point) => point.id === selectedPointId);
+  const locationPoints = useMemo(
+    () => points.filter((point) => point.markerType !== "aircraft"),
+    [points],
+  );
+  const aircraftPoints = useMemo(
+    () => points.filter((point) => point.markerType === "aircraft"),
+    [points],
+  );
   const polygons = useMemo<CountryPolygonDatum[]>(
     () =>
       countries.map((feature) => ({
@@ -232,8 +262,23 @@ export function MarkerGlobe<Point extends MarkerGlobePoint>({
           labelText={(value) => (value as Point).displayName}
           labelsData={selectedPoint ? [selectedPoint] : []}
           labelsTransitionDuration={reducedMotion ? 0 : 250}
+          objectAltitude={(value) => (value as Point).altitude}
+          objectFacesSurfaces
+          objectLabel={(value) => pointTooltip(value as Point)}
+          objectLat={(value) => (value as Point).latitude}
+          objectLng={(value) => (value as Point).longitude}
+          objectRotation={(value) => ({
+            x: 0,
+            y: 0,
+            z: -THREE.MathUtils.degToRad((value as Point).trackDegrees ?? 0),
+          })}
+          objectsData={aircraftPoints}
+          objectThreeObject={(value) =>
+            createAircraftObject(value as MarkerGlobePoint)
+          }
           onGlobeReady={handleGlobeReady}
           onLabelClick={(value) => onSelect((value as Point).id)}
+          onObjectClick={(value) => onSelect((value as Point).id)}
           onPointClick={(value) => onSelect((value as Point).id)}
           pointAltitude={(value) => (value as Point).altitude}
           pointColor={(value) => (value as Point).color}
@@ -242,7 +287,7 @@ export function MarkerGlobe<Point extends MarkerGlobePoint>({
           pointLng={(value) => (value as Point).longitude}
           pointRadius={(value) => (value as Point).radius}
           pointResolution={8}
-          pointsData={points}
+          pointsData={locationPoints}
           pointsTransitionDuration={reducedMotion ? 0 : 250}
           polygonAltitude={0.004}
           polygonCapColor={() => "rgba(20, 35, 42, 0.08)"}

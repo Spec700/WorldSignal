@@ -81,6 +81,10 @@
   color: var(--color-high);
 }
 
+.commandMetrics div[data-traveling="true"] dd {
+  color: var(--color-warning);
+}
+
 .operatorControl {
   width: 188px;
   gap: 3px;
@@ -331,6 +335,24 @@
   box-shadow: 0 0 0 3px oklch(0.92 0.02 210 / 0.12);
 }
 
+.mapMarker[data-traveling="true"] {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-content: center;
+  border: 1px solid var(--color-warning);
+  border-radius: 0;
+  background: var(--color-bg);
+  box-shadow: none;
+  color: var(--color-warning);
+  font-size: 0.66rem;
+  transform: rotate(-12deg);
+}
+
+.mapMarker[data-traveling="true"][data-stale="true"] {
+  opacity: 0.55;
+}
+
 .globeLegend {
   display: grid;
   grid-template-columns: 1fr repeat(3, auto);
@@ -467,10 +489,15 @@
 }
 
 .personMapCard > a {
+  display: inline-block;
   color: var(--color-accent-strong);
   font-size: 0.62rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.personMapCard > a + a {
+  margin-left: 14px;
 }
 
 .globeStageFooter {
@@ -834,6 +861,24 @@
   background: var(--color-accent-strong);
 }
 
+.locationCell i[data-traveling="true"] {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-content: center;
+  border-color: var(--color-warning);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-warning);
+  font-size: 0.65rem;
+  font-style: normal;
+  transform: rotate(-12deg);
+}
+
+.locationCell:has(i[data-traveling="true"]) {
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+
 .locationCell strong,
 .identityCell strong {
   color: var(--color-text-muted);
@@ -1095,6 +1140,54 @@
   margin: 0;
   font-size: 0.65rem;
   line-height: 1.4;
+}
+
+.travelNotice {
+  margin-bottom: 13px;
+  padding: 12px;
+  border: 1px solid var(--color-warning);
+  background: var(--color-bg);
+}
+
+.travelNotice strong,
+.travelNotice p {
+  display: block;
+}
+
+.travelNotice strong {
+  margin-top: 5px;
+  color: var(--color-warning);
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.25rem;
+}
+
+.travelNotice p {
+  margin: 2px 0 9px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.75rem;
+}
+
+.travelNotice a {
+  color: var(--color-accent-strong);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.travelCaveat,
+.approvedLocationNote {
+  margin: 12px 0 0;
+  padding: 9px 10px;
+  border-left: 2px solid var(--color-warning);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.approvedLocationNote {
+  border-left-color: var(--color-accent);
 }
 
 .factList dt {

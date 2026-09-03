@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
@@ -63,6 +64,10 @@ function matchesPerson(person: PersonDto, query: string) {
     person.title,
     person.organization,
     person.location?.label,
+    person.activeTravel?.passengerFlightNumber,
+    person.activeTravel?.adsbCallsign,
+    person.activeTravel?.origin.iata,
+    person.activeTravel?.destination.iata,
     ...person.identities.map((identity) => identity.displayValue),
   ]
     .filter(Boolean)
@@ -121,15 +126,80 @@ function PersonDossier({
             <dd>{person.status}</dd>
           </div>
           <div>
-            <dt>Locations</dt>
-            <dd>{person.locationHistory.length}</dd>
+            <dt>Mode</dt>
+            <dd>{person.activeTravel ? "Travel" : "Home"}</dd>
           </div>
         </dl>
       </header>
 
       <div className={styles.dossierBody}>
+        {person.activeTravel ? (
+          <section className={styles.dossierSection}>
+            <h3>Active travel mode</h3>
+            <div className={styles.travelNotice}>
+              <span className={styles.eyebrow}>Operator confirmed onboard</span>
+              <strong>{person.activeTravel.passengerFlightNumber}</strong>
+              <p>
+                {person.activeTravel.origin.iata} →{" "}
+                {person.activeTravel.destination.iata}
+              </p>
+              <Link
+                href={`/flightsignal?flight=${person.activeTravel.flightInstanceId}`}
+              >
+                Open flight dossier →
+              </Link>
+            </div>
+            <dl className={styles.factList}>
+              <div>
+                <dt>Aircraft</dt>
+                <dd>
+                  {person.activeTravel.aircraft.registration ??
+                    person.activeTravel.aircraft.icaoHex ??
+                    "Confirmed aircraft"}
+                </dd>
+              </div>
+              <div>
+                <dt>Position</dt>
+                <dd>
+                  {person.activeTravel.position
+                    ? `${person.activeTravel.position.latitude.toFixed(4)}, ${person.activeTravel.position.longitude.toFixed(4)}`
+                    : "Awaiting ADS-B position"}
+                </dd>
+              </div>
+              <div>
+                <dt>Observed</dt>
+                <dd>
+                  {person.activeTravel.position ? (
+                    <LocalTimestamp
+                      timestamp={person.activeTravel.position.observedAt}
+                    />
+                  ) : (
+                    "Not available"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Telemetry</dt>
+                <dd>
+                  {person.activeTravel.sourceError
+                    ? "Source unavailable"
+                    : person.activeTravel.position?.isStale
+                      ? "Stale observation"
+                      : person.activeTravel.position
+                        ? "Current observation"
+                        : "Awaiting observation"}
+                </dd>
+              </div>
+            </dl>
+            <p className={styles.travelCaveat}>
+              This is inferred presence: ADS-B observes the confirmed aircraft,
+              while the operator confirmation establishes the traveler context.
+            </p>
+          </section>
+        ) : null}
+
         <section className={styles.dossierSection}>
-          <h3>Current approved location</h3>
+          <h3>Approved location record</h3>
           {person.location ? (
             <dl className={styles.factList}>
               <div>
@@ -157,6 +227,11 @@ function PersonDossier({
           ) : (
             <p className={styles.emptyCopy}>No current location is approved.</p>
           )}
+          {person.activeTravel ? (
+            <p className={styles.approvedLocationNote}>
+              Travel mode does not overwrite this operator-approved record.
+            </p>
+          ) : null}
         </section>
 
         <section className={styles.dossierSection}>
@@ -286,6 +361,14 @@ export function PeopleWorkspace({
     return () => window.removeEventListener("keydown", handleKeyboard);
   }, [editorMode]);
 
+  useEffect(() => {
+    if (dashboard.metrics.traveling === 0) {
+      return;
+    }
+    const refreshInterval = window.setInterval(() => router.refresh(), 15_000);
+    return () => window.clearInterval(refreshInterval);
+  }, [dashboard.metrics.traveling, router]);
+
   function selectPerson(personId: string) {
     setEditorMode(null);
     setSelectedPersonId(personId);
@@ -410,14 +493,14 @@ export function PeopleWorkspace({
           <div className={styles.tableViewport}>
             <table className={styles.peopleTable}>
               <caption className="sr-only">
-                Priority people, locations, roster status, and approved
+                Priority people, current presence, roster status, and approved
                 identities
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Person</th>
                   <th scope="col">Organization</th>
-                  <th scope="col">Current location</th>
+                  <th scope="col">Presence</th>
                   <th scope="col">Tier</th>
                   <th scope="col">Status</th>
                   <th scope="col">Primary identity</th>
@@ -430,6 +513,7 @@ export function PeopleWorkspace({
               <tbody>
                 {filteredPeople.map((person) => {
                   const identity = primaryIdentity(person);
+                  const travel = person.activeTravel;
                   return (
                     <tr
                       data-selected={person.id === selectedPersonId}
@@ -457,15 +541,30 @@ export function PeopleWorkspace({
                       <td>{person.organization ?? "Independent"}</td>
                       <td>
                         <span className={styles.locationCell}>
-                          <i data-located={Boolean(person.location)} />
+                          <i
+                            data-located={Boolean(person.location)}
+                            data-traveling={Boolean(travel)}
+                          >
+                            {travel ? "✈" : null}
+                          </i>
                           <span>
                             <strong>
-                              {person.location?.label ?? "Not located"}
+                              {travel
+                                ? `${travel.passengerFlightNumber} · ${travel.origin.iata} → ${travel.destination.iata}`
+                                : (person.location?.label ?? "Not located")}
                             </strong>
                             <small>
-                              {person.location
-                                ? titleCase(person.location.precision)
-                                : "Location required"}
+                              {travel
+                                ? travel.sourceError
+                                  ? "Aircraft source unavailable"
+                                  : travel.position?.isStale
+                                    ? "Stale inferred aircraft position"
+                                    : travel.position
+                                      ? "Inferred from confirmed aircraft"
+                                      : "Travel mode · position pending"
+                                : person.location
+                                  ? titleCase(person.location.precision)
+                                  : "Location required"}
                             </small>
                           </span>
                         </span>
@@ -495,7 +594,11 @@ export function PeopleWorkspace({
                         </span>
                       </td>
                       <td className={styles.updatedCell}>
-                        <LocalTimestamp timestamp={person.updatedAt} />
+                        <LocalTimestamp
+                          timestamp={
+                            travel?.position?.observedAt ?? person.updatedAt
+                          }
+                        />
                       </td>
                       <td>
                         <button
@@ -531,7 +634,10 @@ export function PeopleWorkspace({
           </div>
 
           <footer className={styles.rosterFooter}>
-            <span>Locations are operator-maintained, not live tracking.</span>
+            <span>
+              Approved locations are preserved; travel uses confirmed aircraft
+              telemetry.
+            </span>
             <span>Synthetic demonstration data only.</span>
           </footer>
         </main>
