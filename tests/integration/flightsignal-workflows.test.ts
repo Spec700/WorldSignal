@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { getFlightSignalDashboard } from "@/features/flights/server/dashboard";
 import { pollTrackedFlights } from "@/features/flights/server/polling";
 import {
+  cancelFlightAssignment,
   completeTravelerFlight,
   confirmTravelerOnboard,
   createTrackedFlight,
@@ -224,6 +225,77 @@ describeDatabase("FlightSignal PostgreSQL workflows", () => {
         "flight.travel_completed",
       ]),
     );
+  });
+
+  it("clears the polling schedule when the last assignment is cancelled", async () => {
+    const database = getDatabase();
+    const person = await createPerson(
+      {
+        displayName: "Cancelled Flight Protectee",
+        title: "Test Traveler",
+        organization: "Integration Labs",
+        tier: "standard",
+        identityType: "work_email",
+        identityValue: "cancelled-flight@integration.example",
+        locationLabel: "Approved Office",
+        latitude: 38.9072,
+        longitude: -77.0369,
+      },
+      operatorId,
+    );
+    const tracked = await createTrackedFlight(
+      {
+        personId: person.personId,
+        confirmationToken: sealFlightLookup({
+          passengerFlightNumber: "DL204",
+          flightIcao: "DAL204",
+          origin: {
+            iata: "IAD",
+            icao: "KIAD",
+            name: "Washington Dulles International Airport",
+            city: "Washington",
+            country: "United States",
+            latitude: 38.9445,
+            longitude: -77.4558,
+          },
+          destination: {
+            iata: "LAX",
+            icao: "KLAX",
+            name: "Los Angeles International Airport",
+            city: "Los Angeles",
+            country: "United States",
+            latitude: 33.9425,
+            longitude: -118.408,
+          },
+          scheduledDepartureAt: "2026-09-04T18:00:00.000Z",
+          scheduledArrivalAt: "2026-09-04T23:00:00.000Z",
+          durationMinutes: 300,
+          providerStatus: "scheduled",
+          phase: "scheduled",
+          usage: {},
+          retrievedAt: "2026-09-03T19:00:00.000Z",
+        }).confirmationToken,
+      },
+      operatorId,
+    );
+    await database
+      .update(flightInstances)
+      .set({ nextPollAt: new Date("2026-09-04T17:30:00.000Z") })
+      .where(eq(flightInstances.id, tracked.flightInstanceId));
+
+    await cancelFlightAssignment(
+      { assignmentId: tracked.assignmentId },
+      operatorId,
+    );
+
+    const [cancelledFlight] = await database
+      .select()
+      .from(flightInstances)
+      .where(eq(flightInstances.id, tracked.flightInstanceId));
+    expect(cancelledFlight).toMatchObject({
+      trackingStatus: "cancelled",
+      nextPollAt: null,
+    });
   });
 
   it("polls a due flight, stores its trail, and stops after the terminal observation", async () => {

@@ -506,7 +506,7 @@ export async function completeTravelerFlight(
   }
   if (flight.trackingStatus !== "possible_arrival") {
     throw new FlightSignalWorkflowError(
-      "FlightSignal has not observed the aircraft on the ground near the confirmed destination.",
+      "AirLabs has not reported a possible arrival for this flight.",
     );
   }
 
@@ -534,7 +534,7 @@ export async function completeTravelerFlight(
     if (flightIsComplete) {
       await transaction
         .update(flightInstances)
-        .set({ trackingStatus: "completed", updatedAt: now })
+        .set({ trackingStatus: "completed", nextPollAt: null, updatedAt: now })
         .where(eq(flightInstances.id, flight.id));
     }
     await transaction.insert(activityLog).values({
@@ -604,7 +604,7 @@ export async function cancelFlightAssignment(
     if (noOpenAssignments) {
       await transaction
         .update(flightInstances)
-        .set({ trackingStatus: "cancelled", updatedAt: now })
+        .set({ trackingStatus: "cancelled", nextPollAt: null, updatedAt: now })
         .where(eq(flightInstances.id, flight.id));
     }
     await transaction.insert(activityLog).values({

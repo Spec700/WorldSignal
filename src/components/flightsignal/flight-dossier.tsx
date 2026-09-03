@@ -47,6 +47,11 @@ export function FlightDossier({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<FlightSignalActionState>();
   const observation = flight.latestObservation;
+  const monitoringStopped = [
+    "completed",
+    "cancelled",
+    "possible_arrival",
+  ].includes(flight.trackingStatus);
 
   function runAction(
     action: (formData: FormData) => Promise<FlightSignalActionState>,
@@ -293,7 +298,7 @@ export function FlightDossier({
               <div>
                 <dt>Next check</dt>
                 <dd>
-                  {flight.nextPollAt ? (
+                  {!monitoringStopped && flight.nextPollAt ? (
                     <LocalTimestamp timestamp={flight.nextPollAt} />
                   ) : (
                     "Monitoring stopped"
