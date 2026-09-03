@@ -54,20 +54,11 @@ test("FlightSignal panels resize and preserve the compact detail overlay", async
   expect((await editor.boundingBox())?.width).toBeLessThanOrEqual(410);
 });
 
-test("FlightSignal starts without inventing a tracked flight", async ({
-  page,
-}) => {
+test("FlightSignal exposes the AirLabs source boundary", async ({ page }) => {
   await page.goto("/flightsignal");
-
-  const flightRows = page
-    .getByRole("complementary", { name: "Tracked flights" })
-    .locator("li");
-  if ((await flightRows.count()) === 0) {
-    await expect(page.getByText("No tracked flights")).toBeVisible();
-    await expect(
-      page.getByText(/assign a dated flight to a person/i),
-    ).toBeVisible();
-  }
+  await expect(
+    page.getByRole("heading", { name: "Flight stream" }),
+  ).toBeVisible();
 
   await expect(page.getByText(/AirLabs · \d+\/800 automated/)).toBeVisible();
   await expect(

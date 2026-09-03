@@ -43,6 +43,13 @@
       "when": 1788445859074,
       "tag": "0005_bored_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788462894406,
+      "tag": "0006_clear_legacy_flight_errors",
+      "breakpoints": true
     }
   ]
 }
